@@ -3,6 +3,10 @@
 ## Overview
 Decision diagrams have been used in the simulation and equivalence checking of quantum circuits. Inspired by the efficiency and flexibility of Tensor Networks. A tensor network-based decision diagram has been proposed at https://arxiv.org/abs/2009.02618. The repository https://github.com/Veriqc/TDD gives a proof-of-concept implementation of the Tensor Decision Diagram(TDD) using Python3. LIMDD has been proposed in https://arxiv.org/abs/2108.00931. This repository combines the ideas of both work and propose a Local Invertible Map of TDD (LIMTDD), which can be used to operate and represent tensors more efficiently. The usage of this package is similar to the original package of TDD. 
 
+## Ideas
+
+Two tensors are said to be isomorphic is they only differ by a $X^bP^k$ at every open edge.
+
 
 ## Dependencies
 In order to use this package, you are expected first to install the following packages: numpy, networkx, qiskit and graphviz. The data type of numpy is used to define the data of a tensor in our package. Networkx will be used as part of an optimizer in this package. Qiskit is used for coping with Quantum Circuits, and Graphviz is used for showing the graph of a TDD.
