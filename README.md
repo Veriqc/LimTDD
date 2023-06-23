@@ -11,7 +11,6 @@ X = \begin{matrix}
 1&0\\
 0&1 
 \end{matrix}
-\tag{1}
 $$
 , $b=0,1$, $P=\begin{matrix} 1&0 \\ 0  &\omega\end{matrix}$. Here $\omega$ is the root of unit $n$, while $n$ can be set differently for different tasks.
 
