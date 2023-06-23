@@ -55,10 +55,12 @@ def cir_2_tn(cir):
         g=gates[k]
         nam=g[0].name
         q = [q.index for q in g[1]]
+        q.reverse()
         var=[]
 
         ts=Tensor([],[],nam,q)
         U=Operator(g[0]).data
+#         print(U,q)
         for k in q:
             var_in='x'+ str(k)+'_'+str(qubits_index[k])
             var_out='x'+ str(k)+'_'+str(qubits_index[k]+1)
@@ -75,7 +77,12 @@ def cir_2_tn(cir):
         ts.data=U
         ts.index_set=var
         tn.tensors.append(ts)
-
+        
+#         for k in ts.index_set:
+#             print(k)
+#         print(ts.data)
+        
+        
 #     print(2)
 #     print(time.time()-t)           
 

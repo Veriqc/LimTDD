@@ -222,7 +222,10 @@ class TDD:
         dot=Digraph(name='reduced_tree')
         dot=layout(self.node,self.key_2_index,dot,edge,real_label)
         dot.node('-0','',shape='none')
-        dot.edge('-0',str(self.node.idx),color="blue",label=str(complex(round(self.weight.real,2),round(self.weight.imag,2)))+str(self.map))
+        label1=str(complex(round(self.weight.real,2),round(self.weight.imag,2)))
+        if self.map.data:
+            label1+=str(self.map)
+        dot.edge('-0',str(self.node.idx),color="blue",label=label1)
         dot.format = 'png'
         return Image(dot.render('output'))
     
@@ -332,7 +335,9 @@ def layout(node,key_2_idx,dot=Digraph(),succ=[],real_label=True):
         dot.node(str(node.idx), str(node.key), fontname="helvetica",shape="circle",color="red")
     for k in range(node.succ_num):
         if node.successor[k]:
-            label1=str(complex(round(node.out_weight[k].real,2),round(node.out_weight[k].imag,2)))+str(node.out_maps[k])
+            label1=str(complex(round(node.out_weight[k].real,2),round(node.out_weight[k].imag,2)))
+            if node.out_maps[k].data:
+                label1+=str(node.out_maps[k])
             if not node.successor[k] in succ:
                 dot=layout(node.successor[k],key_2_idx,dot,succ,real_label)
                 dot.edge(str(node.idx),str(node.successor[k].idx),color=col[k%4],label=label1)
