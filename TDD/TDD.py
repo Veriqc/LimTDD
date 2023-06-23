@@ -116,7 +116,7 @@ class the_maps:
                 else:
                     the_phase += r_1
                     if x_1:
-                        res_map.data[k] = map_item(x_1,r_0-r_1)
+                        res_map.data[k] = map_item(None,r_0-r_1)
                     else:
                         res_map.data[k] = map_item('x',r_0-r_1)
                         
@@ -598,7 +598,7 @@ def find_computed_table(item):
             add_hit_time+=1
             return tdd
     else:
-        the_key=('*',get_int_key(item[1].weight),item[1].node,get_int_key(item[2].weight),item[2].node,item[3][0],item[3][1],item[4],item[5].self_hash(),item[6].self_hash())
+        the_key=('*',get_int_key(item[1].weight),item[1].node,item[1].map.self_hash(),get_int_key(item[2].weight),item[2].node,item[2].map.self_hash(),item[3][0],item[3][1],item[4])
         cont_find_time+=1
         if computed_table.__contains__(the_key):
             res = computed_table[the_key]
@@ -607,7 +607,7 @@ def find_computed_table(item):
             tdd.map=res[2]
             cont_hit_time+=1            
             return tdd
-        the_key=('*',get_int_key(item[2].weight),item[2].node,get_int_key(item[1].weight),item[1].node,item[3][1],item[3][0],item[4],item[6].self_hash(),item[5].self_hash())
+        the_key=('*',get_int_key(item[2].weight),item[2].node,item[2].map.self_hash(),get_int_key(item[1].weight),item[1].node,item[1].map.self_hash(),item[3][1],item[3][0],item[4])
         if computed_table.__contains__(the_key):
             res = computed_table[the_key]
             tdd = TDD(res[1])
@@ -626,7 +626,7 @@ def insert_2_computed_table(item,res):
     elif item[0] == '+':
         the_key = ('+',get_int_key(item[1].weight),item[1].node,item[1].map.self_hash(),get_int_key(item[2].weight),item[2].node,item[2].map.self_hash())
     else:
-        the_key = ('*',get_int_key(item[1].weight),item[1].node,get_int_key(item[2].weight),item[2].node,item[3][0],item[3][1],item[4],item[5].self_hash(),item[6].self_hash())
+        the_key = ('*',get_int_key(item[1].weight),item[1].node,item[1].map.self_hash(),get_int_key(item[2].weight),item[2].node,item[2].map.self_hash(),item[3][0],item[3][1],item[4])
     computed_table[the_key] = (res.weight,res.node,res.map)
     
 def get_index_2_key(var):
@@ -1015,37 +1015,32 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
     tdd2.weight=1
     
     
+    temp_key_2_new_key=[]
+    temp_key_2_new_key.append(tuple([k for k in key_2_new_key[0][:(k1+1)]]))
+    temp_key_2_new_key.append(tuple([k for k in key_2_new_key[1][:(k2+1)]]))    
+    
     
     map1 = tdd1.map.self_copy()
     map2 = tdd2.map.self_copy()
     
-#     print(994,map1,map2)
+#     print(994,k1,k2,w1,w2,map1,map2)
     
     remain_map = the_maps(dict())
-    cont_map1 = the_maps(dict())
-    cont_map2 = the_maps(dict())
     
-    for k in range(len(key_2_new_key[0])-1,-1,-1):
+    for k in range(len(temp_key_2_new_key[0])-1,-1,-1):
         if k in tdd1.map.data:
-            if key_2_new_key[0][k]!='c':
-                remain_map.data[key_2_new_key[0][k]]=tdd1.map.data.pop(k)
-            else:
-                cont_map1.data[k] = tdd1.map.data[k]
-        if k in tdd2.map.data:
-            if key_2_new_key[1][k]!='c':
-                remain_map.data[key_2_new_key[1][k]]=tdd2.map.data.pop(k)
-            else:
-                cont_map2.data[k] = tdd2.map.data[k]             
+            if temp_key_2_new_key[0][k]!='c':
+                remain_map.data[temp_key_2_new_key[0][k]]=tdd1.map.data.pop(k)
                 
-#     print(1008,remain_map)
-#     print(1009,cont_map1)
-#     print(1010,cont_map2)
+    for k in range(len(temp_key_2_new_key[1])-1,-1,-1):
+        if k in tdd2.map.data:
+            if temp_key_2_new_key[1][k]!='c':
+                remain_map.data[temp_key_2_new_key[1][k]]=tdd2.map.data.pop(k)
+            
+#     print(1008,map1,map2,remain_map,tdd1.map,tdd2.map)
     
-    temp_key_2_new_key=[]
-    temp_key_2_new_key.append(tuple([k for k in key_2_new_key[0][:(k1+1)]]))
-    temp_key_2_new_key.append(tuple([k for k in key_2_new_key[1][:(k2+1)]]))
     
-    tdd=find_computed_table(['*',tdd1,tdd2,temp_key_2_new_key,cont_num,cont_map1,cont_map2])
+    tdd=find_computed_table(['*',tdd1,tdd2,temp_key_2_new_key,cont_num])
     if tdd:
         tdd.weight=tdd.weight*w1*w2
         tdd1.weight=w1
@@ -1104,7 +1099,7 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
                 
     if get_int_key(tdd.weight)==(0,0):
         tdd.map=the_maps(dict())
-    insert_2_computed_table(['*',tdd1,tdd2,temp_key_2_new_key,cont_num,cont_map1,cont_map2],tdd)
+    insert_2_computed_table(['*',tdd1,tdd2,temp_key_2_new_key,cont_num],tdd)
     tdd.weight=tdd.weight*w1*w2
     tdd1.weight=w1
     tdd2.weight=w2
@@ -1133,6 +1128,7 @@ def Slicing(tdd,x,c):
             if not get_int_key(res.weight)==(0,0):
                 res.map,the_phase=tdd.map*tdd.node.out_maps[c]
                 res.weight*=np.exp(1j*rotate_angle*the_phase)
+#             print('1131',tdd.map,tdd.node.out_maps[c],res.map)
             return res
         if not tdd.map.data[k].x:
             res=TDD(tdd.node.successor[c])
@@ -1144,7 +1140,8 @@ def Slicing(tdd,x,c):
                 if k in temp_map.data:
                     temp_map.data.pop(k)
                 res.map=temp_map
-                res.weight*=np.exp(1j*rotate_angle*the_phase)                
+                res.weight*=np.exp(1j*rotate_angle*the_phase)
+#                 print('1144',tdd.map,tdd.node.out_maps[c],res.map)
         else:
             res=TDD(tdd.node.successor[1-c])
             res.weight=tdd.node.out_weight[1-c]
@@ -1157,6 +1154,7 @@ def Slicing(tdd,x,c):
                     temp_map.data.pop(k)
                 res.map=temp_map
                 res.weight*=np.exp(1j*rotate_angle*the_phase)
+#                 print('1156',tdd.map,tdd.node.out_maps[1-c],res.map)
         return res
     else:
         print("Not supported yet!!!")

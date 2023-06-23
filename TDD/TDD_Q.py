@@ -59,8 +59,10 @@ def cir_2_tn(cir):
         var=[]
 
         ts=Tensor([],[],nam,q)
+#         print(nam)
+
         U=Operator(g[0]).data
-#         print(U,q)
+        
         for k in q:
             var_in='x'+ str(k)+'_'+str(qubits_index[k])
             var_out='x'+ str(k)+'_'+str(qubits_index[k]+1)
@@ -72,7 +74,8 @@ def cir_2_tn(cir):
             qubits_index[k]+=1
         if len(q)>1:
             U=reshape(U)
-        else:
+            
+        if len(q)==1:
             U=U.T
         ts.data=U
         ts.index_set=var
@@ -80,11 +83,7 @@ def cir_2_tn(cir):
         
 #         for k in ts.index_set:
 #             print(k)
-#         print(ts.data)
-        
-        
-#     print(2)
-#     print(time.time()-t)           
+#         print(ts.data)         
 
     for k in range(qubits_num):
         if k in start_tensors:
