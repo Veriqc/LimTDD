@@ -86,14 +86,17 @@ class the_maps:
         if not other.data:
             return self.self_copy(),0
         
-        print(self.data,other.data)
+#         print(self.data,other.data)
         
         max_idx = max(max(self.data),max(other.data))
         
+        the_phase = 0
+        res_map = the_maps(dict())
         
         for k in range(max_idx,-1,-1):
             if not k in other.data:
-                res_map.data[k] = self.data[k].self_copy()
+                if k in self.data:
+                    res_map.data[k] = self.data[k].self_copy()
             else:
                 x_0 = other.data[k].x
                 r_0 = other.data[k].rotate
@@ -986,8 +989,12 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
     tdd1.weight=1
     tdd2.weight=1
     
+    
+    
     map1 = tdd1.map.self_copy()
     map2 = tdd2.map.self_copy()
+    
+#     print(994,map1,map2)
     
     remain_map = the_maps(dict())
     cont_map1 = the_maps(dict())
@@ -1005,6 +1012,9 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
             else:
                 cont_map2.data[k] = tdd2.map.data[k]             
                 
+#     print(1008,remain_map)
+#     print(1009,cont_map1)
+#     print(1010,cont_map2)
     
     temp_key_2_new_key=[]
     temp_key_2_new_key.append(tuple([k for k in key_2_new_key[0][:(k1+1)]]))
@@ -1089,23 +1099,24 @@ def Slicing(tdd,x,c):
         if not k in tdd.map.data:
             res=TDD(tdd.node.successor[c])
             res.weight=tdd.node.out_weight[c]
-            res.map=tdd.map.self_copy()
+            res.map,the_phase=tdd.map*tdd.node.out_maps[c]
+            res.weight*=np.exp(1j*rotate_angle*the_phase)
             return res
         if not tdd.map.data[k].x:
             res=TDD(tdd.node.successor[c])
             res.weight=tdd.node.out_weight[c]
             if c==1:
-                res.weight*=np.exp(1j*rotate_angle*tdd.map.data.rotate)
+                res.weight*=np.exp(1j*rotate_angle*tdd.map.data[k].rotate)
             temp_map,the_phase = tdd.map*tdd.node.out_maps[c]
         else:
             res=TDD(tdd.node.successor[1-c])
             res.weight=tdd.node.out_weight[1-c]
             if tdd.map.data[k].x:
                 if c==0:
-                    res.weight*=np.exp(1j*rotate_angle*tdd.map.data.rotate)
+                    res.weight*=np.exp(1j*rotate_angle*tdd.map.data[k].rotate)
             temp_map,the_phase = tdd.map*tdd.node.out_maps[1-c]
-        if x in temp_map.data:
-            temp_map.data.pop(x)
+        if k in temp_map.data:
+            temp_map.data.pop(k)
         res.map=temp_map
         res.weight*=np.exp(1j*rotate_angle*the_phase)
         return res
@@ -1128,20 +1139,21 @@ def Slicing2(tdd,x,c):
         if not k in tdd.map.data:
             res=TDD(tdd.node.successor[c])
             res.weight=tdd.node.out_weight[c]*tdd.weight
-            res.map=tdd.map.self_copy()
+            res.map,the_phase=tdd.map*tdd.node.out_maps[c]
+            res.weight*=np.exp(1j*rotate_angle*the_phase)
             return res
         if not tdd.map.data[k].x:
             res=TDD(tdd.node.successor[c])
             res.weight=tdd.node.out_weight[c]*tdd.weight
             if c==1:
-                res.weight*=np.exp(1j*rotate_angle*tdd.map.data.rotate)
+                res.weight*=np.exp(1j*rotate_angle*tdd.map.data[k].rotate)
             temp_map,the_phase = tdd.map*tdd.node.out_maps[c]
         else:
             res=TDD(tdd.node.successor[1-c])
             res.weight=tdd.node.out_weight[1-c]*tdd.weight
             if tdd.map.data[k].x:
                 if c==0:
-                    res.weight*=np.exp(1j*rotate_angle*tdd.map.data.rotate)
+                    res.weight*=np.exp(1j*rotate_angle*tdd.map.data[k].rotate)
             temp_map,the_phase = tdd.map*tdd.node.out_maps[1-c]
         if x in temp_map.data:
             temp_map.data.pop(x)
