@@ -16,7 +16,7 @@ $$
 
 ![image](https://github.com/Veriqc/LimTDD/blob/main/IMG/fig1.png)
 
-The contraction of two tensors and unitise this isomorphism:
+The contraction of two tensors can unitise this isomorphism:
 
 ![image](https://github.com/Veriqc/LimTDD/blob/main/IMG/fig2.png)
 
