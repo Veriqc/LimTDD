@@ -5,7 +5,7 @@ Decision diagrams have been used in the simulation and equivalence checking of q
 
 ## Ideas
 
-Two tensors are said to be isomorphic is they only differ by a $X^bP^k$ at every open edge. Here, $X=\begin{matrix} 1&0\\0&1 \end{matrix}$, $b=0,1$, $P=\begin{matrix} 1&0 \\ 0  &\omega\end{matrix}$. Here $\omega$ is the root of unit $n$, while $n$ can be set differently for different tasks.
+Two tensors are said to be isomorphic is they only differ by a $X^bP^k$ at every open edge. Here, $$X=\begin{matrix} 1&0\\0&1 \end{matrix}$$, $b=0,1$, $P=\begin{matrix} 1&0 \\ 0  &\omega\end{matrix}$. Here $\omega$ is the root of unit $n$, while $n$ can be set differently for different tasks.
 
 
 ## Dependencies
