@@ -16,6 +16,10 @@ $$
 
 ![image](https://github.com/Veriqc/LimTDD/blob/main/IMG/fig1.png)
 
+The contraction of two tensors and unitise this isomorphism:
+
+![image](https://github.com/Veriqc/LimTDD/blob/main/IMG/fig2.png)
+
 ## Dependencies
 In order to use this package, you are expected first to install the following packages: numpy, networkx, qiskit and graphviz. The data type of numpy is used to define the data of a tensor in our package. Networkx will be used as part of an optimizer in this package. Qiskit is used for coping with Quantum Circuits, and Graphviz is used for showing the graph of a TDD.
 
