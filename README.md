@@ -14,6 +14,7 @@ X = \begin{matrix}
 $$
 , $b=0,1$, $P=\begin{matrix} 1&0 \\ 0  &\omega\end{matrix}$. Here $\omega$ is the root of unit $n$, while $n$ can be set differently for different tasks.
 
+![image](https://github.com/Veriqc/LimTDD/blob/main/IMG/fig1.png)
 
 ## Dependencies
 In order to use this package, you are expected first to install the following packages: numpy, networkx, qiskit and graphviz. The data type of numpy is used to define the data of a tensor in our package. Networkx will be used as part of an optimizer in this package. Qiskit is used for coping with Quantum Circuits, and Graphviz is used for showing the graph of a TDD.
