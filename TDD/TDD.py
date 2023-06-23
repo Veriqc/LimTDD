@@ -496,50 +496,17 @@ def normalize(x,the_successors):
         res.map = the_map
         return res
         
-    the_map2,the_phase = the_successors[1].map/the_successors[0].map
-    
-#     the_map2 = dict()
-    
-#     the_phase = 0
-    
-#     for k in range(the_successors[1].node.key,-1,-1):
-#         if not k in the_successors[0].map:
-#             if k in the_successors[1].map:
-#                 the_map2[k] = the_successors[1].map[k]
-#         else:
-#             x_0 = False
-#             r_0 = 0
-#             x_1 = False
-#             r_1 = 0
-            
-#             if 'x' in the_successors[0].map[k]:
-#                 x_0 = True
-#             if isinstance(the_successors[0].map[k][0],int):
-#                 r_0 = the_successors[0].map[k][0]
-                
-#             if k in the_successors[1].map:
-#                 if 'x' in the_successors[1].map[k]:
-#                     x_1 = True
-#                 if isinstance(the_successors[1].map[k][0],int):
-#                     r_1 = the_successors[1].map[k][0]
-                    
-#             if x_0==x_1:
-#                 if r_1!=r_0:
-#                     the_map2[k] = [(r_1-r_0)%root_of_unit]
-#             else:
-#                 the_map2[k] = ['x']
-#                 if (r_1+r_0)%root_of_unit!=0:
-#                     the_map2[k].insert(0,(r_1+r_0)%root_of_unit)
-                    
-#                 the_phase += -r_0
-                
+    the_map2,the_phase = the_successors[1].map/the_successors[0].map      
                 
     weig_max = the_successors[0].weight
     w2 = the_successors[1].weight/the_successors[0].weight
     
     w2_rotate = int(np.angle(w2)//rotate_angle)
     
-    if w2_rotate != 0:
+    if abs(np.angle(w2)%rotate_angle-rotate_angle)<epi:
+        w2_rotate+=1
+        w2 = np.abs(w2)
+    elif w2_rotate != 0:
         w2 = np.abs(w2)*np.exp(1j*(np.angle(w2)%rotate_angle))
     
     the_phase = (the_phase + w2_rotate)%root_of_unit
