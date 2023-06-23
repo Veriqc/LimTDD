@@ -21,6 +21,10 @@ root_of_unit = 8
 rotate_angle = 2*np.pi/root_of_unit
 
 
+def set_root_of_unit(k):
+    global root_of_unit,rotate_angle
+    root_of_unit = k
+    rotate_angle = 2*np.pi/root_of_unit
 
 class Index:
     """The index, here idx is used when there is a hyperedge"""
@@ -344,6 +348,7 @@ def Ini_TDD(index_order=[]):
     global unique_table
     global global_node_idx
     global add_find_time,add_hit_time,cont_find_time,cont_hit_time
+    global root_of_unit,rotate_angle
     global_node_idx=0
     unique_table = dict()
     computed_table = dict()
@@ -352,6 +357,8 @@ def Ini_TDD(index_order=[]):
     cont_find_time=0
     cont_hit_time=0
     set_index_order(index_order)
+    root_of_unit = 8
+    rotate_angle = 2*np.pi/root_of_unit
     return get_identity_tdd()
 
 def Clear_TDD():
@@ -452,6 +459,11 @@ def normalize(x,the_successors):
     """The normalize and reduce procedure"""
 #     print('a',x,the_successors[0].weight,the_successors[0].map,the_successors[1].weight,the_successors[1].map)
     all_zero = True
+    
+#     for k in range(len(the_successors)):
+#         if get_int_key(the_successors[k].weight)==(0,0):
+#             the_successors[k].map=the_maps(dict())
+    
     for k in range(len(the_successors)):
         if the_successors[k].node.key!=-1:
             all_zero = False
@@ -470,7 +482,15 @@ def normalize(x,the_successors):
         the_successors = [the_successors[1],the_successors[0]]
     
     the_map.add(the_successors[0].map)
-    
+    if get_int_key(the_successors[1].weight)==(0,0):
+        weigs=[1,0]  
+        succ_nodes=[succ.node for succ in the_successors]
+        node=Find_Or_Add_Unique_table(x,weigs,succ_nodes,the_maps(dict()))
+        res=TDD(node)
+        res.weight=the_successors[0].weight
+        res.map = the_map
+        return res
+        
     the_map2,the_phase = the_successors[1].map/the_successors[0].map
     
 #     the_map2 = dict()
@@ -1027,8 +1047,11 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
         tdd2.weight=w2
         tdd1.map = map1
         tdd2.map = map2
-        tdd.map,the_phase = remain_map*tdd.map
-        tdd.weight*=np.exp(1j*the_phase*rotate_angle)
+        if not get_int_key(tdd.weight)==(0,0):
+            tdd.map,the_phase = remain_map*tdd.map
+            tdd.weight*=np.exp(1j*the_phase*rotate_angle)
+        else:
+            tdd.map=the_maps(dict())
         return tdd
                 
     if cont_order[0][k1]<cont_order[1][k2]:
@@ -1074,12 +1097,15 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
                 res=contract(tdd1,Slicing(tdd2,k2,k),key_2_new_key,cont_order,cont_num-1)           
                 tdd=add(tdd,res)
                 
+    if get_int_key(tdd.weight)==(0,0):
+        tdd.map=the_maps(dict())
     insert_2_computed_table(['*',tdd1,tdd2,temp_key_2_new_key,cont_num,cont_map1,cont_map2],tdd)
     tdd.weight=tdd.weight*w1*w2
     tdd1.weight=w1
     tdd2.weight=w2
     tdd1.map = map1
     tdd2.map = map2
+
     tdd.map,the_phase = remain_map*tdd.map
     tdd.weight*=np.exp(1j*the_phase*rotate_angle)
     return tdd
@@ -1099,26 +1125,33 @@ def Slicing(tdd,x,c):
         if not k in tdd.map.data:
             res=TDD(tdd.node.successor[c])
             res.weight=tdd.node.out_weight[c]
-            res.map,the_phase=tdd.map*tdd.node.out_maps[c]
-            res.weight*=np.exp(1j*rotate_angle*the_phase)
+            if not get_int_key(res.weight)==(0,0):
+                res.map,the_phase=tdd.map*tdd.node.out_maps[c]
+                res.weight*=np.exp(1j*rotate_angle*the_phase)
             return res
         if not tdd.map.data[k].x:
             res=TDD(tdd.node.successor[c])
             res.weight=tdd.node.out_weight[c]
-            if c==1:
-                res.weight*=np.exp(1j*rotate_angle*tdd.map.data[k].rotate)
-            temp_map,the_phase = tdd.map*tdd.node.out_maps[c]
+            if not get_int_key(res.weight)==(0,0):
+                if c==1:
+                    res.weight*=np.exp(1j*rotate_angle*tdd.map.data[k].rotate)
+                temp_map,the_phase = tdd.map*tdd.node.out_maps[c]
+                if k in temp_map.data:
+                    temp_map.data.pop(k)
+                res.map=temp_map
+                res.weight*=np.exp(1j*rotate_angle*the_phase)                
         else:
             res=TDD(tdd.node.successor[1-c])
             res.weight=tdd.node.out_weight[1-c]
-            if tdd.map.data[k].x:
-                if c==0:
-                    res.weight*=np.exp(1j*rotate_angle*tdd.map.data[k].rotate)
-            temp_map,the_phase = tdd.map*tdd.node.out_maps[1-c]
-        if k in temp_map.data:
-            temp_map.data.pop(k)
-        res.map=temp_map
-        res.weight*=np.exp(1j*rotate_angle*the_phase)
+            if not get_int_key(res.weight)==(0,0):
+                if tdd.map.data[k].x:
+                    if c==0:
+                        res.weight*=np.exp(1j*rotate_angle*tdd.map.data[k].rotate)
+                temp_map,the_phase = tdd.map*tdd.node.out_maps[1-c]
+                if k in temp_map.data:
+                    temp_map.data.pop(k)
+                res.map=temp_map
+                res.weight*=np.exp(1j*rotate_angle*the_phase)
         return res
     else:
         print("Not supported yet!!!")
@@ -1139,26 +1172,33 @@ def Slicing2(tdd,x,c):
         if not k in tdd.map.data:
             res=TDD(tdd.node.successor[c])
             res.weight=tdd.node.out_weight[c]*tdd.weight
-            res.map,the_phase=tdd.map*tdd.node.out_maps[c]
-            res.weight*=np.exp(1j*rotate_angle*the_phase)
+            if not get_int_key(res.weight)==(0,0):
+                res.map,the_phase=tdd.map*tdd.node.out_maps[c]
+                res.weight*=np.exp(1j*rotate_angle*the_phase)
             return res
         if not tdd.map.data[k].x:
             res=TDD(tdd.node.successor[c])
             res.weight=tdd.node.out_weight[c]*tdd.weight
-            if c==1:
-                res.weight*=np.exp(1j*rotate_angle*tdd.map.data[k].rotate)
-            temp_map,the_phase = tdd.map*tdd.node.out_maps[c]
+            if not get_int_key(res.weight)==(0,0):
+                if c==1:
+                    res.weight*=np.exp(1j*rotate_angle*tdd.map.data[k].rotate)
+                temp_map,the_phase = tdd.map*tdd.node.out_maps[c]
+                if x in temp_map.data:
+                    temp_map.data.pop(x)
+                res.map=temp_map
+                res.weight*=np.exp(1j*rotate_angle*the_phase)                
         else:
             res=TDD(tdd.node.successor[1-c])
             res.weight=tdd.node.out_weight[1-c]*tdd.weight
-            if tdd.map.data[k].x:
-                if c==0:
-                    res.weight*=np.exp(1j*rotate_angle*tdd.map.data[k].rotate)
-            temp_map,the_phase = tdd.map*tdd.node.out_maps[1-c]
-        if x in temp_map.data:
-            temp_map.data.pop(x)
-        res.map=temp_map
-        res.weight*=np.exp(1j*rotate_angle*the_phase)
+            if not get_int_key(res.weight)==(0,0):
+                if tdd.map.data[k].x:
+                    if c==0:
+                        res.weight*=np.exp(1j*rotate_angle*tdd.map.data[k].rotate)
+                temp_map,the_phase = tdd.map*tdd.node.out_maps[1-c]
+                if x in temp_map.data:
+                    temp_map.data.pop(x)
+                res.map=temp_map
+                res.weight*=np.exp(1j*rotate_angle*the_phase)
         return res
     else:
         print("Not supported yet!!!")        
@@ -1212,5 +1252,7 @@ def add(tdd1,tdd2):
             the_successors.append(res)
             
     res = normalize(x,the_successors)
+    if get_int_key(res.weight)==(0,0):
+        res.map=the_maps(dict())
     insert_2_computed_table(['+',tdd1,tdd2],res)
     return res
