@@ -1,7 +1,7 @@
 # LimTDD: A Local Invertible Map version of TDD
 
 ## Overview
-Decision diagrams have been used in the simulation and equivalence checking of quantum circuits. Inspired by the efficiency and flexibility of Tensor Networks. A tensor network-based decision diagram has been proposed at https://arxiv.org/abs/2009.02618. The repository https://github.com/Veriqc/TDD gives a proof-of-concept implementation of the Tensor Decision Diagram(TDD) using Python3. LIMDD has been proposed in https://arxiv.org/abs/2108.00931. This repository combines the ideas of both work and proposes a Local Invertible Map of TDD (LimTDD), which can be used to operate and represent tensors more efficiently. The usage of this package is similar to the original package of TDD. 
+Decision diagrams have been used in the simulation and equivalence checking of quantum circuits. Inspired by the efficiency and flexibility of Tensor Networks. A tensor network-based decision diagram has been proposed at https://arxiv.org/abs/2009.02618. The repository https://github.com/Veriqc/TDD gives a proof-of-concept implementation of the Tensor Decision Diagram(TDD) using Python3. LIMDD has been proposed in https://arxiv.org/abs/2108.00931. This repository combines the ideas of both works and proposes a Local Invertible Map of TDD (LimTDD), which can be used to operate and represent tensors more efficiently. The usage of this package is similar to the original package of TDD. 
 
 ## Ideas
 
@@ -22,7 +22,7 @@ The contraction of two tensors can unitise this isomorphism:
 
 ![image](https://github.com/Veriqc/LimTDD/blob/main/IMG/fig2.png)
 
-To calculate the contraction of the two tensors, we only need to calculate the tensors in the box. And the $X$ and $P$ gates between $U$ and $V$ can be omit be adjust the slicing procedure.
+To calculate the contraction of the two tensors, we only need to calculate the tensors in the box. And the $X$ and $P$ gates between $U$ and $V$ can be omitted by adjusting the slicing procedure.
 
 ## Dependencies
 In order to use this package, you are expected first to install the following packages: numpy, networkx, qiskit and graphviz. The data type of numpy is used to define the data of a tensor in our package. Networkx will be used as part of an optimizer in this package. Qiskit is used for coping with Quantum Circuits, and Graphviz is used for showing the graph of a LimTDD.
