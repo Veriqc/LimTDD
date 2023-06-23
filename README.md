@@ -16,6 +16,8 @@ $$
 
 ![image](https://github.com/Veriqc/LimTDD/blob/main/IMG/fig1.png)
 
+Then to represent the tensor on the left side, we only need to calculate the representation on the right side and then attach a map to indicate the differences.
+
 The contraction of two tensors can unitise this isomorphism:
 
 ![image](https://github.com/Veriqc/LimTDD/blob/main/IMG/fig2.png)
