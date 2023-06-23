@@ -112,11 +112,13 @@ class the_maps:
                     r_1 = self.data[k].rotate
                     
                 if not x_0:
-                    res_map.data[k] = map_item(x_1,r_1+r_0)
+                    if not (x_1==None and (r_1+r_0)%root_of_unit==0):
+                        res_map.data[k] = map_item(x_1,r_1+r_0)
                 else:
                     the_phase += r_1
                     if x_1:
-                        res_map.data[k] = map_item(None,r_0-r_1)
+                        if not (r_0-r_1)%root_of_unit==0:
+                            res_map.data[k] = map_item(None,r_0-r_1)
                     else:
                         res_map.data[k] = map_item('x',r_0-r_1)
                         
@@ -150,7 +152,7 @@ class the_maps:
                     r_1 = self.data[k].rotate
                     
                 if x_0==x_1:
-                    if r_1!=r_0:
+                    if not (r_1-r_0)%root_of_unit==0:
                         res_map.data[k] = map_item(None,r_1-r_0)
                 else:
                     res_map.data[k] = map_item('x',r_1+r_0)
@@ -182,6 +184,7 @@ class Node:
         self.out_maps=[]
         self.successor=[None]*num
         self.meas_prob=[]
+        self.isidentity = False #In the next step, we will add the special check anf operation for identity
 
 
 class TDD:
