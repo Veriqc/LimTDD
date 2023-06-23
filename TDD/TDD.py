@@ -62,6 +62,8 @@ class map_item:
         if self.rotate>0:
             s+=str(self.rotate)
         return s
+    def __eq__(self,other):
+        return self.x==other.x and self.rotate==other.rotate
     
     def self_copy(self):
         res = map_item(self.x,self.rotate)
@@ -460,6 +462,10 @@ def Find_Or_Add_Unique_table(x,weigs=[],succ_nodes=[],the_map2=[]):
         res.out_maps = [the_maps(dict()),the_map2]
         unique_table[temp_key]=res
         
+        if x%2==1 and weigs==[1,1] and the_map2.data=={x-1 : map_item('x')} and succ_nodes[0]==succ_nodes[1]:
+            if succ_nodes[0].out_weight==[1,0] and (succ_nodes[0].successor[0].isidentity or succ_nodes[0].successor[0].key==-1):
+                res.isidentity=True
+        
     return res
 
 
@@ -530,6 +536,7 @@ def normalize(x,the_successors):
     res.map = the_map
     
 #     print('c',x,weigs,the_map2,weig_max,the_map)
+
     return res
 
 def get_count():
@@ -1023,6 +1030,47 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
         else:
             tdd.map=the_maps(dict())
         return tdd
+    
+    if tdd1.node.isidentity and not tdd1.map.data:
+        remain_key1=[k for k in range(len(temp_key_2_new_key[0])) if temp_key_2_new_key[0][k]!='c']
+        remain_key_div=[k//2 for k in remain_key1]
+        if remain_key_div == list(range((k1+1)//2)):
+            cont_key2=[k for k in range(len(temp_key_2_new_key[1])) if temp_key_2_new_key[1][k]=='c']
+            new_key1=[temp_key_2_new_key[0][k] for k in remain_key1]
+            if new_key1==cont_key2:
+                tdd=TDD(tdd2.node)
+                tdd.map=tdd2.map.self_copy()
+                insert_2_computed_table(['*',tdd1,tdd2,temp_key_2_new_key,cont_num],tdd)
+                tdd.weight=tdd.weight*w1*w2
+                tdd1.weight=w1
+                tdd2.weight=w2
+                tdd1.map = map1
+                tdd2.map = map2
+                tdd.map,the_phase = remain_map*tdd.map
+                tdd.weight*=np.exp(1j*the_phase*rotate_angle)
+#                 print('id 1')
+                return tdd
+            
+    if tdd2.node.isidentity and not tdd2.map.data:
+        remain_key2=[k for k in range(len(temp_key_2_new_key[1])) if temp_key_2_new_key[1][k]!='c']
+        remain_key_div=[k//2 for k in remain_key2]
+        if remain_key_div == list(range((k2+1)//2)):
+            cont_key1=[k for k in range(len(temp_key_2_new_key[0])) if temp_key_2_new_key[0][k]=='c']
+            new_key2=[temp_key_2_new_key[1][k] for k in remain_key2]
+            if new_key2==cont_key1:
+                tdd=TDD(tdd1.node)
+                tdd.map=tdd1.map.self_copy()
+                insert_2_computed_table(['*',tdd1,tdd2,temp_key_2_new_key,cont_num],tdd)
+                tdd.weight=tdd.weight*w1*w2
+                tdd1.weight=w1
+                tdd2.weight=w2
+                tdd1.map = map1
+                tdd2.map = map2
+                tdd.map,the_phase = remain_map*tdd.map
+                tdd.weight*=np.exp(1j*the_phase*rotate_angle)
+#                 print('id 2')
+                return tdd            
+                
                 
     if cont_order[0][k1]<cont_order[1][k2]:
         the_key=key_2_new_key[0][k1]
