@@ -1,7 +1,7 @@
 # LimTDD: A Local Invertible Map version of TDD
 
 ## Overview
-Decision diagrams have been used in the simulation and equivalence checking of quantum circuits. Inspired by the efficiency and flexibility of Tensor Networks. A tensor network-based decision diagram has been proposed at https://arxiv.org/abs/2009.02618. The repository https://github.com/Veriqc/TDD gives a proof-of-concept implementation of the Tensor Decision Diagram(TDD) using Python3. LIMDD has been proposed in https://arxiv.org/abs/2108.00931. This repository combines the ideas of both work and propose a Local Invertible Map of TDD (LIMTDD), which can be used to operate and represent tensors more efficiently. The usage of this package is similar to the original package of TDD. 
+Decision diagrams have been used in the simulation and equivalence checking of quantum circuits. Inspired by the efficiency and flexibility of Tensor Networks. A tensor network-based decision diagram has been proposed at https://arxiv.org/abs/2009.02618. The repository https://github.com/Veriqc/TDD gives a proof-of-concept implementation of the Tensor Decision Diagram(TDD) using Python3. LIMDD has been proposed in https://arxiv.org/abs/2108.00931. This repository combines the ideas of both work and proposes a Local Invertible Map of TDD (LIMTDD), which can be used to operate and represent tensors more efficiently. The usage of this package is similar to the original package of TDD. 
 
 ## Ideas
 
