@@ -12,7 +12,7 @@ X = \begin{matrix}
 0&1 
 \end{matrix}
 $$
-, $b=0,1$, $P=\begin{matrix} 1&0 \\ 0  &\omega\end{matrix}$. Here $\omega$ is the root of unit $n$, while $n$ can be set differently for different tasks. For general tensors, X can be replaced by a permutation, and P can be replaced by multi-dimentional phase gates. It seems that the functionality of QFT can be built in O(n) nodes and polynomial time if we set $n$ to be $2^|q|$.
+, $b=0,1$, $P=\begin{matrix} 1&0 \\ 0  &\omega\end{matrix}$. Here $\omega$ is the root of unit $n$, while $n$ can be set differently for different tasks. For general tensors, X can be replaced by a permutation, and P can be replaced by multi-dimentional phase gates. It seems that the functionality of QFT can be built in O(n) nodes and polynomial time if we set $n$ to be $2^{|q|}$.
 
 ![image](https://github.com/Veriqc/LimTDD/blob/main/IMG/fig1.png)
 
