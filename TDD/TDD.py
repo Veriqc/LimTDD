@@ -104,6 +104,7 @@ class the_maps:
                 if k in self.data:
                     res_map.data[k] = self.data[k]
             else:
+                #XTXT
                 x_0 = other.data[k].x
                 r_0 = other.data[k].rotate
                 x_1 = None
@@ -124,7 +125,9 @@ class the_maps:
                     else:
                         res_map.data[k] = map_item('x',r_0-r_1)
         res_map = Find_Or_Add_Maps_table(res_map)
-        return res_map,the_phase
+        return res_map,the_phase   
+    
+    
         
     def __truediv__(self,other):
         """self/other"""
@@ -946,9 +949,9 @@ def cont2(tdd1,tdd2,cont_var):
     tdd.key_width=key_width
     return tdd
 
+
 def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
     """The contraction of two TDDs, var_cont is in the form [[4,1],[3,2]]"""
-    
     k1=tdd1.node.key
     k2=tdd2.node.key
     w1=tdd1.weight
@@ -1023,12 +1026,18 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
             else:
                 cont_map2.data[k] = tdd2.map.data[k]
                 
-    cont_map1 = Find_Or_Add_Maps_table(cont_map1)
-    cont_map2 = Find_Or_Add_Maps_table(cont_map2)
+
     remain_map = Find_Or_Add_Maps_table(remain_map)
-    tdd1.map = cont_map1
-    tdd2.map = cont_map2
-    
+
+    if False and len(cont_map1.data)==len(cont_map2.data) and len(cont_map1.data)>0:
+        tdd1.map,temp_phase = mul2(cont_map1,cont_map2)
+        tdd2.map = the_maps(dict())
+    else:
+        cont_map1 = Find_Or_Add_Maps_table(cont_map1)
+        cont_map2 = Find_Or_Add_Maps_table(cont_map2)
+        tdd1.map = cont_map1
+        tdd2.map = cont_map2
+        temp_phase=0
 #     print(1008,map1,map2,remain_map,tdd1.map,tdd2.map)
     
     
@@ -1041,6 +1050,7 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
         tdd2.map = map2
         if not get_int_key(tdd.weight)==(0,0):
             tdd.map,the_phase = remain_map*tdd.map
+            the_phase+=temp_phase
             tdd.weight*=np.exp(1j*the_phase*rotate_angle)
         else:
             tdd.map=Find_Or_Add_Maps_table(the_maps(dict()))
@@ -1062,6 +1072,7 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
                 tdd1.map = map1
                 tdd2.map = map2
                 tdd.map,the_phase = remain_map*tdd.map
+                the_phase+=temp_phase
                 tdd.weight*=np.exp(1j*the_phase*rotate_angle)
 #                 print('id 1')
                 return tdd
@@ -1082,6 +1093,7 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
                 tdd1.map = map1
                 tdd2.map = map2
                 tdd.map,the_phase = remain_map*tdd.map
+                the_phase+=temp_phase
                 tdd.weight*=np.exp(1j*the_phase*rotate_angle)
 #                 print('id 2')
                 return tdd            
@@ -1140,6 +1152,7 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
     tdd2.map = map2
 
     tdd.map,the_phase = remain_map*tdd.map
+    the_phase+=temp_phase
     tdd.weight*=np.exp(1j*the_phase*rotate_angle)
     return tdd
     
@@ -1185,6 +1198,40 @@ def mul_map_sub_term(self,other,term):
                         res_map.data[k] = map_item(None,r_0-r_1)
                 else:
                     res_map.data[k] = map_item('x',r_0-r_1)
+    res_map = Find_Or_Add_Maps_table(res_map)
+    return res_map,the_phase
+
+def mul2(self,other):
+    """self*other;note that xt^kx=\omega^kt^{-k}"""
+    if not self.data:
+        return other,0
+    if not other.data:
+        return self,0
+
+    the_phase = 0
+    res_map = the_maps(dict())
+    
+    keys0 = list(other.data.keys())
+    keys1 = list(self.data.keys())
+#     print(keys1,keys0)
+    for k in range(len(self.data)):
+        
+        k0 = keys0[k]
+        k1 = keys1[k]
+        
+        #XTTX
+        x_0 = other.data[k0].x
+        r_0 = other.data[k0].rotate
+        x_1 = self.data[k1].x
+        r_1 = self.data[k1].rotate
+           
+        if x_0==x_1:
+            if not (r_1+r_0)%root_of_unit==0:
+                res_map.data[k1] = map_item(None,r_1+r_0)
+        else:
+            the_phase += r_0
+            res_map.data[k1] = map_item('x',r_1-r_0)
+            
     res_map = Find_Or_Add_Maps_table(res_map)
     return res_map,the_phase
     
