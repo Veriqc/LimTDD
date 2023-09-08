@@ -18,6 +18,8 @@ epi=0.000001
 
 the_maps_table = dict()
 
+map_computed_table = dict()
+
 root_of_unit = 8
 
 rotate_angle = 2*np.pi/root_of_unit
@@ -49,143 +51,111 @@ class Index:
     
     def __str__(self):
         return str((self.key,self.idx))
-    
-    
-class map_item:
-    def __init__(self,x = None, rotate=0):
-        self.x = x
-        self.rotate = rotate%root_of_unit
-        
-    def __str__(self):
-        s=''
-        if self.x:
-            s+='x'
-        if self.rotate>0:
-            s+=str(self.rotate)
-        return s
-    def __eq__(self,other):
-        return self.x==other.x and self.rotate==other.rotate
-    
-    def self_copy(self):
-        res = map_item(self.x,self.rotate)
-        return res
+
     
 class the_maps:    
-    def __init__(self,data=dict()):
-        self.data = data
+    def __init__(self,level=-1,x=0,rotate=0):
+        self.level = level
+        self.x = x
+        self.rotate = rotate
+        self.father = None
+        self.children = {}
         
-    def self_copy(self):
-        res=the_maps(dict())
-        res.data={k:self.data[k].self_copy() for k in self.data}
-        return res
+    def __hash__(self):
+        return id(self)
+    
+    def __str__(self):
+        temp = self
+        ss = {}
+        while temp.level!=-1:
+            s=''
+            if temp.x:
+                s+='x'
+            if temp.rotate>0:
+                s+=str(temp.rotate)
+            ss[temp.level] = s
+            temp = temp.father
+        return str(ss)
+    
+    def append_new_map(self,level,x,rotate):
         
-    def add_item(self,item):
-        self.data[item[0]] = map_item(item[1],item[2])
+        if x==0 and rotate==0:
+            return self
         
-    def add(self,other):
-        self.data.update(other.data)
+        the_key = (level,x,rotate)
+        if the_key in self.children:
+            return self.children[the_key]
+        else:
+            temp = the_maps(level,x,rotate)
+            self.children[the_key] = temp
+            temp.father = self
+#             print(temp,id(temp),self,id(self))
+            return temp
+        
         
     def __mul__(self,other):
         """self*other;note that xt^kx=\omega^kt^{-k}"""
-        if not self.data:
+        if self.level==-1:
             return other,0
-        if not other.data:
+        if other.level==-1:
             return self,0
         
-#         print(self.data,other.data)
+        the_key = (self,other,'*')
+        if the_key in map_computed_table:
+            res=map_computed_table[the_key]
+            return res[0],res[1]
         
-        max_idx = max(max(self.data),max(other.data))
-        
-        the_phase = 0
-        res_map = the_maps(dict())
-        
-        for k in range(max_idx,-1,-1):
-            if not k in other.data:
-                if k in self.data:
-                    res_map.data[k] = self.data[k]
-            else:
-                #XTXT
-                x_0 = other.data[k].x
-                r_0 = other.data[k].rotate
-                x_1 = None
-                r_1 = 0
-                
-                if k in self.data:
-                    x_1 = self.data[k].x
-                    r_1 = self.data[k].rotate
-                    
-                if not x_0:
-                    if not (x_1==None and (r_1+r_0)%root_of_unit==0):
-                        res_map.data[k] = map_item(x_1,r_1+r_0)
-                else:
-                    the_phase += r_1
-                    if x_1:
-                        if not (r_0-r_1)%root_of_unit==0:
-                            res_map.data[k] = map_item(None,r_0-r_1)
-                    else:
-                        res_map.data[k] = map_item('x',r_0-r_1)
-        res_map = Find_Or_Add_Maps_table(res_map)
-        return res_map,the_phase   
+        if self.level>other.level:
+            res_map,the_phase = self.father*other
+            res_map=res_map.append_new_map(self.level,self.x,self.rotate)
+        elif self.level<other.level:
+            res_map,the_phase = self*other.father
+            res_map=res_map.append_new_map(other.level,other.x,other.rotate)
+        else:
+            res_map,the_phase = self.father*other.father
+            the_phase += self.rotate*other.x
+            level = self.level
+            x = (self.x+other.x)%2
+            rotate = (other.rotate+self.rotate*(-1)**other.x)%root_of_unit
+            res_map=res_map.append_new_map(level,x,rotate)
+        map_computed_table[the_key] = (res_map,the_phase)
+        return res_map,the_phase         
     
     
-        
     def __truediv__(self,other):
         """self/other"""
         
-        if not other.data:
+        if other.level == -1:
             return self,0
+        
+        if self==other:
+            return the_maps_header,0
+        
+        the_key = (self,other,'/')
+        if the_key in map_computed_table:
+            res=map_computed_table[the_key]
+#             print(134,self,other,res[0],res[1])
+            return res[0],res[1]
+        
+        if self.level>other.level:
+            res_map,the_phase = self.father/other
+            res_map=res_map.append_new_map(self.level,self.x,self.rotate)
+        elif self.level<other.level:
+            res_map,the_phase = self/other.father
+            the_phase-=other.rotate*other.x
+            res_map=res_map.append_new_map(other.level,other.x,(other.rotate*(-1)**(1-other.x))%root_of_unit)
         else:
-            max_idx = max(other.data)
-        if self.data:
-            max_idx = max(max(self.data),max_idx)
-    
-        the_phase = 0
-        res_map = the_maps(dict())
-    
-        for k in range(max_idx,-1,-1):
-            if not k in other.data:
-                if k in self.data:
-                    res_map.data[k] = self.data[k]
-            else:
-                x_0 = other.data[k].x
-                r_0 = other.data[k].rotate
-                x_1 = None
-                r_1 = 0
-                
-                if k in self.data:
-                    x_1 = self.data[k].x
-                    r_1 = self.data[k].rotate
-                    
-                if x_0==x_1:
-                    if not (r_1-r_0)%root_of_unit==0:
-                        res_map.data[k] = map_item(None,r_1-r_0)
-                else:
-                    res_map.data[k] = map_item('x',r_1+r_0)
-                    the_phase += -r_0
-        res_map = Find_Or_Add_Maps_table(res_map)
+            res_map,the_phase = self.father/other.father
+            level = self.level
+            x = (self.x+other.x)%2
+            the_phase -= other.rotate*x
+            rotate = (self.rotate+other.rotate*(-1)**(1-x))%root_of_unit
+            res_map=res_map.append_new_map(level,x,rotate)
+#         print(150,self,other,res_map,the_phase)
+        map_computed_table[the_key] = (res_map,the_phase)
         return res_map,the_phase
-            
-    def __str__(self):
-        s = [(k,str(self.data[k])) for k in self.data]
-        s.sort()
-        s={k[0]:k[1] for k in s}
-        return str(s)
         
-        
-    def self_hash(self):
-        return str(self)
-    
-#     def __eq__(self,other):
-#         return self.self_hash()==other.self_hash()
-    
-    
-def Find_Or_Add_Maps_table(the_map):
-    s = str(the_map)
-    if s in the_maps_table:
-        return the_maps_table[s]
-    else:
-        the_maps_table[s]=the_map
-        return the_map
+the_maps_header = the_maps()
         
     
 class Node:
@@ -206,7 +176,7 @@ class TDD:
         """TDD"""
         self.weight = 1
         
-        self.map = Find_Or_Add_Maps_table(the_maps(dict()))
+        self.map = the_maps_header
         
         self.index_set=[]
         
@@ -240,8 +210,7 @@ class TDD:
         dot=layout(self.node,self.key_2_index,dot,edge,real_label)
         dot.node('-0','',shape='none')
         label1=str(complex(round(self.weight.real,2),round(self.weight.imag,2)))
-        if self.map.data:
-            label1+=str(self.map)
+        label1+=str(self.map)
         dot.edge('-0',str(self.node.idx),color="blue",label=label1)
         dot.format = 'png'
         return Image(dot.render('output'))
@@ -353,8 +322,7 @@ def layout(node,key_2_idx,dot=Digraph(),succ=[],real_label=True):
     for k in range(node.succ_num):
         if node.successor[k]:
             label1=str(complex(round(node.out_weight[k].real,2),round(node.out_weight[k].imag,2)))
-            if node.out_maps[k].data:
-                label1+=str(node.out_maps[k])
+            label1+=str(node.out_maps[k])
             if not node.successor[k] in succ:
                 dot=layout(node.successor[k],key_2_idx,dot,succ,real_label)
                 dot.edge(str(node.idx),str(node.successor[k].idx),color=col[k%4],label=label1)
@@ -406,7 +374,7 @@ def get_identity_tdd():
     tdd = TDD(node)
     tdd.index_2_key={-1:-1}
     tdd.key_2_index={-1:-1}
-    tdd.map = Find_Or_Add_Maps_table(the_maps(dict()))
+    tdd.map = the_maps_header
     return tdd
 
 def get_unique_table():
@@ -466,8 +434,11 @@ def Find_Or_Add_Unique_table(x,weigs=[],succ_nodes=[],the_map2=[]):
     
     temp_key=tuple(temp_key)
     
+#     print('------')
 #     print(the_map2,id(the_map2))
-    
+#     if the_map2.level!=-1:
+#         print(the_map2.father,id(the_map2.father))
+#     print('------')
     if temp_key in unique_table:
         return unique_table[temp_key]
     else:
@@ -476,10 +447,10 @@ def Find_Or_Add_Unique_table(x,weigs=[],succ_nodes=[],the_map2=[]):
         res.idx=global_node_idx
         res.out_weight=weigs
         res.successor=succ_nodes
-        res.out_maps = [Find_Or_Add_Maps_table(the_maps(dict())),the_map2]
+        res.out_maps = [the_maps_header,the_map2]
         unique_table[temp_key]=res
         
-        if x%2==1 and weigs==[1,1] and the_map2.data=={x-1 : map_item('x')} and succ_nodes[0]==succ_nodes[1]:
+        if x%2==1 and weigs==[1,1] and the_map2.level==x-1 and the_map2.x==1 and the_map2.rotate==0 and the_map2.father.level==-1 and succ_nodes[0]==succ_nodes[1]:
             if succ_nodes[0].out_weight==[1,0] and (succ_nodes[0].successor[0].isidentity or succ_nodes[0].successor[0].key==-1):
                 res.isidentity=True
         
@@ -506,31 +477,33 @@ def normalize(x,the_successors):
     if all_zero:
         return the_successors[0]
     
-    the_map = the_maps(dict())
-    
+    the_map = the_maps_header
+    flip=0
     if abs(the_successors[0].weight) < abs(the_successors[1].weight)-epi/2:
-        the_map.data[x] = map_item('x')
+        flip=1
         the_successors = [the_successors[1],the_successors[0]]
     
-    the_map.add(the_successors[0].map)
     if get_int_key(the_successors[1].weight)==(0,0):
         weigs=[1,0]  
         succ_nodes=[succ.node for succ in the_successors]
-        node=Find_Or_Add_Unique_table(x,weigs,succ_nodes,Find_Or_Add_Maps_table(the_maps(dict())))
+        node=Find_Or_Add_Unique_table(x,weigs,succ_nodes,the_maps_header)
         res=TDD(node)
         res.weight=the_successors[0].weight
-        the_map = Find_Or_Add_Maps_table(the_map)
-        res.map = the_map
+        if flip==1:
+            res.map = the_successors[0].map.append_new_map(x,flip,0)
+        else:
+            res.map = the_successors[0].map
         return res
         
-    the_map2,the_phase = the_successors[1].map/the_successors[0].map      
-                
+    the_map2,the_phase = the_successors[1].map/the_successors[0].map
+#     print('-------------------')
+#     print(494,the_successors[0].map,the_successors[1].map,the_map2,the_phase)
     weig_max = the_successors[0].weight
     w2 = the_successors[1].weight/the_successors[0].weight
     
     w2_rotate = int(np.angle(w2)//rotate_angle)
     
-    if abs(np.angle(w2)%rotate_angle-rotate_angle)<epi:
+    if abs(np.angle(w2)%rotate_angle-rotate_angle)<epi*rotate_angle:
         w2_rotate+=1
         w2 = np.abs(w2)
     elif w2_rotate != 0:
@@ -538,11 +511,12 @@ def normalize(x,the_successors):
     
     the_phase = (the_phase + w2_rotate)%root_of_unit
     
-    if the_phase != 0:
-        if x in the_map.data:
-            the_map.data[x] = map_item(the_map.data[x].x,the_phase)
-        else:
-            the_map.data[x] = map_item(None,the_phase)
+#     print(509,the_successors[0].map,the_successors[1].map,the_map2,the_phase,flip)
+    
+    if flip or the_phase != 0:
+        the_map = the_successors[0].map.append_new_map(x,flip,the_phase)
+    else:
+        the_map = the_successors[0].map
 
         
     weigs=[1,w2]  
@@ -551,17 +525,17 @@ def normalize(x,the_successors):
     node=Find_Or_Add_Unique_table(x,weigs,succ_nodes,the_map2)
     res=TDD(node)
     res.weight=weig_max
-    the_map = Find_Or_Add_Maps_table(the_map)
     res.map = the_map
-    
 #     print('c',x,weigs,the_map2,id(the_map2),weig_max,the_map,id(the_map))
-    
+#     print(523,the_successors[0].map,the_successors[1].map,the_map2,the_map,the_successors[0].weight,the_successors[0].weight)
+#     print('-------------------')
     return res
 
 def get_count():
-    global add_find_time,add_hit_time,cont_find_time,cont_hit_time
-    print("add:",add_hit_time,'/',add_find_time,'/',add_hit_time/add_find_time)
-    print("cont:",cont_hit_time,"/",cont_find_time,"/",cont_hit_time/cont_find_time)
+    global add_find_time,add_hit_time,cont_find_time,cont_hit_time,add_time,cont_time
+    print(add_time,cont_time)
+    print("add:",add_hit_time,'/',add_find_time,'/',add_hit_time/(add_find_time+1))
+    print("cont:",cont_hit_time,"/",cont_find_time,"/",cont_hit_time/(cont_find_time+1))
 
 def find_computed_table(item):
     """To return the results that already exist"""
@@ -950,12 +924,52 @@ def cont2(tdd1,tdd2,cont_var):
     return tdd
 
 
+
+def find_remain_map(map1,map2,key_2_new_key,cont_order):
+#     print('----------------')
+#     print(913,map1,map2,key_2_new_key,cont_order)
+#     print('----------------')
+    if cont_order[0][map1.level]<cont_order[1][map2.level] and key_2_new_key[0][map1.level]!='c':
+        remain_map,cont_map1,cont_map2,the_pahse = find_remain_map(map1.father,map2,key_2_new_key,cont_order)
+        remain_map = remain_map.append_new_map(key_2_new_key[0][map1.level],map1.x,map1.rotate)
+        return remain_map,cont_map1,cont_map2,the_pahse
+    if cont_order[0][map1.level]>cont_order[1][map2.level] and key_2_new_key[1][map2.level]!='c':
+        remain_map,cont_map1,cont_map2,the_pahse = find_remain_map(map1,map2.father,key_2_new_key,cont_order)
+        remain_map = remain_map.append_new_map(key_2_new_key[1][map2.level],map2.x,map2.rotate)
+        return remain_map,cont_map1,cont_map2,the_pahse
+    if map1.level==-1 and map2.level==-1:
+        return the_maps_header,the_maps_header,the_maps_header,0
+    elif cont_order[0][map1.level]<cont_order[1][map2.level]:
+        remain_map,cont_map1,cont_map2,the_pahse = find_remain_map(map1.father,map2,key_2_new_key,cont_order)
+        cont_map1 = cont_map1.append_new_map(map1.level,map1.x,map1.rotate)
+        return remain_map,cont_map1,cont_map2,the_pahse
+    elif cont_order[0][map1.level]>cont_order[1][map2.level]:
+        remain_map,cont_map1,cont_map2,the_pahse = find_remain_map(map1,map2.father,key_2_new_key,cont_order)
+        cont_map2 = cont_map2.append_new_map(map2.level,map2.x,map2.rotate)
+        return remain_map,cont_map1,cont_map2,the_pahse
+    
+    remain_map,cont_map1,cont_map2,the_pahse = find_remain_map(map1.father,map2.father,key_2_new_key,cont_order)
+    
+    x=(map1.x+map2.x)%2
+    the_pahse += map2.rotate*(x)
+    rotate=(map1.rotate+map2.rotate*(-1)**x)%root_of_unit
+    cont_map1 = cont_map1.append_new_map(map1.level,x,rotate)
+#     print(948,map1.rotate,map2.rotate,rotate,x)
+    return remain_map,cont_map1,cont_map2,the_pahse
+        
+
+cont_time=0
+
 def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
     """The contraction of two TDDs, var_cont is in the form [[4,1],[3,2]]"""
+    global cont_time
+    cont_time+=1
     k1=tdd1.node.key
     k2=tdd2.node.key
     w1=tdd1.weight
     w2=tdd2.weight
+    
+#     print(k1,k2,w1,w2,tdd1.map,tdd2.map)
     
     if k1==-1 and k2==-1:
         if w1==0:
@@ -1005,41 +1019,13 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
     
     map1 = tdd1.map
     map2 = tdd2.map
-    
-#     print(994,k1,k2,w1,w2,map1,map2)
-    
-    remain_map = the_maps(dict())
-    cont_map1 = the_maps(dict())
-    cont_map2 = the_maps(dict())
-    
-    for k in range(len(temp_key_2_new_key[0])-1,-1,-1):
-        if k in tdd1.map.data:
-            if temp_key_2_new_key[0][k]!='c':
-                remain_map.data[temp_key_2_new_key[0][k]] = tdd1.map.data[k]
-            else:
-                cont_map1.data[k] = tdd1.map.data[k]
-                
-    for k in range(len(temp_key_2_new_key[1])-1,-1,-1):
-        if k in tdd2.map.data:
-            if temp_key_2_new_key[1][k]!='c':
-                remain_map.data[temp_key_2_new_key[1][k]] = tdd2.map.data[k]
-            else:
-                cont_map2.data[k] = tdd2.map.data[k]
-                
-
-    remain_map = Find_Or_Add_Maps_table(remain_map)
-
-    if False and len(cont_map1.data)==len(cont_map2.data) and len(cont_map1.data)>0:
-        tdd1.map,temp_phase = mul2(cont_map1,cont_map2)
-        tdd2.map = the_maps(dict())
-    else:
-        cont_map1 = Find_Or_Add_Maps_table(cont_map1)
-        cont_map2 = Find_Or_Add_Maps_table(cont_map2)
-        tdd1.map = cont_map1
-        tdd2.map = cont_map2
-        temp_phase=0
-#     print(1008,map1,map2,remain_map,tdd1.map,tdd2.map)
-    
+    remain_map,cont_map1,cont_map2,temp_phase = find_remain_map(map1,map2,key_2_new_key,cont_order)
+    tdd1.map = cont_map1
+    tdd2.map = cont_map2
+#     print('--------')
+#     print(key_2_new_key,cont_order)
+#     print(map1,map2,remain_map,cont_map1,cont_map2,temp_phase)
+#     print('--------')
     
     tdd=find_computed_table(['*',tdd1,tdd2,temp_key_2_new_key,cont_num])
     if tdd:
@@ -1053,10 +1039,10 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
             the_phase+=temp_phase
             tdd.weight*=np.exp(1j*the_phase*rotate_angle)
         else:
-            tdd.map=Find_Or_Add_Maps_table(the_maps(dict()))
+            tdd.map=the_maps_header
         return tdd
-    
-    if tdd1.node.isidentity and not tdd1.map.data:
+
+    if tdd1.node.isidentity and tdd1.map.level==-1:
         remain_key1=[k for k in range(len(temp_key_2_new_key[0])) if temp_key_2_new_key[0][k]!='c']
         remain_key_div=[k//2 for k in remain_key1]
         if remain_key_div == list(range((k1+1)//2)):
@@ -1077,7 +1063,7 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
 #                 print('id 1')
                 return tdd
             
-    if tdd2.node.isidentity and not tdd2.map.data:
+    if tdd2.node.isidentity and tdd2.map.level==-1:
         remain_key2=[k for k in range(len(temp_key_2_new_key[1])) if temp_key_2_new_key[1][k]!='c']
         remain_key_div=[k//2 for k in remain_key2]
         if remain_key_div == list(range((k2+1)//2)):
@@ -1097,7 +1083,6 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
                 tdd.weight*=np.exp(1j*the_phase*rotate_angle)
 #                 print('id 2')
                 return tdd            
-                
                 
     if cont_order[0][k1]<cont_order[1][k2]:
         the_key=key_2_new_key[0][k1]
@@ -1143,7 +1128,7 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
                 tdd=add(tdd,res)
                 
     if get_int_key(tdd.weight)==(0,0):
-        tdd.map=Find_Or_Add_Maps_table(the_maps(dict()))
+        tdd.map=the_maps_header
     insert_2_computed_table(['*',tdd1,tdd2,temp_key_2_new_key,cont_num],tdd)
     tdd.weight=tdd.weight*w1*w2
     tdd1.weight=w1
@@ -1155,85 +1140,6 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
     the_phase+=temp_phase
     tdd.weight*=np.exp(1j*the_phase*rotate_angle)
     return tdd
-    
-def mul_map_sub_term(self,other,term):
-    """self*other;note that xt^kx=\omega^kt^{-k}"""
-    if not self.data:
-        if not term in other.data:
-            return other,0
-    if not other.data:
-        if not term in self.data:
-            return self,0
-    if self.data:
-        max_idx = max(self.data)
-    if other.data:
-        max_idx = max(max_idx,max(other.data))
-        
-    the_phase = 0
-    res_map = the_maps(dict())
-        
-    for k in range(max_idx,-1,-1):
-        if k == term:
-            continue
-        if not k in other.data:
-            if k in self.data:
-                res_map.data[k] = self.data[k]
-        else:
-            x_0 = other.data[k].x
-            r_0 = other.data[k].rotate
-            x_1 = None
-            r_1 = 0
-                
-            if k in self.data:
-                x_1 = self.data[k].x
-                r_1 = self.data[k].rotate
-                    
-            if not x_0:
-                if not (x_1==None and (r_1+r_0)%root_of_unit==0):
-                    res_map.data[k] = map_item(x_1,r_1+r_0)
-            else:
-                the_phase += r_1
-                if x_1:
-                    if not (r_0-r_1)%root_of_unit==0:
-                        res_map.data[k] = map_item(None,r_0-r_1)
-                else:
-                    res_map.data[k] = map_item('x',r_0-r_1)
-    res_map = Find_Or_Add_Maps_table(res_map)
-    return res_map,the_phase
-
-def mul2(self,other):
-    """self*other;note that xt^kx=\omega^kt^{-k}"""
-    if not self.data:
-        return other,0
-    if not other.data:
-        return self,0
-
-    the_phase = 0
-    res_map = the_maps(dict())
-    
-    keys0 = list(other.data.keys())
-    keys1 = list(self.data.keys())
-#     print(keys1,keys0)
-    for k in range(len(self.data)):
-        
-        k0 = keys0[k]
-        k1 = keys1[k]
-        
-        #XTTX
-        x_0 = other.data[k0].x
-        r_0 = other.data[k0].rotate
-        x_1 = self.data[k1].x
-        r_1 = self.data[k1].rotate
-           
-        if x_0==x_1:
-            if not (r_1+r_0)%root_of_unit==0:
-                res_map.data[k1] = map_item(None,r_1+r_0)
-        else:
-            the_phase += r_0
-            res_map.data[k1] = map_item('x',r_1-r_0)
-            
-    res_map = Find_Or_Add_Maps_table(res_map)
-    return res_map,the_phase
     
 def Slicing(tdd,x,c):
     """Slice a TDD with respect to x=c"""
@@ -1253,20 +1159,20 @@ def Slicing(tdd,x,c):
         return res
     
     if k==x:
-        if not k in tdd.map.data:
+        if not k == tdd.map.level:
             res=TDD(tdd.node.successor[c])
             res.weight=tdd.node.out_weight[c]
             if not get_int_key(res.weight)==(0,0):
                 res.map,the_phase=tdd.map*tdd.node.out_maps[c]
                 res.weight*=np.exp(1j*rotate_angle*the_phase)
             return res
-        if not tdd.map.data[k].x:
+        if not tdd.map.x:
             res=TDD(tdd.node.successor[c])
             res.weight=tdd.node.out_weight[c]
             if not get_int_key(res.weight)==(0,0):
                 if c==1:
-                    res.weight*=np.exp(1j*rotate_angle*tdd.map.data[k].rotate)
-                temp_map,the_phase = mul_map_sub_term(tdd.map,tdd.node.out_maps[c],k)
+                    res.weight*=np.exp(1j*rotate_angle*tdd.map.rotate)
+                temp_map,the_phase = tdd.map.father*tdd.node.out_maps[c]
                 res.map=temp_map
                 res.weight*=np.exp(1j*rotate_angle*the_phase)
 #                 print('1144',tdd.map,tdd.node.out_maps[c],res.map)
@@ -1274,10 +1180,10 @@ def Slicing(tdd,x,c):
             res=TDD(tdd.node.successor[1-c])
             res.weight=tdd.node.out_weight[1-c]
             if not get_int_key(res.weight)==(0,0):
-                if tdd.map.data[k].x:
+                if tdd.map.x:
                     if c==0:
-                        res.weight*=np.exp(1j*rotate_angle*tdd.map.data[k].rotate)
-                temp_map,the_phase = mul_map_sub_term(tdd.map,tdd.node.out_maps[1-c],k)
+                        res.weight*=np.exp(1j*rotate_angle*tdd.map.rotate)
+                temp_map,the_phase = tdd.map.father*tdd.node.out_maps[1-c]
                 res.map=temp_map
                 res.weight*=np.exp(1j*rotate_angle*the_phase)
 #                 print('1156',tdd.map,tdd.node.out_maps[1-c],res.map)
@@ -1304,42 +1210,62 @@ def Slicing2(tdd,x,c):
         return res
         
     if k==x:
-        if not k in tdd.map.data:
+        if not k == tdd.map.level:
             res=TDD(tdd.node.successor[c])
             res.weight=tdd.node.out_weight[c]*tdd.weight
             if not get_int_key(res.weight)==(0,0):
                 res.map,the_phase=tdd.map*tdd.node.out_maps[c]
                 res.weight*=np.exp(1j*rotate_angle*the_phase)
             return res
-        if not tdd.map.data[k].x:
+        if not tdd.map.x:
             res=TDD(tdd.node.successor[c])
             res.weight=tdd.node.out_weight[c]*tdd.weight
             if not get_int_key(res.weight)==(0,0):
                 if c==1:
-                    res.weight*=np.exp(1j*rotate_angle*tdd.map.data[k].rotate)
-                temp_map,the_phase = mul_map_sub_term(tdd.map,tdd.node.out_maps[c],k)
+                    res.weight*=np.exp(1j*rotate_angle*tdd.map.rotate)
+                temp_map,the_phase = tdd.map.father*tdd.node.out_maps[c]
                 res.map=temp_map
                 res.weight*=np.exp(1j*rotate_angle*the_phase)                
         else:
             res=TDD(tdd.node.successor[1-c])
             res.weight=tdd.node.out_weight[1-c]*tdd.weight
             if not get_int_key(res.weight)==(0,0):
-                if tdd.map.data[k].x:
+                if tdd.map.x:
                     if c==0:
-                        res.weight*=np.exp(1j*rotate_angle*tdd.map.data[k].rotate)
-                temp_map,the_phase = mul_map_sub_term(tdd.map,tdd.node.out_maps[1-c],k)
+                        res.weight*=np.exp(1j*rotate_angle*tdd.map.rotate)
+                temp_map,the_phase = tdd.map.father*tdd.node.out_maps[1-c]
                 res.map=temp_map
                 res.weight*=np.exp(1j*rotate_angle*the_phase)
         return res
     else:
         print("Not supported yet!!!")        
         
-        
+add_time = 0
 
-def add(tdd1,tdd2):
+def get_comm_map(map1,map2):
+    if map1.level>map2.level:
+        comm_map,temp_map1,temp_map2 = get_comm_map(map1.father,map2)
+        temp_map1=temp_map1.append_new_map(map1.level,map1.x,map1.rotate)
+    elif map1.level<map2.level:
+        comm_map,temp_map1,temp_map2 = get_comm_map(map1,map2.father)
+        temp_map2=temp_map2.append_new_map(map2.level,map2.x,map2.rotate)
+    else:
+        if map1.level==-1:
+            return the_maps_header,the_maps_header,the_maps_header
+        elif map1.x==map2.x:
+            comm_map,temp_map1,temp_map2 = get_comm_map(map1.father,map2.father)
+            comm_map=comm_map.append_new_map(map1.level,map1.x,map1.rotate)
+            temp_map2=temp_map2.append_new_map(map2.level,0,(map2.rotate-map1.rotate)%root_of_unit)
+        else:
+            comm_map,temp_map1,temp_map2 = get_comm_map(map1.father,map2.father)
+            temp_map1=temp_map1.append_new_map(map1.level,map1.x,map1.rotate)
+            temp_map2=temp_map2.append_new_map(map2.level,map2.x,map2.rotate)
+    return comm_map,temp_map1,temp_map2
+
+def add2(tdd1,tdd2):
     """The apply function of two TDDs. Mostly, it is used to do addition here."""
-    global global_index_order    
-    
+    global global_index_order,add_time   
+    add_time+=1
     k1=tdd1.node.key
     k2=tdd2.node.key
     
@@ -1356,7 +1282,7 @@ def add(tdd1,tdd2):
         return res
     
     if tdd1.node==tdd2.node and tdd1.map==tdd2.map:
-
+        
         weig=tdd1.weight+tdd2.weight
         if get_int_key(weig)==(0,0):
             term=Find_Or_Add_Unique_table(-1)
@@ -1369,8 +1295,37 @@ def add(tdd1,tdd2):
             res.map=tdd1.map
             return res
         
-    if find_computed_table(['+',tdd1,tdd2]):
-        return find_computed_table(['+',tdd1,tdd2])
+    if id(tdd1.node) > id(tdd2.node):
+        return add(tdd2,tdd1)
+    
+    w1 = tdd1.weight
+    w2 = tdd2.weight
+    tdd1.weight = 1
+    tdd2.weight = tdd2.weight/w1
+    
+    map1 = tdd1.map
+    map2 = tdd2.map
+
+    
+    comm_map,tdd1.map,tdd2.map = get_comm_map(map1,map2)
+        
+    tdd = find_computed_table(['+',tdd1,tdd2])
+    if tdd:
+        tdd1.weight = w1
+        tdd2.weight = w2
+        tdd1.map = map1
+        tdd2.map = map2
+        if not get_int_key(tdd.weight)==(0,0):
+            tdd.map,the_phase = comm_map*tdd.map
+            tdd.weight*=np.exp(1j*the_phase*rotate_angle)
+            tdd.weight*=w1
+        else:
+            tdd.map=the_maps_header
+        return tdd
+    
+    
+    
+    
     the_successors=[]
     if k1>k2:
         x=k1
@@ -1390,6 +1345,112 @@ def add(tdd1,tdd2):
             
     res = normalize(x,the_successors)
     if get_int_key(res.weight)==(0,0):
-        res.map=Find_Or_Add_Maps_table(the_maps(dict()))
+        res.map=the_maps_header
     insert_2_computed_table(['+',tdd1,tdd2],res)
+    tdd1.weight = w1
+    tdd2.weight = w2
+    tdd1.map = map1
+    tdd2.map = map2
+    if not get_int_key(res.weight)==(0,0):
+        res.map,the_phase = comm_map*res.map
+        res.weight*=np.exp(1j*the_phase*rotate_angle)
+        res.weight*=w1
+    return res
+
+
+def add(tdd1,tdd2):
+    """The apply function of two TDDs. Mostly, it is used to do addition here."""
+    global global_index_order,add_time   
+    add_time+=1
+    k1=tdd1.node.key
+    k2=tdd2.node.key
+    
+    if tdd1.weight==0:
+        res = TDD(tdd2.node)
+        res.weight = tdd2.weight
+        res.map = tdd2.map
+        return res
+    
+    if tdd2.weight==0:
+        res = TDD(tdd1.node)
+        res.weight = tdd1.weight
+        res.map = tdd1.map
+        return res
+    
+    if tdd1.node==tdd2.node and tdd1.map==tdd2.map:
+        
+        weig=tdd1.weight+tdd2.weight
+        if get_int_key(weig)==(0,0):
+            term=Find_Or_Add_Unique_table(-1)
+            res=TDD(term)
+            res.weight=0
+            return res
+        else:
+            res=TDD(tdd1.node)
+            res.weight=weig
+            res.map=tdd1.map
+            return res
+        
+    if id(tdd1.node) > id(tdd2.node):
+        return add(tdd2,tdd1)
+    
+    w1 = tdd1.weight
+    w2 = tdd2.weight
+    tdd1.weight = 1
+    tdd2.weight = tdd2.weight/w1
+    
+    map1 = tdd1.map
+    map2 = tdd2.map
+    
+    comm_map = tdd1.map
+    tdd1.map = the_maps_header
+    tdd2.map,temp_phase = map2/map1
+    tdd2.weight*=np.exp(1j*temp_phase*rotate_angle)
+        
+    tdd = find_computed_table(['+',tdd1,tdd2])
+    if tdd:
+        tdd1.weight = w1
+        tdd2.weight = w2
+        tdd1.map = map1
+        tdd2.map = map2
+        if not get_int_key(tdd.weight)==(0,0):
+            tdd.map,the_phase = comm_map*tdd.map
+            tdd.weight*=np.exp(1j*the_phase*rotate_angle)
+            tdd.weight*=w1
+        else:
+            tdd.map=the_maps_header
+        return tdd
+    
+    
+    
+    
+    the_successors=[]
+    if k1>k2:
+        x=k1
+        for k in range(tdd1.node.succ_num):
+            res=add(Slicing2(tdd1,x,k),tdd2)
+            the_successors.append(res)
+    elif k1==k2:
+        x=k1
+        for k in range(tdd1.node.succ_num):
+            res=add(Slicing2(tdd1,x,k),Slicing2(tdd2,x,k))
+            the_successors.append(res)        
+    else:
+        x=k2
+        for k in range(tdd2.node.succ_num):
+            res=add(tdd1,Slicing2(tdd2,x,k))
+            the_successors.append(res)
+            
+    res = normalize(x,the_successors)
+    if get_int_key(res.weight)==(0,0):
+        res.map=the_maps_header
+    insert_2_computed_table(['+',tdd1,tdd2],res)
+    tdd1.weight = w1
+    tdd2.weight = w2
+    tdd1.map = map1
+    tdd2.map = map2
+    if not get_int_key(res.weight)==(0,0):
+        res.map,the_phase = comm_map*res.map
+        res.weight*=np.exp(1j*the_phase*rotate_angle)
+        res.weight*=w1
     return res
