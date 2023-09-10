@@ -59,7 +59,9 @@ def cir_2_tn(cir):
         var=[]
 
         ts=Tensor([],[],nam,q)
-#         print(nam)
+        
+        if nam=='reset':
+            continue
 
         U=Operator(g[0]).data
         

@@ -72,6 +72,8 @@ class TensorNetwork:
             return tdd        
         
         for ts in self.tensors:
+#             print('====================================')
+#             print(ts.name)
             temp_tdd=ts.tdd()
             tdd=cont(tdd,temp_tdd)
         return tdd
