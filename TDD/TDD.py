@@ -20,7 +20,7 @@ the_maps_table = dict()
 
 map_computed_table = dict()
 
-root_of_unit = 8
+root_of_unit = 8 #将root_of_unit设大，设到rotate_angle为机器精度，则相当于实现了任意角度的Phase门
 
 rotate_angle = 2*np.pi/root_of_unit
 
@@ -64,6 +64,19 @@ class the_maps:
     def __hash__(self):
         return id(self)
     
+    def __eq__(self,other):
+        return id(self)==id(other)
+        
+    def __lt__(self,other):
+        if self.level < other.level:
+            return True
+        elif self.x < other.x:
+            return True
+        elif self.rotate<other.rotate:
+            return True
+        
+        return False    
+    
     def __str__(self):
         temp = self
         ss = {}
@@ -86,6 +99,8 @@ class the_maps:
         if the_key in self.children:
             return self.children[the_key]
         else:
+            if rotate>root_of_unit:
+                print('aaa')
             temp = the_maps(level,x,rotate)
             self.children[the_key] = temp
             temp.father = self
@@ -204,7 +219,7 @@ class TDD:
         temp.index_2_key=copy.copy(self.index_2_key)
         return temp
     
-    def show(self,real_label=True):
+    def show(self,real_label=True,file_name='output'):
         edge=[]              
         dot=Digraph(name='reduced_tree')
         dot=layout(self.node,self.key_2_index,dot,edge,real_label)
@@ -213,7 +228,7 @@ class TDD:
         label1+=str(self.map)
         dot.edge('-0',str(self.node.idx),color="blue",label=label1)
         dot.format = 'png'
-        return Image(dot.render('output'))
+        return Image(dot.render(file_name))
     
     def to_array(self,var=[]):
         split_pos=0
@@ -338,7 +353,7 @@ def Ini_TDD(index_order=[]):
     global unique_table
     global global_node_idx
     global add_find_time,add_hit_time,cont_find_time,cont_hit_time
-    global root_of_unit,rotate_angle,the_maps_table
+    global root_of_unit,rotate_angle,the_maps_table,map_computed_table,the_maps_header
     global_node_idx=0
     unique_table = dict()
     computed_table = dict()
@@ -351,6 +366,8 @@ def Ini_TDD(index_order=[]):
     rotate_angle = 2*np.pi/root_of_unit
     
     the_maps_table = dict()
+    map_computed_table =dict()
+    the_maps_header=the_maps()
     return get_identity_tdd()
 
 def Clear_TDD():
@@ -459,7 +476,7 @@ def Find_Or_Add_Unique_table(x,weigs=[],succ_nodes=[],the_map2=[]):
 
 def normalize(x,the_successors):
     """The normalize and reduce procedure"""
-#     print('a',x,the_successors[0].weight,the_successors[0].map,id(the_successors[0].map),the_successors[1].weight,the_successors[1].map,id(the_successors[1].map))
+#     print('a',x,the_successors[0].weight,the_successors[0].map,the_successors[1].weight,the_successors[1].map)
     all_zero = True
     
 #     for k in range(len(the_successors)):
@@ -481,11 +498,19 @@ def normalize(x,the_successors):
     flip=0
     if abs(the_successors[0].weight) < abs(the_successors[1].weight)-epi/2:
         flip=1
+#     elif abs(the_successors[0].weight) == abs(the_successors[1].weight) and np.angle(the_successors[1].weight)<np.angle(the_successors[0].weight):
+#         flip=1
+#     elif abs(the_successors[1].weight-the_successors[0].weight)<epi/2:
+#         if the_successors[0].map>the_successors[1].map:
+#             flip=1
+            
+    if flip:
         the_successors = [the_successors[1],the_successors[0]]
     
     if get_int_key(the_successors[1].weight)==(0,0):
         weigs=[1,0]  
-        succ_nodes=[succ.node for succ in the_successors]
+#         succ_nodes=[succ.node for succ in the_successors]
+        succ_nodes=[the_successors[0].node,the_successors[0].node]
         node=Find_Or_Add_Unique_table(x,weigs,succ_nodes,the_maps_header)
         res=TDD(node)
         res.weight=the_successors[0].weight
@@ -526,7 +551,7 @@ def normalize(x,the_successors):
     res=TDD(node)
     res.weight=weig_max
     res.map = the_map
-#     print('c',x,weigs,the_map2,id(the_map2),weig_max,the_map,id(the_map))
+#     print('c',x,weigs,the_map2,weig_max,the_map)
 #     print(523,the_successors[0].map,the_successors[1].map,the_map2,the_map,the_successors[0].weight,the_successors[0].weight)
 #     print('-------------------')
     return res
@@ -955,6 +980,9 @@ def find_remain_map(map1,map2,key_2_new_key,cont_order):
     rotate=(map1.rotate+map2.rotate*(-1)**x)%root_of_unit
     cont_map1 = cont_map1.append_new_map(map1.level,x,rotate)
 #     print(948,map1.rotate,map2.rotate,rotate,x)
+#     cont_map1 = cont_map1.append_new_map(map1.level,map1.x,map1.rotate)
+#     cont_map2 = cont_map2.append_new_map(map2.level,map2.x,map2.rotate)
+
     return remain_map,cont_map1,cont_map2,the_pahse
         
 
@@ -1019,6 +1047,8 @@ def contract(tdd1,tdd2,key_2_new_key,cont_order,cont_num):
     
     map1 = tdd1.map
     map2 = tdd2.map
+#     remain_map=the_maps_header
+#     temp_phase=0
     remain_map,cont_map1,cont_map2,temp_phase = find_remain_map(map1,map2,key_2_new_key,cont_order)
     tdd1.map = cont_map1
     tdd2.map = cont_map2
@@ -1453,4 +1483,17 @@ def add(tdd1,tdd2):
         res.map,the_phase = comm_map*res.map
         res.weight*=np.exp(1j*the_phase*rotate_angle)
         res.weight*=w1
+    return res
+
+
+def renormalize(tdd):
+    if tdd.node.key==-1:
+        return tdd
+    left = renormalize(Slicing2(tdd,tdd.node.key,0))
+    right = renormalize(Slicing2(tdd,tdd.node.key,1))
+    res=normalize(tdd.node.key,[left,right])
+    res.index_set = [copy.copy(k) for k in tdd.index_set]
+    res.key_2_index = copy.copy(tdd.key_2_index)
+    res.index_2_key = copy.copy(tdd.index_2_key)
+    res.key_width = copy.copy(tdd.key_width)
     return res

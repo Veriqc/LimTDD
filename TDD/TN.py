@@ -75,7 +75,9 @@ class TensorNetwork:
 #             print('====================================')
 #             print(ts.name)
             temp_tdd=ts.tdd()
+#             print('cont---------')
             tdd=cont(tdd,temp_tdd)
+#             print('cont---------end')
         return tdd
 
     def get_index_set(self):
