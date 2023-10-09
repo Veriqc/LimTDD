@@ -199,4 +199,91 @@ namespace dd {
 
 	//"=================我加的======================="
 
+
+		//"=================我加的======================="
+		template <class LeftOperandType, class RightOperandType, class ResultType,
+			std::size_t NBUCKET = 16384>
+		class ComputeTable3 {
+		public:
+			ComputeTable3() = default;
+
+			struct Entry {
+				LeftOperandType leftOperand;
+				RightOperandType rightOperand;
+				ResultType result;
+				long int extra_phase;
+			};
+
+			static constexpr std::size_t MASK = NBUCKET - 1;
+
+			static std::size_t hash(const LeftOperandType& leftOperand,
+				const RightOperandType& rightOperand) {
+				const auto h1 = std::hash<LeftOperandType>{}(leftOperand);
+				const auto h2 = std::hash<RightOperandType>{}(rightOperand);
+				const auto hash = dd::combineHash(h1, h2);
+				return hash & MASK;
+			}
+
+			// access functions
+			[[nodiscard]] const auto& getTable() const { return table; }
+
+			void insert(const LeftOperandType& leftOperand,
+				const RightOperandType& rightOperand, const ResultType& result) {
+				const auto key = hash(leftOperand, rightOperand);
+				table[key] = { leftOperand, rightOperand, result, result->extra_phase};
+				++count;
+			}
+
+			ResultType lookup(const LeftOperandType& leftOperand,
+				const RightOperandType& rightOperand) {
+				ResultType result{};
+				lookups++;
+				const auto key = hash(leftOperand, rightOperand);
+				auto& entry = table[key];
+				if (entry.result == nullptr) {
+					return nullptr;
+				}
+
+				if (entry.leftOperand != leftOperand) {
+					return nullptr;
+				}
+				if (entry.rightOperand != rightOperand) {
+					return nullptr;
+				}
+
+				hits++;
+
+				entry.result->extra_phase = entry.extra_phase;
+				return entry.result;
+			}
+
+			void clear() {
+				if (count > 0) {
+					for (auto& entry : table) {
+						entry.result = nullptr;
+					}
+					count = 0;
+				}
+			}
+
+			[[nodiscard]] fp hitRatio() const {
+				return static_cast<fp>(hits) / static_cast<fp>(lookups);
+			}
+
+			std::ostream& printStatistics(std::ostream& os = std::cout) {
+				os << "hits: " << hits << ", looks: " << lookups
+					<< ", ratio: " << hitRatio() << std::endl;
+				return os;
+			}
+
+		private:
+			std::array<Entry, NBUCKET> table{};
+			// compute table lookup statistics
+			std::size_t hits = 0;
+			std::size_t lookups = 0;
+			std::size_t count = 0;
+		};
+
+	//"=================我加的======================="
+
 } // namespace dd

@@ -323,7 +323,14 @@ namespace dd {
 				return Edge<Node>::zero;
 			}
 
-			auto r = e;
+			short x = 0;
+
+			auto r=e;
+			if (argmax > 0) {
+				r.p->e = {r.p->e[1],r.p->e[0]};
+				x = 1;
+			}
+			argmax = 0;
 			// divide each entry by max
 			for (auto i = 0U; i < R; ++i) {
 				if (static_cast<decltype(argmax)>(i) == argmax) {
@@ -345,7 +352,9 @@ namespace dd {
 							r.w = cn.lookup(c);
 						}
 					}
+					r.map = r.p->e[i].map;
 					r.p->e[i].w = Complex::one;
+					r.p->e[i].map = get_the_maps_header();
 				}
 				else {
 					if (zero[i]) {
@@ -363,9 +372,17 @@ namespace dd {
 					}
 					auto c = cn.getTemporary();
 					ComplexNumbers::div(c, r.p->e[i].w, maxc);
+					float angle = atan(c.i->value / c.r->value);
+					c.r->value = ComplexNumbers::mag2(c);
+					c.i->value = 0;
 					r.p->e[i].w = cn.lookup(c);
+					r.p->e[i].map = mapdiv(r.p->e[i].map, r.p->e[0].map);
+					r.p->e[i].map.extra_phase += long int(angle/ unit_rotate_angle);
 				}
 			}
+
+			r.map = append_new_map(r.map, r.p->v, x, (r.p->e[1].map.extra_phase)% root_of_unit);
+
 			return r;
 
 		}
@@ -439,18 +456,18 @@ namespace dd {
 			assert(e.p->ref == 0);
 
 
-			if (edges[0].p == edges[1].p && e.p->e[0].w.approximatelyEquals(e.p->e[1].w)) {
-				if (cached) {
-					if (e.p->e[1].w != Complex::zero) {
-						cn.returnToCache(e.p->e[1].w);
-						return edges[0];
-					}
+			//if (edges[0].p == edges[1].p && e.p->e[0].w.approximatelyEquals(e.p->e[1].w)) {
+			//	if (cached) {
+			//		if (e.p->e[1].w != Complex::zero) {
+			//			cn.returnToCache(e.p->e[1].w);
+			//			return edges[0];
+			//		}
 
-					return edges[0];
+			//		return edges[0];
 
-				}
-				return edges[0];
-			}
+			//	}
+			//	return edges[0];
+			//}
 
 			e = normalize(e, cached);
 
