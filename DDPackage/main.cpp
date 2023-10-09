@@ -12,42 +12,7 @@ using namespace std;
 int save_data();
 
 
-#include <xtensor/xio.hpp>
-#include <xtensor/xview.hpp>
-#include <xtensor/xarray.hpp>
-#include <xtensor/xfixed.hpp>
-#include <xtensor/xtensor.hpp>
-
-int main(int argc, char* argv[])
-{
-    xt::xarray<double> arr1
-	  { {1.0, 2.0, 3.0},
-        { 2.0, 5.0, 7.0 },
-        { 2.0, 5.0, 7.0 } };
-
-    xt::xarray<dd::ComplexValue> arr2
-	{ {1, 2}, { 3,4 }, {5,6} };
-
-	xt::xarray<double> arr3
-	{{ {1.0, 2.0, 3.0},
-		{ 2.0, 5.0, 7.0 },
-		{ 2.0, 5.0, 7.0 } }, 
-		{ {1.0, 2.0, 3.0},
-		{ 2.0, 5.0, 7.0 },
-		{ 2.0, 5.0, 7.0 } }};
-
-	std::cout << xt::view(arr3, xt::all(), 0, 1) << std::endl;
-
-	auto shape = arr2.shape();
-
-
-    std::cout << arr2.size() << std::endl;
-
-}
-
-
-
-int main2() {
+int main() {
 
     //qc::QuantumComputation qc1{};
 
@@ -103,7 +68,7 @@ int main2() {
 
 	//save_data();
 	system("pause");
-	return 0;
+
 }
 
 int save_data() {
