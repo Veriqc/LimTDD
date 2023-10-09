@@ -132,6 +132,10 @@
     <IncludePath>C:\Users\23626\Documents\GitHub\LimTDD\DDPackage;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
     <ExternalIncludePath>C:\Users\23626\.conda\pkgs\xtl-0.7.4-h5362a0b_0\Library\include;C:\Users\23626\.conda\pkgs\xtensor-0.24.0-h5362a0b_0\Library\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</ExternalIncludePath>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ExternalIncludePath>C:\Users\23626\.conda\pkgs\xtl-0.7.4-h5362a0b_0\Library\include;C:\Users\23626\.conda\pkgs\xtensor-0.24.0-h5362a0b_0\Library\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</ExternalIncludePath>
+    <IncludePath>C:\Users\23626\Documents\GitHub\LimTDD\DDPackage;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -181,6 +185,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
