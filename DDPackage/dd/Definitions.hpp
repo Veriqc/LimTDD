@@ -55,7 +55,7 @@ static constexpr fp PI_4 = static_cast<fp>(
 
 static constexpr long int root_of_unit = 8;
 
-double unit_rotate_angle = 2 * PI / root_of_unit;
+static constexpr double unit_rotate_angle = 2 * PI / root_of_unit;
 
 using CVec = std::vector<std::complex<fp>>;
 using CMat = std::vector<CVec>;

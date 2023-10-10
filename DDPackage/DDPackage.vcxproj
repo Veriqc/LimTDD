@@ -33,6 +33,7 @@
     <ClInclude Include="dd\Edge.hpp" />
     <ClInclude Include="dd\Export.hpp" />
     <ClInclude Include="dd\GateMatrixDefinitions.hpp" />
+    <ClInclude Include="dd\Maps.hpp" />
     <ClInclude Include="dd\Node.hpp" />
     <ClInclude Include="dd\Operations.hpp" />
     <ClInclude Include="dd\Package.hpp" />
@@ -59,6 +60,7 @@
   <ItemGroup>
     <ClCompile Include="CircuitOptimizer.cpp" />
     <ClCompile Include="dd\Edge.cpp" />
+    <ClCompile Include="dd\Maps.cpp" />
     <ClCompile Include="dd\Node.cpp" />
     <ClCompile Include="dd\Operations.cpp" />
     <ClCompile Include="main.cpp" />

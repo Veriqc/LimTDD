@@ -30,5 +30,4 @@ namespace dd {
         std::map<float, key_2_new_key_node*> next;
         key_2_new_key_node* father;
     };
-
 }
