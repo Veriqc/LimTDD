@@ -713,10 +713,10 @@ namespace dd {
 
 	private:
 
-
 		template <class Node>
 		Edge<Node> Slicing(const Edge<Node>& e, int x, int c) {
-		// used for contract
+			// used for add
+			assert(e.w != Complex::zero);
 			if (e.p->v == -1) {
 				return e;
 			}
@@ -727,10 +727,11 @@ namespace dd {
 				if (e.p->v != e.map->level) {
 					auto temp = e.p->e[c];
 					if (temp.w != Complex::zero) {
+						temp.w = cn.mulCached(temp.w, e.w);
 						temp.map = the_maps::mapmul(e.map, temp.map);
 						if (temp.map->extra_phase > 0) {
 							double angle = temp.map->extra_phase * unit_rotate_angle;
-							temp.w=cn.mulCached(temp.w, cn.getTemporary(cos(angle), sin(angle)));
+							cn.mul(temp.w, temp.w, cn.getTemporary(cos(angle), sin(angle)));
 						}
 					}
 					return temp;
@@ -738,36 +739,38 @@ namespace dd {
 				else if (e.map->x == 0) {
 					auto temp = e.p->e[c];
 					if (temp.w != Complex::zero) {
+						temp.w = cn.mulCached(temp.w, e.w);
 						temp.map = the_maps::mapmul(e.map, temp.map);
 						if (c == 0) {
 							if (temp.map->extra_phase > 0) {
 								double angle = temp.map->extra_phase * unit_rotate_angle;
-								temp.w = cn.mulCached(temp.w, cn.getTemporary(cos(angle), sin(angle)));
+								cn.mul(temp.w, temp.w, cn.getTemporary(cos(angle), sin(angle)));
 							}
 						}
 						else {
 							if (temp.map->extra_phase + e.map->rotate > 0) {
 								double angle = ((temp.map->extra_phase + e.map->rotate) % root_of_unit) * unit_rotate_angle;
-								temp.w = cn.mulCached(temp.w, cn.getTemporary(cos(angle), sin(angle)));
+								cn.mul(temp.w, temp.w, cn.getTemporary(cos(angle), sin(angle)));
 							}
 						}
 					}
 					return temp;
 				}
 				else {
-					auto temp = e.p->e[1-c];
+					auto temp = e.p->e[1 - c];
 					if (temp.w != Complex::zero) {
+						temp.w = cn.mulCached(temp.w, e.w);
 						temp.map = the_maps::mapmul(e.map, temp.map);
 						if (c == 1) {
 							if (temp.map->extra_phase > 0) {
 								double angle = temp.map->extra_phase * unit_rotate_angle;
-								temp.w = cn.mulCached(temp.w, cn.getTemporary(cos(angle), sin(angle)));
+								cn.mul(temp.w, temp.w, cn.getTemporary(cos(angle), sin(angle)));
 							}
 						}
 						else {
 							if (temp.map->extra_phase + e.map->rotate > 0) {
 								double angle = ((temp.map->extra_phase + e.map->rotate) % root_of_unit) * unit_rotate_angle;
-								temp.w = cn.mulCached(temp.w, cn.getTemporary(cos(angle), sin(angle)));
+								cn.mul(temp.w, temp.w, cn.getTemporary(cos(angle), sin(angle)));
 							}
 						}
 					}
@@ -784,7 +787,9 @@ namespace dd {
 
 		template <class Node>
 		Edge<Node> Slicing2(const Edge<Node>& e, int x, int c) {
-			// used for add
+
+			assert(e.w != Complex::zero);
+		// used for contract
 			if (e.p->v == -1) {
 				return e;
 			}
@@ -794,54 +799,53 @@ namespace dd {
 			if (e.p->v == x) {
 				if (e.p->v != e.map->level) {
 					auto temp = e.p->e[c];
-					cn.mul(temp.w, temp.w, e.w);
 					if (temp.w != Complex::zero) {
 						temp.map = the_maps::mapmul(e.map, temp.map);
 						double angle = temp.map->extra_phase * unit_rotate_angle;
-						cn.mul(temp.w, temp.w, cn.getTemporary(cos(angle), sin(angle)));
+						temp.w=cn.mulCached(temp.w, cn.getTemporary(cos(angle), sin(angle)));
 					}
 					return temp;
 				}
 				else if (e.map->x == 0) {
 					auto temp = e.p->e[c];
-					cn.mul(temp.w, temp.w, e.w);
 					if (temp.w != Complex::zero) {
 						temp.map = the_maps::mapmul(e.map, temp.map);
 						double angle;
 						if (c == 0) {
-							angle = ((temp.map->extra_phase) % root_of_unit) * unit_rotate_angle;
+							angle = temp.map->extra_phase * unit_rotate_angle;
 						}
 						else {
 							angle = ((temp.map->extra_phase + e.map->rotate) % root_of_unit) * unit_rotate_angle;
 						}
-						cn.mul(temp.w, temp.w, cn.getTemporary(cos(angle), sin(angle)));
+						temp.w = cn.mulCached(temp.w, cn.getTemporary(cos(angle), sin(angle)));
 					}
 					return temp;
 				}
 				else {
-					auto temp = e.p->e[1 - c];
-					cn.mul(temp.w, temp.w, e.w);
+					auto temp = e.p->e[1-c];
 					if (temp.w != Complex::zero) {
 						temp.map = the_maps::mapmul(e.map, temp.map);
 						double angle;
 						if (c == 1) {
-							angle = ((temp.map->extra_phase) % root_of_unit) * unit_rotate_angle;
+							angle = temp.map->extra_phase * unit_rotate_angle;
 						}
 						else {
 							angle = ((temp.map->extra_phase + e.map->rotate) % root_of_unit) * unit_rotate_angle;
 						}
-						cn.mul(temp.w, temp.w, cn.getTemporary(cos(angle), sin(angle)));
+						temp.w = cn.mulCached(temp.w, cn.getTemporary(cos(angle), sin(angle)));
 					}
 					return temp;
 				}
 
 			}
 			else {
-				std::cout << "Slicing not support yet" << std::endl;
+				std::cout << "Slicing2 not support yet" << std::endl;
 				return e;
 			}
 
 		}
+
+
 
 		template <class Node>
 		Edge<Node> T_add2(const Edge<Node>& x, const Edge<Node>& y) {
@@ -925,15 +929,11 @@ namespace dd {
 			for (std::size_t i = 0U; i < n; i++) {
 				Edge<Node> e1{};
 				if (!x.isTerminal() && x.p->v == w) {
-					e1 = x.p->e[i];
-					if (e1.w != Complex::zero) {
-						e1.w = cn.mulCached(e1.w, xCopy.w);
-						//e1.map = the_maps::mapmul(xCopy.map, e1.map);
-						//if (e1.map->extra_phase > 0&& e1.w!=Complex::zero) {
-						//	double angle = e1.map->extra_phase * unit_rotate_angle;
-						//	cn.mul(e1.w, e1.w, cn.getTemporary(cos(angle), sin(angle)));
-						//}
-					}
+					//e1 = x.p->e[i];
+					//if (e1.w != Complex::zero) {
+					//	e1.w = cn.mulCached(e1.w, xCopy.w);
+					//}
+					e1 = Slicing(x, x.p->v, i);
 				}
 				else {
 					e1 = xCopy;
@@ -943,15 +943,11 @@ namespace dd {
 				}
 				Edge<Node> e2{};
 				if (!y.isTerminal() && y.p->v == w) {
-					e2 = y.p->e[i];
-					if (e2.w != Complex::zero) {
-						e2.w = cn.mulCached(e2.w, yCopy.w);
-						//e2.map = the_maps::mapmul(yCopy.map, e2.map);
-						//if (e2.map->extra_phase > 0 && e2.w != Complex::zero) {
-						//	double angle = e2.map->extra_phase * unit_rotate_angle;
-						//	cn.mul(e2.w, e2.w, cn.getTemporary(cos(angle), sin(angle)));
-						//}
-					}
+					//e2 = y.p->e[i];
+					//if (e2.w != Complex::zero) {
+					//	e2.w = cn.mulCached(e2.w, yCopy.w);
+					//}
+					e2 = Slicing(y, y.p->v, i);
 				}
 				else {
 					e2 = yCopy;
@@ -988,73 +984,6 @@ namespace dd {
 			}
 			return e;
 		}
-
-
-
-		//the_maps** find_remain_map(the_maps* map1, the_maps* map2, key_2_new_key_node* key_2_new_key1, key_2_new_key_node* key_2_new_key2) {
-
-		//	//the_maps* res[3];
-		//	std::cout << 868 << "   " << map1->level << " " << map2->level << std::endl;
-
-		//	key_2_new_key_node* temp_key_2_new_key1 = key_2_new_key1;
-		//	while (temp_key_2_new_key1->level > map1->level) {
-		//		temp_key_2_new_key1 = temp_key_2_new_key1->father;
-		//	}
-
-		//	key_2_new_key_node* temp_key_2_new_key2 = key_2_new_key2;
-		//	while (temp_key_2_new_key2->level > map2->level) {
-		//		temp_key_2_new_key2 = temp_key_2_new_key2->father;
-		//	}
-
-		//	float newk1 = temp_key_2_new_key1->new_key;
-		//	float newk2 = temp_key_2_new_key2->new_key;
-
-		//	if (newk1 > newk2 && int(newk1 * 2) % 2 != 1) {
-		//		auto res = find_remain_map(map1->father, map2, temp_key_2_new_key1, temp_key_2_new_key2);
-		//		auto temp_pahse = res[0]->extra_phase;
-		//		res[0] = the_maps::append_new_map(res[0], newk1, map1->x, map1->rotate);
-		//		res[0]->extra_phase = temp_pahse;
-		//		return res;
-		//	}
-		//	if (newk1 < newk2 && int(newk2 * 2) % 2 != 1) {
-		//		std::cout << "Case 2" << std::endl;
-		//		auto res = find_remain_map(map1, map2->father, temp_key_2_new_key1, temp_key_2_new_key2);
-		//		std::cout << 893 << "   " << res[0]->level << " " << res[1]->level << " " << res[2]->level << std::endl;
-		//		auto temp_pahse = res[0]->extra_phase;
-		//		res[0] = the_maps::append_new_map(res[0], newk2, map2->x, map2->rotate);
-		//		res[0]->extra_phase = temp_pahse;
-		//		return res;
-		//	}
-		//	if (map1->level == -1 && map2->level == -1) {
-		//		std::cout << "Case 3" << std::endl;
-		//		the_maps* res[3];
-		//		res[0] = the_maps::the_maps_header();
-		//		res[1] = the_maps::the_maps_header();
-		//		res[2] = the_maps::the_maps_header();
-		//		res[0]->extra_phase = 0;
-		//		std::cout << 906 << "   " << res[0]->level << " " << res[1]->level << " " << res[2]->level << std::endl;
-		//		return res;
-		//	}
-		//	if (newk1 > newk2) {
-		//		auto res = find_remain_map(map1->father, map2, temp_key_2_new_key1, temp_key_2_new_key2);
-		//		res[1] = the_maps::append_new_map(res[1], map1->level, map1->x, map1->rotate);
-		//		return res;
-		//	}
-		//	if (newk1 < newk2) {
-		//		auto res = find_remain_map(map1, map2->father, temp_key_2_new_key1, temp_key_2_new_key2);
-		//		res[2] = the_maps::append_new_map(res[2], map2->level, map2->x, map2->rotate);
-		//		return res;
-		//	}
-		//	auto res = find_remain_map(map1->father, map2->father, temp_key_2_new_key1, temp_key_2_new_key2);
-
-		//	auto x = (map1->x + map2->x) % 2;
-		//	res[0]->extra_phase += map2->rotate * x;
-		//	auto rotate = (long int) (map1->rotate + map2->rotate * pow(-1,x));
-		//	rotate = rotate % root_of_unit;
-		//	res[1] = the_maps::append_new_map(res[1], map1->level, x, rotate);
-
-		//	return res;
-		//}
 
 
 		comm_maps* find_remain_map(the_maps* map1, the_maps* map2, key_2_new_key_node* key_2_new_key1, key_2_new_key_node* key_2_new_key2) {
@@ -1213,9 +1142,13 @@ namespace dd {
 					r = ResultEdge::zero;
 					ResultEdge etemp{};
 					for (int k = 0; k < x.p->e.size(); ++k) {
-						e1 = x.p->e[k];
+						//e1 = x.p->e[k];
+						e1 = Slicing(x, x.p->v, k);
 						e2 = yCopy;
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
+						if (e1.w != Complex::zero) {
+							cn.returnToCache(e1.w);
+						}
 						if (!etemp.w.exactlyZero()) {
 							if (r != ResultEdge::zero) {
 								auto temp = r.w;
@@ -1232,9 +1165,13 @@ namespace dd {
 				else {
 					std::vector<ResultEdge> e;
 					for (int k = 0; k < x.p->e.size(); ++k) {
-						e1 = x.p->e[k];
+						//e1 = x.p->e[k];
+						e1 = Slicing(x, x.p->v, k);
 						e2 = yCopy;
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
+						if (e1.w != Complex::zero) {
+							cn.returnToCache(e1.w);
+						}
 					}
 					r = makeDDNode(Qubit(newk1), e, true);
 				}
@@ -1245,8 +1182,12 @@ namespace dd {
 					ResultEdge etemp{};
 					for (int k = 0; k < y.p->e.size(); ++k) {
 						e1 = xCopy;
-						e2 = y.p->e[k];
+						//e2 = y.p->e[k];
+						e2 = Slicing(y, y.p->v, k);
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
+						if (e2.w != Complex::zero) {
+							cn.returnToCache(e2.w);
+						}
 						if (!etemp.w.exactlyZero()) {
 							if (r != ResultEdge::zero) {
 								auto temp = r.w;
@@ -1264,8 +1205,12 @@ namespace dd {
 					std::vector<ResultEdge> e;
 					for (int k = 0; k < y.p->e.size(); ++k) {
 						e1 = xCopy;
-						e2 = y.p->e[k];
+						//e2 = y.p->e[k];
+						e2 = Slicing(y, y.p->v, k);
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
+						if (e2.w != Complex::zero) {
+							cn.returnToCache(e2.w);
+						}
 					}
 					r = makeDDNode(Qubit(newk2), e, true);
 				}
@@ -1276,9 +1221,17 @@ namespace dd {
 					r = ResultEdge::zero;
 					ResultEdge etemp{};
 					for (int k = 0; k < x.p->e.size(); ++k) {
-						e1 = x.p->e[k];
-						e2 = y.p->e[k];
+						//e1 = x.p->e[k];
+						e1 = Slicing(x, x.p->v, k);
+						//e2 = y.p->e[k];
+						e2 = Slicing(y, y.p->v, k);
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
+						if (e1.w != Complex::zero) {
+							cn.returnToCache(e1.w);
+						}
+						if (e2.w != Complex::zero) {
+							cn.returnToCache(e2.w);
+						}
 						if (!etemp.w.exactlyZero()) {
 							if (r != ResultEdge::zero) {
 								auto temp = r.w;
@@ -1295,9 +1248,17 @@ namespace dd {
 				else {
 					std::vector<ResultEdge> e;
 					for (int k = 0; k < x.p->e.size(); ++k) {
-						e1 = x.p->e[k];
-						e2 = y.p->e[k];
+						//e1 = x.p->e[k];
+						e1 = Slicing(x, x.p->v, k);
+						//e2 = y.p->e[k];
+						e2 = Slicing(y, y.p->v, k);
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
+						if (e1.w != Complex::zero) {
+							cn.returnToCache(e1.w);
+						}
+						if (e2.w != Complex::zero) {
+							cn.returnToCache(e2.w);
+						}
 					}
 					r = makeDDNode(Qubit(newk1), e, true);
 				}
