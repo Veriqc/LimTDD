@@ -285,6 +285,7 @@ namespace dd {
 			if (cached) {
 				for (auto i = 0U; i < R; i++) {
 					if (zero[i] && e.p->e[i].w != Complex::zero) {
+						//assert(e.p->e[i].w != Complex::zero);
 						cn.returnToCache(e.p->e[i].w);
 						e.p->e[i] = Edge<Node>::zero;
 					}
@@ -328,6 +329,7 @@ namespace dd {
 			auto r=e;
 			if (argmax > 0) {
 				r.p->e = {r.p->e[1],r.p->e[0]};
+				zero = { zero[1],zero[0] };
 				x = 1;
 			}
 			argmax = 0;
@@ -359,6 +361,7 @@ namespace dd {
 				else {
 					if (zero[i]) {
 						if (cached && r.p->e[i].w != Complex::zero) {
+							//assert(r.p->e[i].w != Complex::zero);
 							cn.returnToCache(r.p->e[i].w);
 						}
 						//r.p->e[i] = Edge<Node>::zero;
@@ -366,6 +369,7 @@ namespace dd {
 						continue;
 					}
 					if (cached && !zero[i] && !r.p->e[i].w.exactlyOne()) {
+						//assert(r.p->e[i].w != Complex::zero);
 						cn.returnToCache(r.p->e[i].w);
 					}
 					if (r.p->e[i].w.approximatelyOne()) {
@@ -700,6 +704,7 @@ namespace dd {
 			var_cont.clear();
 
 			if (!res.e.w.exactlyZero() && !res.e.w.exactlyOne()) {
+				//assert(res.e.w != Complex::zero);
 				cn.returnToCache(res.e.w);
 				res.e.w = cn.lookup(res.e.w);
 			}
@@ -878,6 +883,7 @@ namespace dd {
 				auto r = y;
 				r.w = cn.addCached(x.w, y.w);
 				if (r.w.approximatelyZero()) {
+					//assert(r.w != Complex::zero);
 					cn.returnToCache(r.w);
 					return Edge<Node>::zero;
 				}
@@ -908,6 +914,7 @@ namespace dd {
 				auto c = cn.getCached(r.w);
 				if (x.w != Complex::one) {
 					cn.mul(c, c, x.w);
+					//assert(yCopy.w != Complex::zero);
 					cn.returnToCache(yCopy.w);
 				}
 				auto temp_map = the_maps::mapmul(x.map, r.map);
@@ -961,10 +968,12 @@ namespace dd {
 
 
 				if (!x.isTerminal() && x.p->v == w && e1.w != Complex::zero) {
+					//assert(e1.w != Complex::zero);
 					cn.returnToCache(e1.w);
 				}
 
 				if (!y.isTerminal() && y.p->v == w && e2.w != Complex::zero) {
+					//assert(e2.w != Complex::zero);
 					cn.returnToCache(e2.w);
 				}
 			}
@@ -974,6 +983,7 @@ namespace dd {
 			addTable.insert({ xCopy.p,xCopy.w,xCopy.map }, { yCopy.p,yCopy.w,yCopy.map }, { e.p, e.w,e.map });
 			if (x.w != Complex::one) {
 				cn.mul(e.w, e.w, x.w);
+				//assert(yCopy.w != Complex::zero);
 				cn.returnToCache(yCopy.w);
 			}
 
@@ -1114,6 +1124,7 @@ namespace dd {
 				ComplexNumbers::mul(e.w, e.w, x.w);
 				ComplexNumbers::mul(e.w, e.w, y.w);
 				if (e.w.approximatelyZero()) {
+					//assert(e.w != Complex::zero);
 					cn.returnToCache(e.w);
 					return ResultEdge::zero;
 				}
@@ -1149,10 +1160,12 @@ namespace dd {
 						if (e1.w != Complex::zero) {
 							cn.returnToCache(e1.w);
 						}
-						if (!etemp.w.exactlyZero()) {
+						if (etemp.w != Complex::zero) {
 							if (r != ResultEdge::zero) {
 								auto temp = r.w;
 								r = T_add2(r, etemp);
+								//assert(temp != Complex::zero);
+								//assert(etemp.w != Complex::zero);
 								cn.returnToCache(temp);
 								cn.returnToCache(etemp.w);
 							}
@@ -1188,10 +1201,12 @@ namespace dd {
 						if (e2.w != Complex::zero) {
 							cn.returnToCache(e2.w);
 						}
-						if (!etemp.w.exactlyZero()) {
+						if (etemp.w != Complex::zero) {
 							if (r != ResultEdge::zero) {
 								auto temp = r.w;
 								r = T_add2(r, etemp);
+								//assert(temp != Complex::zero);
+								//assert(etemp.w != Complex::zero);
 								cn.returnToCache(temp);
 								cn.returnToCache(etemp.w);
 							}
@@ -1232,10 +1247,12 @@ namespace dd {
 						if (e2.w != Complex::zero) {
 							cn.returnToCache(e2.w);
 						}
-						if (!etemp.w.exactlyZero()) {
+						if (etemp.w != Complex::zero) {
 							if (r != ResultEdge::zero) {
 								auto temp = r.w;
 								r = T_add2(r, etemp);
+								//assert(temp != Complex::zero);
+								//assert(etemp.w != Complex::zero);
 								cn.returnToCache(temp);
 								cn.returnToCache(etemp.w);
 							}
@@ -1275,6 +1292,7 @@ namespace dd {
 					ComplexNumbers::mul(r.w, r.w, y.w);
 				}
 				if (r.w.approximatelyZero()) {
+					//assert(r.w != Complex::zero);
 					cn.returnToCache(r.w);
 					return ResultEdge::zero;
 				}
