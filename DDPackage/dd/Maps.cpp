@@ -121,10 +121,22 @@ namespace dd {
 		return res;
 	}
 
-	//void print_maps(the_maps* map) {
-
-	//	return;
-	//}
+	void the_maps::print_maps(the_maps* map) {
+		if (map->level == -1) {
+			std::cout<<"  ." << std::endl;
+		}
+		else {
+			std::cout << map->level << ":";
+			if (map->x == 1) {
+				std::cout << "x ";
+			}
+			if (map->rotate > 0) {
+				std::cout << map->rotate;
+			}
+			std::cout << ";";
+			print_maps(map->father);
+		}
+	}
 
 
 } // namespace dd

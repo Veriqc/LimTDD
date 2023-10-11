@@ -29,6 +29,8 @@ namespace dd {
 
 		static the_maps* append_new_map(the_maps* self, short level, short x, long int rotate);
 
+		static void print_maps(the_maps* map);
+
 		//static the_maps** find_remain_map(the_maps* map1, the_maps* map2, key_2_new_key_node* key_2_new_key);
 
 	};

@@ -712,6 +712,8 @@ namespace dd {
 			[[maybe_unused]] const auto after = cn.cacheCount();
 			assert(before == after);
 
+			the_maps::print_maps(res.e.map);
+
 			return res;
 		}
 
