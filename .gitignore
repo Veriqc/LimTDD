@@ -4,3 +4,7 @@
 x64/
 
 */x64/
+
+enc_temp_folder/
+
+.gitignore

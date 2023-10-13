@@ -906,13 +906,6 @@ namespace dd {
 				return T_add2(y, x);
 			}
 
-			if (x.p == nullptr) {
-				return y;
-			}
-			if (y.p == nullptr) {
-				return x;
-			}
-
 			if (x.w.exactlyZero()) {
 				if (y.w.exactlyZero()) {
 					return Edge<Node>::zero;
@@ -960,6 +953,8 @@ namespace dd {
 
 			if (r.p != nullptr) {
 				//std::cout << "Case 1" << std::endl;
+				//assert(yCopy.w != Complex::zero);
+				cn.returnToCache(yCopy.w);
 				if (r.w.approximatelyZero()) {
 					return Edge<Node>::zero;
 				}
@@ -968,9 +963,6 @@ namespace dd {
 				if (c != Complex::zero) {
 					cn.mul(c, c, x.w);
 				}
-				
-				//assert(yCopy.w != Complex::zero);
-				cn.returnToCache(yCopy.w);
 
 				auto temp_map = the_maps::mapmul(x.map, r.map);
 				if (temp_map->extra_phase > 0 && c != Complex::zero) {
