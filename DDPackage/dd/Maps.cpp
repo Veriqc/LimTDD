@@ -15,6 +15,13 @@ namespace dd {
 
 	the_maps* the_maps::append_new_map(the_maps* self, short level, short x, long int rotate) {
 
+		rotate = rotate % root_of_unit;
+
+		//std::cout << rotate << " " << rotate % root_of_unit << std::endl;
+		if (rotate < 0) {
+			rotate += root_of_unit;
+		}
+
 		if (x == 0 && rotate == 0) {
 			return self;
 		}
@@ -66,7 +73,15 @@ namespace dd {
 		}
 		else {
 			auto r = mapmul(self->father, other->father);
-			long int rotate = other->rotate + self->rotate * pow(-1, other->x);
+			//long int rotate = other->rotate + self->rotate * pow(-1, other->x);
+			auto rotate = other->rotate;
+			if (other->x == 0) {
+				rotate += self->rotate;
+			}
+			else {
+				rotate -= self->rotate;
+			}
+
 			rotate = rotate % root_of_unit;
 			res = append_new_map(r, self->level, (self->x + other->x) % 2, rotate);
 			res->extra_phase = r->extra_phase + self->rotate * other->x;
@@ -85,9 +100,10 @@ namespace dd {
 			return self;
 		}
 		if (self == other) {
-			//the_maps_header->extra_phase = 0;
-			assert(the_maps::the_maps_header()->extra_phase == 0);
-			return the_maps::the_maps_header();
+			auto the_maps_header = the_maps::the_maps_header();
+			the_maps_header->extra_phase = 0;
+			//assert(the_maps::the_maps_header()->extra_phase == 0);
+			return the_maps_header;
 		}
 
 		auto r = mapdivTable.lookup(self, other);
@@ -103,7 +119,11 @@ namespace dd {
 		}
 		else if (self->level < other->level) {
 			auto r = the_maps::mapdiv(self, other->father);
-			long int rotate = other->rotate * pow(-1, 1 - other->x);
+			//long int rotate = other->rotate * pow(-1, 1 - other->x);
+			auto rotate = other->rotate;
+			if (1 - other->x == 1) {
+				rotate *= -1;
+			}
 			rotate = rotate % root_of_unit;
 			res = append_new_map(r, other->level, other->x, rotate);
 			res->extra_phase = r->extra_phase - other->rotate * other->x;
@@ -112,7 +132,14 @@ namespace dd {
 			auto r = the_maps::mapdiv(self->father, other->father);
 			r->extra_phase += self->rotate * other->x;
 			short x = (self->x + other->x) % 2;
-			long int rotate = self->rotate + other->rotate * pow(-1, 1 - x);
+			//long int rotate = self->rotate + other->rotate * pow(-1, 1 - x);
+			auto rotate = self->rotate;
+			if (1 - x == 0) {
+				rotate += other->rotate;
+			}
+			else {
+				rotate -= other->rotate;
+			}
 			rotate = rotate % root_of_unit;
 			res = append_new_map(r, self->level, x, rotate);
 			res->extra_phase = r->extra_phase - other->rotate * x;
@@ -130,7 +157,7 @@ namespace dd {
 			if (map->x == 1) {
 				std::cout << "x ";
 			}
-			if (map->rotate > 0) {
+			if (map->rotate != 0) {
 				std::cout << map->rotate;
 			}
 			std::cout << ";";

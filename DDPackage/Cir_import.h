@@ -241,14 +241,16 @@ std::map<int, std::vector<dd::Index>> get_index(std::map<int, gate> gate_set, st
 			targ_idx2 += to_string(0);
 			targ_idx2 += to_string(qubit_idx[tar_q]);
 			Index_set[k] = { {targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
-			if (nam == "z" || nam == "s" || nam == "sdg" || nam == "t" || nam == "tdg" || (nam[0] == 'u' && nam[1] == '1') || (nam[0] == 'r' && nam[1] == 'z')) {
-				Index_set[k] = { {targ_idx1,hyper_idx[targ_idx1]},{targ_idx1,hyper_idx[targ_idx1] + 1} };
-				qubit_idx[tar_q] -= 1;
-				hyper_idx[targ_idx1] += 1;
-			}
-			else {
-				Index_set[k] = { {targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
-			}
+			//if (nam == "z" || nam == "s" || nam == "sdg" || nam == "t" || nam == "tdg" || (nam[0] == 'u' && nam[1] == '1') || (nam[0] == 'r' && nam[1] == 'z')) {
+			//	Index_set[k] = { {targ_idx1,hyper_idx[targ_idx1]},{targ_idx1,hyper_idx[targ_idx1] + 1} };
+			//	qubit_idx[tar_q] -= 1;
+			//	hyper_idx[targ_idx1] += 1;
+			//}
+			//else {
+			//	Index_set[k] = { {targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
+			//}
+			Index_set[k] = { {targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
+
 		}
 		//std::cout << k << " ";
 		//print_index_set(Index_set[k]);
@@ -453,7 +455,7 @@ std::map<int, map<int, std::vector<int>>>  cir_partition2(std::map<int, gate> ga
 
 dd::TDD apply(dd::TDD tdd, std::string nam, std::vector<dd::Index> index_set, std::unique_ptr<dd::Package<>>& dd) {
 
-	//std::cout << nam << std::endl;
+	std::cout << nam << std::endl;
 
 	std::map<std::string, int> gate_type;
 	gate_type["x"] = 1;
@@ -912,7 +914,7 @@ int* Simulate_with_tdd(std::string path, std::string  file_name, std::unique_ptr
 
 
 
-	std::cout << tdd.e.w << std::endl;
+	//std::cout << tdd.e.w << std::endl;
 	//std::cout << "TDD: ";
 	//for (const auto& element : tdd.key_2_index) {
 	//	std::cout << element << " ";
@@ -924,6 +926,19 @@ int* Simulate_with_tdd(std::string path, std::string  file_name, std::unique_ptr
 	//dd->statistics();
 	//dd::export2Dot(tdd.e, "tdd1");
 
+	std::cout << "Output " << std::endl;
+	std::cout<< tdd.e.w<<"  " << tdd.e.p->v << std::endl;
+	dd::the_maps::print_maps(tdd.e.map);
+	assert(tdd.e.p->e[0].p == tdd.e.p->e[1].p);
+	std::cout << tdd.e.p->e[0].w << std::endl;
+	dd::the_maps::print_maps(tdd.e.p->e[0].map);
+	std::cout << tdd.e.p->e[1].w << std::endl;
+	dd::the_maps::print_maps(tdd.e.p->e[1].map);
+
+	std::cout << tdd.e.p->e[0].p->e[0].w << std::endl;
+	dd::the_maps::print_maps(tdd.e.p->e[0].p->e[0].map);
+	std::cout << tdd.e.p->e[0].p->e[1].w << std::endl;
+	dd::the_maps::print_maps(tdd.e.p->e[0].p->e[1].map);
 
 	if (release) {
 		dd->decRef(tdd.e);

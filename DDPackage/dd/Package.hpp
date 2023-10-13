@@ -168,33 +168,60 @@ namespace dd {
 			}
 
 
-			if (e_low[0].p == e_low[1].p and e_low[0].w == e_low[1].w) {
-				low.e = e_low[0];
-			}
-			else {
-				low.e = makeDDNode(0, e_low, false);
-			}
-			if (e_high[0].p == e_high[1].p and e_high[0].w == e_high[1].w) {
-				high.e = e_high[0];
-			}
-			else {
-				high.e = makeDDNode(0, e_high, false);
-			}
-			if (low.e.p == high.e.p and low.e.w == high.e.w) {
-				res.e = low.e;
-			}
-			else {
-				e[0] = low.e;
-				e[1] = high.e;
-				res.e = makeDDNode(1, e, false); ;
-			}
+			//if (e_low[0].p == e_low[1].p and e_low[0].w == e_low[1].w) {
+			//	low.e = e_low[0];
+			//}
+			//else {
+			low.e = makeDDNode(0, e_low, false);
+			//}
+			//if (e_high[0].p == e_high[1].p and e_high[0].w == e_high[1].w) {
+			//	high.e = e_high[0];
+			//}
+			//else {
+			high.e = makeDDNode(0, e_high, false);
+			//}
+			//if (low.e.p == high.e.p and low.e.w == high.e.w) {
+			//	res.e = low.e;
+			//}
+			//else {
+			e[0] = low.e;
+			e[1] = high.e;
+			res.e = makeDDNode(1, e, false); ;
+			//}
 			res.index_set = var_out;
 			res.key_2_index = key_2_index;
+
+			//std::cout << "Ma-tdd" << std::endl;
+			//std::cout << e[0].w<<" "<<e[0].p->e[0].w<<" " <<e[0].p->e[1].w << std::endl;
+			//dd::the_maps::print_maps(e[0].map);
+			//std::cout << e[1].w << " " << e[1].p->e[0].w << " " << e[1].p->e[1].w << std::endl;
+			//dd::the_maps::print_maps(e[1].map);
+
+			//std::cout << res.e.w << " " << res.e.p->v << std::endl;
+			//the_maps::print_maps(res.e.map);
+
+			//auto tdd = res;
+			//assert(tdd.e.p->e[0].p == tdd.e.p->e[1].p);
+			//std::cout << tdd.e.p->e[0].w << std::endl;
+			//dd::the_maps::print_maps(tdd.e.p->e[0].map);
+			//std::cout << tdd.e.p->e[1].w << std::endl;
+			//dd::the_maps::print_maps(tdd.e.p->e[1].map);
+
+			//std::cout << tdd.e.p->e[0].p->e[0].w << std::endl;
+			//dd::the_maps::print_maps(tdd.e.p->e[0].p->e[0].map);
+			//std::cout << tdd.e.p->e[0].p->e[1].w << std::endl;
+			//dd::the_maps::print_maps(tdd.e.p->e[0].p->e[1].map);
+
+			//std::cout << "Ma-end" << std::endl;
 			return res;
 		}
 		//template <class Node>
 		TDD diag_matrix_2_TDD(const GateMatrix mat, std::vector<Index> var_out)
 		{
+			bool not_support_diag_op = true;
+			if (not_support_diag_op) {
+				return Matrix2TDD(mat, var_out);
+			}
 
 			TDD res;
 			int Radix = 2;
@@ -296,6 +323,7 @@ namespace dd {
 			auto maxc = Complex::one;
 			// determine max amplitude
 			for (auto i = 0U; i < R; ++i) {
+				//std::cout << 299 << " " << zero[i]<<" "<< e.p->e[i].w << std::endl;
 				if (zero[i]) {
 					continue;
 				}
@@ -312,6 +340,7 @@ namespace dd {
 						maxc = e.p->e[i].w;
 					}
 				}
+				//std::cout << 315 << " " << i << " " << argmax << " " << max << " " << maxc << std::endl;
 			}
 
 			// all equal to zero
@@ -321,6 +350,7 @@ namespace dd {
 					// the chain
 					getUniqueTable<Node>().returnNode(e.p);
 				}
+				std::cout << "aaa" << std::endl;
 				return Edge<Node>::zero;
 			}
 
@@ -333,6 +363,7 @@ namespace dd {
 				x = 1;
 			}
 			argmax = 0;
+			//std::cout << argmax<<" " << maxc << std::endl;
 			// divide each entry by max
 			for (auto i = 0U; i < R; ++i) {
 				if (static_cast<decltype(argmax)>(i) == argmax) {
@@ -341,6 +372,7 @@ namespace dd {
 							r.w = maxc;
 						}
 						else {
+							assert(r.w != Complex::zero);
 							ComplexNumbers::mul(r.w, r.w, maxc);
 						}
 					}
@@ -350,6 +382,7 @@ namespace dd {
 						}
 						else {
 							auto c = cn.getTemporary();
+							assert(c != Complex::zero);
 							ComplexNumbers::mul(c, r.w, maxc);
 							r.w = cn.lookup(c);
 						}
@@ -366,6 +399,7 @@ namespace dd {
 						}
 						//r.p->e[i] = Edge<Node>::zero;
 						r.p->e[i] = { r.p->e[0].p,Complex::zero, the_maps::the_maps_header() };
+						r.p->e[i].map->extra_phase = 0;
 						continue;
 					}
 					if (cached && !zero[i] && !r.p->e[i].w.exactlyOne()) {
@@ -377,12 +411,16 @@ namespace dd {
 					}
 					auto c = cn.getTemporary();
 					ComplexNumbers::div(c, r.p->e[i].w, maxc);
-					float angle = atan(c.i->value / c.r->value);
-					c.r->value = ComplexNumbers::mag2(c);
+					//float angle = atan2(c.i->value / c.r->value);
+					auto angle = ComplexNumbers::arg(c);
+					//std::cout << 412 << " " << c.i->value << " " << c.r->value << " " << angle << std::endl;
+					c.r->value = sqrt(ComplexNumbers::mag2(c));
 					c.i->value = 0;
 					r.p->e[i].w = cn.lookup(c);
-					r.p->e[i].map = the_maps::mapdiv(r.p->e[i].map, r.p->e[0].map);
-					r.p->e[i].map->extra_phase += (long int) angle/ unit_rotate_angle;
+					r.p->e[i].map = the_maps::mapdiv(r.p->e[i].map, r.map);
+					//std::cout << r.p->e[1].map->extra_phase<<" "<< angle / unit_rotate_angle<<" " << (long int) angle/unit_rotate_angle << std::endl;
+					r.p->e[i].map->extra_phase += angle/unit_rotate_angle;
+					//std::cout << r.p->e[1].map->extra_phase << std::endl;
 				}
 			}
 
@@ -473,6 +511,9 @@ namespace dd {
 			//	}
 			//	return edges[0];
 			//}
+			//std::cout << "--" << std::endl;
+			//std::cout << 486 << "   " << edges[0].w << std::endl;
+			//std::cout << 486 << "   " << edges[1].w << std::endl;
 
 			e = normalize(e, cached);
 
@@ -482,6 +523,8 @@ namespace dd {
 			auto l = uniqueTable.lookup(e, false);
 
 			assert(l.p->v == var || l.isTerminal());
+			//std::cout << 486 << "   " << l.w << std::endl;
+			//std::cout << "--" << std::endl;
 
 			return l;
 		}
@@ -574,21 +617,6 @@ namespace dd {
 						var_cont.push_back(var_cont_temp[k]);
 					}
 				}
-			}
-
-
-			if (to_test) {
-				std::cout << "TDD1: ";
-				for (const auto& element : tdd1.key_2_index) {
-					std::cout << element << " ";
-				}
-				std::cout << std::endl;
-				std::cout << "TDD2: ";
-				for (const auto& element : tdd2.key_2_index) {
-					std::cout << element << " ";
-				}
-				std::cout << std::endl;
-
 			}
 
 
@@ -686,7 +714,8 @@ namespace dd {
 
 
 			[[maybe_unused]] const auto before = cn.cacheCount();
-
+			std::cout << "-----------" << std::endl;
+			std::cout << tdd1.e.w<<" "<<tdd2.e.w << std::endl;
 			res.e = cont2(tdd1.e, tdd2.e, key_2_new_key1, key_2_new_key2, var_cont.size());
 
 			if (to_test) {
@@ -710,10 +739,17 @@ namespace dd {
 			}
 
 			[[maybe_unused]] const auto after = cn.cacheCount();
+			if (before != after) {
+				std::cout << before << " " << after << std::endl;
+			}
 			assert(before == after);
 
-			the_maps::print_maps(res.e.map);
-
+			
+			//the_maps::print_maps(tdd1.e.map);
+			//the_maps::print_maps(tdd2.e.map);
+			//the_maps::print_maps(res.e.map);
+			std::cout << tdd1.e.w << " " << tdd2.e.w <<" "<<res.e.w << std::endl;
+			std::cout << "-----------" << std::endl;
 			return res;
 		}
 
@@ -738,6 +774,7 @@ namespace dd {
 						temp.map = the_maps::mapmul(e.map, temp.map);
 						if (temp.map->extra_phase > 0) {
 							double angle = temp.map->extra_phase * unit_rotate_angle;
+							assert(temp.w != Complex::zero);
 							cn.mul(temp.w, temp.w, cn.getTemporary(cos(angle), sin(angle)));
 						}
 					}
@@ -747,16 +784,18 @@ namespace dd {
 					auto temp = e.p->e[c];
 					if (temp.w != Complex::zero) {
 						temp.w = cn.mulCached(temp.w, e.w);
-						temp.map = the_maps::mapmul(e.map, temp.map);
+						temp.map = the_maps::mapmul(e.map->father, temp.map);
 						if (c == 0) {
 							if (temp.map->extra_phase > 0) {
 								double angle = temp.map->extra_phase * unit_rotate_angle;
+								assert(temp.w != Complex::zero);
 								cn.mul(temp.w, temp.w, cn.getTemporary(cos(angle), sin(angle)));
 							}
 						}
 						else {
 							if (temp.map->extra_phase + e.map->rotate > 0) {
 								double angle = ((temp.map->extra_phase + e.map->rotate) % root_of_unit) * unit_rotate_angle;
+								assert(temp.w != Complex::zero);
 								cn.mul(temp.w, temp.w, cn.getTemporary(cos(angle), sin(angle)));
 							}
 						}
@@ -767,16 +806,18 @@ namespace dd {
 					auto temp = e.p->e[1 - c];
 					if (temp.w != Complex::zero) {
 						temp.w = cn.mulCached(temp.w, e.w);
-						temp.map = the_maps::mapmul(e.map, temp.map);
+						temp.map = the_maps::mapmul(e.map->father, temp.map);
 						if (c == 1) {
 							if (temp.map->extra_phase > 0) {
 								double angle = temp.map->extra_phase * unit_rotate_angle;
+								assert(temp.w != Complex::zero);
 								cn.mul(temp.w, temp.w, cn.getTemporary(cos(angle), sin(angle)));
 							}
 						}
 						else {
 							if (temp.map->extra_phase + e.map->rotate > 0) {
 								double angle = ((temp.map->extra_phase + e.map->rotate) % root_of_unit) * unit_rotate_angle;
+								assert(temp.w != Complex::zero);
 								cn.mul(temp.w, temp.w, cn.getTemporary(cos(angle), sin(angle)));
 							}
 						}
@@ -816,7 +857,7 @@ namespace dd {
 				else if (e.map->x == 0) {
 					auto temp = e.p->e[c];
 					if (temp.w != Complex::zero) {
-						temp.map = the_maps::mapmul(e.map, temp.map);
+						temp.map = the_maps::mapmul(e.map->father, temp.map);
 						double angle;
 						if (c == 0) {
 							angle = temp.map->extra_phase * unit_rotate_angle;
@@ -831,7 +872,7 @@ namespace dd {
 				else {
 					auto temp = e.p->e[1-c];
 					if (temp.w != Complex::zero) {
-						temp.map = the_maps::mapmul(e.map, temp.map);
+						temp.map = the_maps::mapmul(e.map->father, temp.map);
 						double angle;
 						if (c == 1) {
 							angle = temp.map->extra_phase * unit_rotate_angle;
@@ -856,6 +897,10 @@ namespace dd {
 
 		template <class Node>
 		Edge<Node> T_add2(const Edge<Node>& x, const Edge<Node>& y) {
+
+			//std::cout <<"879 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v)<<" " << x.map << " " << y.map << std::endl;
+			//the_maps::print_maps(x.map);
+			//the_maps::print_maps(y.map);
 
 			if (x.p > y.p) {
 				return T_add2(y, x);
@@ -882,6 +927,7 @@ namespace dd {
 				return r;
 			}
 			if (x.p == y.p && x.map==y.map) {
+				//std::cout << "Case 0" << std::endl;
 				auto r = y;
 				r.w = cn.addCached(x.w, y.w);
 				if (r.w.approximatelyZero()) {
@@ -890,38 +936,46 @@ namespace dd {
 					return Edge<Node>::zero;
 				}
 				r.map = x.map;
+				
 				return r;
 			}
 
 			auto xCopy = x;
 			auto yCopy = y;
-			if (x.w != Complex::one) {
-				xCopy.w = Complex::one;
-				xCopy.map = the_maps::the_maps_header();
-				yCopy.w = cn.divCached(y.w, x.w);
-				yCopy.map = the_maps::mapdiv(y.map, x.map);
-				if (yCopy.map->extra_phase > 0 && yCopy.w != Complex::zero) {
-					double angle = yCopy.map->extra_phase * unit_rotate_angle;
-					cn.mul(yCopy.w, yCopy.w, cn.getTemporary(cos(angle), sin(angle)));
-				}
+
+
+			xCopy.w = Complex::one;
+			xCopy.map = the_maps::the_maps_header();
+			yCopy.w = cn.divCached(y.w, x.w);
+			yCopy.map = the_maps::mapdiv(y.map, x.map);
+			if (yCopy.map->extra_phase > 0 && yCopy.w != Complex::zero) {
+				double angle = yCopy.map->extra_phase * unit_rotate_angle;
+				assert(yCopy.w != Complex::zero);
+				cn.mul(yCopy.w, yCopy.w, cn.getTemporary(cos(angle), sin(angle)));
 			}
+
 
 
 			auto r = addTable.lookup({ xCopy.p, xCopy.w,xCopy.map }, { yCopy.p, yCopy.w,yCopy.map });
 
 			if (r.p != nullptr) {
+				//std::cout << "Case 1" << std::endl;
 				if (r.w.approximatelyZero()) {
 					return Edge<Node>::zero;
 				}
 				auto c = cn.getCached(r.w);
-				if (x.w != Complex::one) {
+
+				if (c != Complex::zero) {
 					cn.mul(c, c, x.w);
-					//assert(yCopy.w != Complex::zero);
-					cn.returnToCache(yCopy.w);
 				}
+				
+				//assert(yCopy.w != Complex::zero);
+				cn.returnToCache(yCopy.w);
+
 				auto temp_map = the_maps::mapmul(x.map, r.map);
 				if (temp_map->extra_phase > 0 && c != Complex::zero) {
 					double angle = temp_map->extra_phase * unit_rotate_angle;
+					assert(c != Complex::zero);
 					cn.mul(c, c, cn.getTemporary(cos(angle), sin(angle)));
 				}
 
@@ -942,7 +996,7 @@ namespace dd {
 					//if (e1.w != Complex::zero) {
 					//	e1.w = cn.mulCached(e1.w, xCopy.w);
 					//}
-					e1 = Slicing(x, x.p->v, i);
+					e1 = Slicing(xCopy, xCopy.p->v, i);
 				}
 				else {
 					e1 = xCopy;
@@ -956,7 +1010,7 @@ namespace dd {
 					//if (e2.w != Complex::zero) {
 					//	e2.w = cn.mulCached(e2.w, yCopy.w);
 					//}
-					e2 = Slicing(y, y.p->v, i);
+					e2 = Slicing(yCopy, yCopy.p->v, i);
 				}
 				else {
 					e2 = yCopy;
@@ -983,17 +1037,32 @@ namespace dd {
 			auto e = makeDDNode(w, edge, true);
 
 			addTable.insert({ xCopy.p,xCopy.w,xCopy.map }, { yCopy.p,yCopy.w,yCopy.map }, { e.p, e.w,e.map });
-			if (x.w != Complex::one) {
+			//if (x.w != Complex::one) {
+	
+			//	assert(e.w != Complex::zero);
+			//	//assert(yCopy.w != Complex::zero);
+			//	
+			//}
+			if (e.w != Complex::zero) {
+				assert(e.w != Complex::zero);
 				cn.mul(e.w, e.w, x.w);
-				//assert(yCopy.w != Complex::zero);
-				cn.returnToCache(yCopy.w);
+				e.map = the_maps::mapmul(x.map, e.map);
+				if (e.map->extra_phase > 0) {
+					double angle = e.map->extra_phase * unit_rotate_angle;
+					assert(e.w != Complex::zero);
+					cn.mul(e.w, e.w, cn.getTemporary(cos(angle), sin(angle)));
+				}
 			}
-
-			e.map = the_maps::mapmul(x.map, e.map);
-			if (e.map->extra_phase > 0 && e.w != Complex::zero) {
-				double angle = e.map->extra_phase * unit_rotate_angle;
-				cn.mul(e.w, e.w, cn.getTemporary(cos(angle), sin(angle)));
+			else {
+				std::cout << "Something unexppected happened!!" << std::endl;
+				std::cout << "879 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v) << " " << x.map << " " << y.map << std::endl;
+				the_maps::print_maps(x.map);
+				the_maps::print_maps(y.map);
+				std::cout << x.p->e[0].w << " " << x.p->e[1].w << std::endl;
+				std::cout << y.p->e[0].w << " " << y.p->e[1].w << std::endl;
 			}
+			cn.returnToCache(yCopy.w);
+			//std::cout << "Case 2" << std::endl;
 			return e;
 		}
 
@@ -1049,7 +1118,14 @@ namespace dd {
 
 			auto x = (map1->x + map2->x) % 2;
 			res->remain_map->extra_phase += map2->rotate * x;
-			auto rotate = (long int)(map1->rotate + map2->rotate * pow(-1, x));
+			//auto rotate = map1->rotate + map2->rotate * pow(-1, x);
+			auto rotate = map1->rotate;
+			if (x == 0) {
+				rotate += map2->rotate;
+			}
+			else {
+				rotate -= map2->rotate;
+			}
 			rotate = rotate % root_of_unit;
 			res->cont_map1 = the_maps::append_new_map(res->cont_map1, map1->level, x, rotate);
 
@@ -1060,6 +1136,8 @@ namespace dd {
 		Edge<mNode> cont2(const Edge<mNode>& x, const Edge<mNode>& y, key_2_new_key_node* key_2_new_key1, key_2_new_key_node* key_2_new_key2, const int var_num) {
 
 			//std::cout <<"838 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v) << std::endl;
+			//the_maps::print_maps(x.map);
+			//the_maps::print_maps(y.map);
 
 			using ResultEdge = Edge<mNode>;
 
@@ -1080,9 +1158,10 @@ namespace dd {
 				auto c = cn.mulCached(x.w, y.w);
 
 				if (var_num > 0) {
+					assert(c != Complex::zero);
 					ComplexNumbers::mul(c, c, cn.getTemporary(pow(2, var_num), 0));
 				}
-
+				//std::cout << "Case 00" << std::endl;
 				return ResultEdge::terminal(c);
 			}
 
@@ -1093,6 +1172,7 @@ namespace dd {
 
 
 			if (x.p->v == -1 && var_num == 0 && std::abs(temp_key_2_new_key2->new_key - y.p->v) < 1e-10) {
+				//std::cout << "Case 01" << std::endl;
 				return 	ResultEdge{ y.p, cn.mulCached(x.w, y.w) ,y.map};
 			}
 
@@ -1102,6 +1182,7 @@ namespace dd {
 			}
 
 			if (y.p->v == -1 && var_num == 0 && std::abs(temp_key_2_new_key1->new_key - x.p->v) < 1e-10) {
+				//std::cout << "Case 02" << std::endl;
 				return 	ResultEdge{ x.p, cn.mulCached(x.w, y.w) ,x.map};
 			}
 
@@ -1123,6 +1204,7 @@ namespace dd {
 					return ResultEdge::zero;
 				}
 				auto e = ResultEdge{ res.e.p, cn.getCached(res.e.w) };
+				assert(e.w != Complex::zero);
 				ComplexNumbers::mul(e.w, e.w, x.w);
 				ComplexNumbers::mul(e.w, e.w, y.w);
 				if (e.w.approximatelyZero()) {
@@ -1130,7 +1212,9 @@ namespace dd {
 					cn.returnToCache(e.w);
 					return ResultEdge::zero;
 				}
+				//std::cout << "1160 " << var_num << " " << res.cont_num << std::endl;
 				if (res.cont_num != var_num) {
+					assert(e.w != Complex::zero);
 					ComplexNumbers::mul(e.w, e.w, cn.getTemporary(pow(2, var_num - res.cont_num), 0));//对于一般形状的tensor,以2为底数可能有问题
 				}
 				e.map = the_maps::mapmul(r_maps->remain_map, e.map);
@@ -1138,8 +1222,11 @@ namespace dd {
 				temp_phase = temp_phase % root_of_unit;
 				if (temp_phase > 0 && e.w != Complex::zero) {
 					double angle = temp_phase * unit_rotate_angle;
+					//std::cout << 1145 << " " << angle << " " << cos(angle) << " " << sin(angle) << std::endl;
+					assert(e.w != Complex::zero);
 					cn.mul(e.w, e.w, cn.getTemporary(cos(angle), sin(angle)));
 				}
+				//std::cout << "Case 1 " << e.w << " " << int(e.p->v)  << std::endl;
 				return e;
 			}
 
@@ -1156,7 +1243,7 @@ namespace dd {
 					ResultEdge etemp{};
 					for (int k = 0; k < x.p->e.size(); ++k) {
 						//e1 = x.p->e[k];
-						e1 = Slicing(x, x.p->v, k);
+						e1 = Slicing2(xCopy, xCopy.p->v, k);
 						e2 = yCopy;
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
 						if (e1.w != Complex::zero) {
@@ -1181,7 +1268,7 @@ namespace dd {
 					std::vector<ResultEdge> e;
 					for (int k = 0; k < x.p->e.size(); ++k) {
 						//e1 = x.p->e[k];
-						e1 = Slicing(x, x.p->v, k);
+						e1 = Slicing2(xCopy, xCopy.p->v, k);
 						e2 = yCopy;
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
 						if (e1.w != Complex::zero) {
@@ -1198,7 +1285,7 @@ namespace dd {
 					for (int k = 0; k < y.p->e.size(); ++k) {
 						e1 = xCopy;
 						//e2 = y.p->e[k];
-						e2 = Slicing(y, y.p->v, k);
+						e2 = Slicing2(yCopy, yCopy.p->v, k);
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
 						if (e2.w != Complex::zero) {
 							cn.returnToCache(e2.w);
@@ -1223,7 +1310,7 @@ namespace dd {
 					for (int k = 0; k < y.p->e.size(); ++k) {
 						e1 = xCopy;
 						//e2 = y.p->e[k];
-						e2 = Slicing(y, y.p->v, k);
+						e2 = Slicing2(yCopy, yCopy.p->v, k);
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
 						if (e2.w != Complex::zero) {
 							cn.returnToCache(e2.w);
@@ -1239,9 +1326,9 @@ namespace dd {
 					ResultEdge etemp{};
 					for (int k = 0; k < x.p->e.size(); ++k) {
 						//e1 = x.p->e[k];
-						e1 = Slicing(x, x.p->v, k);
+						e1 = Slicing2(xCopy, xCopy.p->v, k);
 						//e2 = y.p->e[k];
-						e2 = Slicing(y, y.p->v, k);
+						e2 = Slicing2(yCopy, yCopy.p->v, k);
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
 						if (e1.w != Complex::zero) {
 							cn.returnToCache(e1.w);
@@ -1268,9 +1355,9 @@ namespace dd {
 					std::vector<ResultEdge> e;
 					for (int k = 0; k < x.p->e.size(); ++k) {
 						//e1 = x.p->e[k];
-						e1 = Slicing(x, x.p->v, k);
+						e1 = Slicing2(xCopy, xCopy.p->v, k);
 						//e2 = y.p->e[k];
-						e2 = Slicing(y, y.p->v, k);
+						e2 = Slicing2(yCopy, yCopy.p->v, k);
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
 						if (e1.w != Complex::zero) {
 							cn.returnToCache(e1.w);
@@ -1290,6 +1377,7 @@ namespace dd {
 					r.w = cn.mulCached(x.w, y.w);
 				}
 				else {
+					assert(r.w != Complex::zero);
 					ComplexNumbers::mul(r.w, r.w, x.w);
 					ComplexNumbers::mul(r.w, r.w, y.w);
 				}
@@ -1304,8 +1392,11 @@ namespace dd {
 			temp_phase = temp_phase % root_of_unit;
 			if (temp_phase > 0 && r.w != Complex::zero) {
 				double angle = temp_phase * unit_rotate_angle;
+				//std::cout << 1311 << " " << angle << " " << cos(angle) << " " << sin(angle) << std::endl;
+				assert(r.w != Complex::zero);
 				cn.mul(r.w, r.w, cn.getTemporary(cos(angle), sin(angle)));
 			}
+			//std::cout << "Case 2 " << r.w << " " << int(r.p->v) << std::endl;
 			return r;
 
 		}
