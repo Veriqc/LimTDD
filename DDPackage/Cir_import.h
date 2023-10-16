@@ -924,21 +924,21 @@ int* Simulate_with_tdd(std::string path, std::string  file_name, std::unique_ptr
 	int node_num_final = dd->size(tdd.e);
 	nodes[1] = node_num_final;
 	//dd->statistics();
-	//dd::export2Dot(tdd.e, "tdd1");
+	dd::export2Dot(tdd.e, "tdd1", true,true);
 
-	std::cout << "Output " << std::endl;
-	std::cout<< tdd.e.w<<"  " << tdd.e.p->v << std::endl;
-	dd::the_maps::print_maps(tdd.e.map);
-	assert(tdd.e.p->e[0].p == tdd.e.p->e[1].p);
-	std::cout << tdd.e.p->e[0].w << std::endl;
-	dd::the_maps::print_maps(tdd.e.p->e[0].map);
-	std::cout << tdd.e.p->e[1].w << std::endl;
-	dd::the_maps::print_maps(tdd.e.p->e[1].map);
+	//std::cout << "Output " << std::endl;
+	//std::cout<< tdd.e.w<<"  " << tdd.e.p->v << std::endl;
+	//dd::the_maps::print_maps(tdd.e.map);
+	//assert(tdd.e.p->e[0].p == tdd.e.p->e[1].p);
+	//std::cout << tdd.e.p->e[0].w << std::endl;
+	//dd::the_maps::print_maps(tdd.e.p->e[0].map);
+	//std::cout << tdd.e.p->e[1].w << std::endl;
+	//dd::the_maps::print_maps(tdd.e.p->e[1].map);
 
-	std::cout << tdd.e.p->e[0].p->e[0].w << std::endl;
-	dd::the_maps::print_maps(tdd.e.p->e[0].p->e[0].map);
-	std::cout << tdd.e.p->e[0].p->e[1].w << std::endl;
-	dd::the_maps::print_maps(tdd.e.p->e[0].p->e[1].map);
+	//std::cout << tdd.e.p->e[0].p->e[0].w << std::endl;
+	//dd::the_maps::print_maps(tdd.e.p->e[0].p->e[0].map);
+	//std::cout << tdd.e.p->e[0].p->e[1].w << std::endl;
+	//dd::the_maps::print_maps(tdd.e.p->e[0].p->e[1].map);
 
 	if (release) {
 		dd->decRef(tdd.e);

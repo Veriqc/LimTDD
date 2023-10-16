@@ -350,7 +350,7 @@ namespace dd {
 					// the chain
 					getUniqueTable<Node>().returnNode(e.p);
 				}
-				std::cout << "aaa" << std::endl;
+				//std::cout << "aaa" << std::endl;
 				return Edge<Node>::zero;
 			}
 
@@ -714,8 +714,8 @@ namespace dd {
 
 
 			[[maybe_unused]] const auto before = cn.cacheCount();
-			std::cout << "-----------" << std::endl;
-			std::cout << tdd1.e.w<<" "<<tdd2.e.w << std::endl;
+			//std::cout << "-----------" << std::endl;
+			//std::cout << tdd1.e.w<<" "<<tdd2.e.w << std::endl;
 			res.e = cont2(tdd1.e, tdd2.e, key_2_new_key1, key_2_new_key2, var_cont.size());
 
 			if (to_test) {
@@ -739,16 +739,15 @@ namespace dd {
 			}
 
 			[[maybe_unused]] const auto after = cn.cacheCount();
-			if (before != after) {
-				std::cout << before << " " << after << std::endl;
-			}
+
 			assert(before == after);
 
 			
 			//the_maps::print_maps(tdd1.e.map);
 			//the_maps::print_maps(tdd2.e.map);
 			//the_maps::print_maps(res.e.map);
-			std::cout << tdd1.e.w << " " << tdd2.e.w <<" "<<res.e.w << std::endl;
+			//std::cout << tdd1.e.w << " " << tdd2.e.w <<" "<<res.e.w << std::endl;
+			std::cout << size(res.e)<<" "<< res.e.p->v << std::endl;
 			std::cout << "-----------" << std::endl;
 			return res;
 		}
@@ -1045,14 +1044,14 @@ namespace dd {
 					cn.mul(e.w, e.w, cn.getTemporary(cos(angle), sin(angle)));
 				}
 			}
-			else {
-				std::cout << "Something unexppected happened!!" << std::endl;
-				std::cout << "879 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v) << " " << x.map << " " << y.map << std::endl;
-				the_maps::print_maps(x.map);
-				the_maps::print_maps(y.map);
-				std::cout << x.p->e[0].w << " " << x.p->e[1].w << std::endl;
-				std::cout << y.p->e[0].w << " " << y.p->e[1].w << std::endl;
-			}
+			//else {
+			//	std::cout << "Something unexppected happened!!" << std::endl;
+			//	std::cout << "879 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v) << " " << x.map << " " << y.map << std::endl;
+			//	the_maps::print_maps(x.map);
+			//	the_maps::print_maps(y.map);
+			//	std::cout << x.p->e[0].w << " " << x.p->e[1].w << std::endl;
+			//	std::cout << y.p->e[0].w << " " << y.p->e[1].w << std::endl;
+			//}
 			cn.returnToCache(yCopy.w);
 			//std::cout << "Case 2" << std::endl;
 			return e;
@@ -1188,14 +1187,14 @@ namespace dd {
 			auto r_maps = find_remain_map(x.map, y.map, key_2_new_key1, key_2_new_key2);
 			xCopy.map = r_maps->cont_map1;
 			yCopy.map = r_maps->cont_map2;
-
+			auto extra_phase = r_maps->remain_map->extra_phase;
 
 			auto res = contTable.lookup(xCopy, yCopy, temp_key_2_new_key1, temp_key_2_new_key2);
 			if (res.e.p != nullptr) {
 				if (res.e.w.approximatelyZero()) {
 					return ResultEdge::zero;
 				}
-				auto e = ResultEdge{ res.e.p, cn.getCached(res.e.w) };
+				auto e = ResultEdge{ res.e.p, cn.getCached(res.e.w),res.e.map };
 				assert(e.w != Complex::zero);
 				ComplexNumbers::mul(e.w, e.w, x.w);
 				ComplexNumbers::mul(e.w, e.w, y.w);
@@ -1210,7 +1209,7 @@ namespace dd {
 					ComplexNumbers::mul(e.w, e.w, cn.getTemporary(pow(2, var_num - res.cont_num), 0));//对于一般形状的tensor,以2为底数可能有问题
 				}
 				e.map = the_maps::mapmul(r_maps->remain_map, e.map);
-				auto temp_phase = e.map->extra_phase + r_maps->remain_map->extra_phase;
+				auto temp_phase = e.map->extra_phase + extra_phase;
 				temp_phase = temp_phase % root_of_unit;
 				if (temp_phase > 0 && e.w != Complex::zero) {
 					double angle = temp_phase * unit_rotate_angle;
@@ -1380,7 +1379,7 @@ namespace dd {
 				}
 			}
 			r.map = the_maps::mapmul(r_maps->remain_map, r.map);
-			auto temp_phase = r.map->extra_phase + r_maps->remain_map->extra_phase;
+			auto temp_phase = r.map->extra_phase + extra_phase;
 			temp_phase = temp_phase % root_of_unit;
 			if (temp_phase > 0 && r.w != Complex::zero) {
 				double angle = temp_phase * unit_rotate_angle;

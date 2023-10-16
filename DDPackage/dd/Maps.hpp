@@ -31,6 +31,8 @@ namespace dd {
 
 		static void print_maps(the_maps* map);
 
+		static std::string to_string(the_maps* map);
+
 		//static the_maps** find_remain_map(the_maps* map1, the_maps* map2, key_2_new_key_node* key_2_new_key);
 
 	};

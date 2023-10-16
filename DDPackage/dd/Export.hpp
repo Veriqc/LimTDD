@@ -5,6 +5,8 @@
 #include "Definitions.hpp"
 #include "Edge.hpp"
 #include "Package.hpp"
+#include "Package.hpp"
+#include "Maps.hpp"
 
 #include <algorithm>
 #include <array>
@@ -216,7 +218,7 @@ namespace dd {
 			<< conditionalFormat(e.w, formatAsPolar) << "\",color=\"" << color << "\"";
 		if (edgeLabels) {
 			os << ",label=<<font point-size=\"8\">&nbsp;"
-				<< conditionalFormat(e.w, formatAsPolar) << "</font>>";
+				<< conditionalFormat(e.w, formatAsPolar) + " " + the_maps::to_string(e.map) << "</font>>";
 		}
 		os << "]\n";
 		return os;
@@ -370,7 +372,10 @@ namespace dd {
 
 	template <class Edge>
 	static std::ostream& memoryNode(const Edge& e, std::ostream& os) {
-		constexpr std::size_t n = std::tuple_size_v<decltype(e.p->e)>;
+
+		//constexpr std::size_t n = std::tuple_size_v<decltype(e.p->e)>;
+		int n = e.p->e.size();
+
 		auto nodelabel = (reinterpret_cast<std::uintptr_t>(e.p) & 0x001fffffU) >>
 			1U; // this allows for 2^20 (roughly 1e6) unique nodes
 		os << nodelabel << "[label=<";
@@ -498,7 +503,7 @@ namespace dd {
 			<< "\"";
 		if (edgeLabels) {
 			os << ",label=<<font point-size=\"8\">&nbsp;"
-				<< conditionalFormat(to.w, formatAsPolar) << "</font>>";
+				<< conditionalFormat(to.w, formatAsPolar)+" " + the_maps::to_string(to.map) << "</font>>";
 		}
 		os << "]\n";
 

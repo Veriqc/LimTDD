@@ -165,5 +165,25 @@ namespace dd {
 		}
 	}
 
+	std::string the_maps::to_string(the_maps* map) {
+		if (map->level == -1) {
+			return "  .";
+		}
+		else {
+			std::string s = "";
+			s += std::to_string(map->level);
+			s+=":";
+			if (map->x == 1) {
+				s+= "x ";
+			}
+			if (map->rotate != 0) {
+				s+= std::to_string(map->rotate);
+			}
+			s+= ";";
+			s+=to_string(map->father);
+			return s;
+		}
+	}
+
 
 } // namespace dd
