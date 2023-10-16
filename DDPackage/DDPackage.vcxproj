@@ -19,7 +19,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="CircuitOptimizer.hpp" />
     <ClInclude Include="Cir_import.h" />
     <ClInclude Include="dd\Complex.hpp" />
     <ClInclude Include="dd\ComplexCache.hpp" />
@@ -35,48 +34,17 @@
     <ClInclude Include="dd\GateMatrixDefinitions.hpp" />
     <ClInclude Include="dd\Maps.hpp" />
     <ClInclude Include="dd\Node.hpp" />
-    <ClInclude Include="dd\Operations.hpp" />
     <ClInclude Include="dd\Package.hpp" />
     <ClInclude Include="dd\Package_fwd.hpp" />
     <ClInclude Include="dd\Tdd.hpp" />
     <ClInclude Include="dd\Tensor.hpp" />
     <ClInclude Include="dd\UniqueTable.hpp" />
-    <ClInclude Include="Definitions.hpp" />
-    <ClInclude Include="operations\ClassicControlledOperation.hpp" />
-    <ClInclude Include="operations\CompoundOperation.hpp" />
-    <ClInclude Include="operations\Control.hpp" />
-    <ClInclude Include="operations\Expression.hpp" />
-    <ClInclude Include="operations\NonUnitaryOperation.hpp" />
-    <ClInclude Include="operations\Operation.hpp" />
-    <ClInclude Include="operations\OpType.hpp" />
-    <ClInclude Include="operations\StandardOperation.hpp" />
-    <ClInclude Include="operations\SymbolicOperation.hpp" />
-    <ClInclude Include="parsers\qasm_parser\Parser.hpp" />
-    <ClInclude Include="parsers\qasm_parser\Scanner.hpp" />
-    <ClInclude Include="parsers\qasm_parser\Token.hpp" />
-    <ClInclude Include="Permutation.hpp" />
-    <ClInclude Include="QuantumComputation.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CircuitOptimizer.cpp" />
     <ClCompile Include="dd\Edge.cpp" />
     <ClCompile Include="dd\Maps.cpp" />
     <ClCompile Include="dd\Node.cpp" />
-    <ClCompile Include="dd\Operations.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="operations\Expression.cpp" />
-    <ClCompile Include="operations\NonUnitaryOperation.cpp" />
-    <ClCompile Include="operations\Operation.cpp" />
-    <ClCompile Include="operations\StandardOperation.cpp" />
-    <ClCompile Include="operations\SymbolicOperation.cpp" />
-    <ClCompile Include="parsers\GRCSParser.cpp" />
-    <ClCompile Include="parsers\QASMParser.cpp" />
-    <ClCompile Include="parsers\qasm_parser\Parser.cpp" />
-    <ClCompile Include="parsers\qasm_parser\Scanner.cpp" />
-    <ClCompile Include="parsers\QCParser.cpp" />
-    <ClCompile Include="parsers\RealParser.cpp" />
-    <ClCompile Include="parsers\TFCParser.cpp" />
-    <ClCompile Include="QuantumComputation.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

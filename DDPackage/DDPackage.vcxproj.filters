@@ -16,26 +16,8 @@
     <Filter Include="头文件\dd">
       <UniqueIdentifier>{8aeb0a2e-3d62-4ea2-8341-01b4d699020c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="头文件\operations">
-      <UniqueIdentifier>{47dbf072-38b9-4aa9-b883-021ca6250a53}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="头文件\parsers">
-      <UniqueIdentifier>{fb1c001e-9cbe-48bd-9aeb-350c495a64a0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="头文件\parsers\qasm_parser">
-      <UniqueIdentifier>{e228ced0-96e8-443f-a227-1c64c760c708}</UniqueIdentifier>
-    </Filter>
     <Filter Include="源文件\dd">
       <UniqueIdentifier>{8ecd4238-b0e2-4598-bf42-5e3982256a33}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="源文件\operations">
-      <UniqueIdentifier>{e4302453-d12d-43f7-ac0d-454a27716e88}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="源文件\parsers">
-      <UniqueIdentifier>{2ea61482-2bc4-459b-b6b7-aab383f6164d}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="源文件\parsers\qasm_parser">
-      <UniqueIdentifier>{1c2e87d9-bc70-40e6-a0d4-2a7c5ba0cd0f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -78,9 +60,6 @@
     <ClInclude Include="dd\Node.hpp">
       <Filter>头文件\dd</Filter>
     </ClInclude>
-    <ClInclude Include="dd\Operations.hpp">
-      <Filter>头文件\dd</Filter>
-    </ClInclude>
     <ClInclude Include="dd\Package.hpp">
       <Filter>头文件\dd</Filter>
     </ClInclude>
@@ -96,55 +75,7 @@
     <ClInclude Include="dd\UniqueTable.hpp">
       <Filter>头文件\dd</Filter>
     </ClInclude>
-    <ClInclude Include="parsers\qasm_parser\Parser.hpp">
-      <Filter>头文件\parsers\qasm_parser</Filter>
-    </ClInclude>
-    <ClInclude Include="parsers\qasm_parser\Scanner.hpp">
-      <Filter>头文件\parsers\qasm_parser</Filter>
-    </ClInclude>
-    <ClInclude Include="parsers\qasm_parser\Token.hpp">
-      <Filter>头文件\parsers\qasm_parser</Filter>
-    </ClInclude>
-    <ClInclude Include="operations\ClassicControlledOperation.hpp">
-      <Filter>头文件\operations</Filter>
-    </ClInclude>
-    <ClInclude Include="operations\CompoundOperation.hpp">
-      <Filter>头文件\operations</Filter>
-    </ClInclude>
-    <ClInclude Include="operations\Control.hpp">
-      <Filter>头文件\operations</Filter>
-    </ClInclude>
-    <ClInclude Include="operations\Expression.hpp">
-      <Filter>头文件\operations</Filter>
-    </ClInclude>
-    <ClInclude Include="operations\NonUnitaryOperation.hpp">
-      <Filter>头文件\operations</Filter>
-    </ClInclude>
-    <ClInclude Include="operations\Operation.hpp">
-      <Filter>头文件\operations</Filter>
-    </ClInclude>
-    <ClInclude Include="operations\OpType.hpp">
-      <Filter>头文件\operations</Filter>
-    </ClInclude>
-    <ClInclude Include="operations\StandardOperation.hpp">
-      <Filter>头文件\operations</Filter>
-    </ClInclude>
-    <ClInclude Include="operations\SymbolicOperation.hpp">
-      <Filter>头文件\operations</Filter>
-    </ClInclude>
     <ClInclude Include="Cir_import.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="CircuitOptimizer.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Definitions.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Permutation.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="QuantumComputation.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="dd\Maps.hpp">
@@ -158,52 +89,7 @@
     <ClCompile Include="dd\Node.cpp">
       <Filter>源文件\dd</Filter>
     </ClCompile>
-    <ClCompile Include="dd\Operations.cpp">
-      <Filter>源文件\dd</Filter>
-    </ClCompile>
-    <ClCompile Include="parsers\GRCSParser.cpp">
-      <Filter>源文件\parsers</Filter>
-    </ClCompile>
-    <ClCompile Include="parsers\QASMParser.cpp">
-      <Filter>源文件\parsers</Filter>
-    </ClCompile>
-    <ClCompile Include="parsers\QCParser.cpp">
-      <Filter>源文件\parsers</Filter>
-    </ClCompile>
-    <ClCompile Include="parsers\RealParser.cpp">
-      <Filter>源文件\parsers</Filter>
-    </ClCompile>
-    <ClCompile Include="parsers\TFCParser.cpp">
-      <Filter>源文件\parsers</Filter>
-    </ClCompile>
-    <ClCompile Include="parsers\qasm_parser\Parser.cpp">
-      <Filter>源文件\parsers\qasm_parser</Filter>
-    </ClCompile>
-    <ClCompile Include="parsers\qasm_parser\Scanner.cpp">
-      <Filter>源文件\parsers\qasm_parser</Filter>
-    </ClCompile>
-    <ClCompile Include="operations\Expression.cpp">
-      <Filter>源文件\operations</Filter>
-    </ClCompile>
-    <ClCompile Include="operations\NonUnitaryOperation.cpp">
-      <Filter>源文件\operations</Filter>
-    </ClCompile>
-    <ClCompile Include="operations\Operation.cpp">
-      <Filter>源文件\operations</Filter>
-    </ClCompile>
-    <ClCompile Include="operations\StandardOperation.cpp">
-      <Filter>源文件\operations</Filter>
-    </ClCompile>
-    <ClCompile Include="operations\SymbolicOperation.cpp">
-      <Filter>源文件\operations</Filter>
-    </ClCompile>
-    <ClCompile Include="CircuitOptimizer.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="main.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="QuantumComputation.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="dd\Maps.cpp">
