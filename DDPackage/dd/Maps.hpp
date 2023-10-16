@@ -13,8 +13,8 @@ namespace dd {
 	struct the_maps {
 		short level;
 		short x;
-		long int rotate;
-		long int extra_phase;
+		int rotate;
+		int extra_phase;
 
 		std::map<std::string, the_maps*> next;
 		the_maps* father;
@@ -27,7 +27,7 @@ namespace dd {
 
 		static the_maps* mapmul(the_maps* self, the_maps* other);
 
-		static the_maps* append_new_map(the_maps* self, short level, short x, long int rotate);
+		static the_maps* append_new_map(the_maps* self, short level, short x, int rotate);
 
 		static void print_maps(the_maps* map);
 

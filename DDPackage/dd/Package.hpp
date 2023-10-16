@@ -411,16 +411,13 @@ namespace dd {
 					}
 					auto c = cn.getTemporary();
 					ComplexNumbers::div(c, r.p->e[i].w, maxc);
-					//float angle = atan2(c.i->value / c.r->value);
 					auto angle = ComplexNumbers::arg(c);
-					//std::cout << 412 << " " << c.i->value << " " << c.r->value << " " << angle << std::endl;
 					c.r->value = sqrt(ComplexNumbers::mag2(c));
 					c.i->value = 0;
 					r.p->e[i].w = cn.lookup(c);
 					r.p->e[i].map = the_maps::mapdiv(r.p->e[i].map, r.map);
-					//std::cout << r.p->e[1].map->extra_phase<<" "<< angle / unit_rotate_angle<<" " << (long int) angle/unit_rotate_angle << std::endl;
-					r.p->e[i].map->extra_phase += angle/unit_rotate_angle;
-					//std::cout << r.p->e[1].map->extra_phase << std::endl;
+					auto temmm = r.p->e[1].map->extra_phase;
+					r.p->e[i].map->extra_phase += round(angle/unit_rotate_angle);
 				}
 			}
 
@@ -1118,6 +1115,7 @@ namespace dd {
 				rotate -= map2->rotate;
 			}
 			rotate = rotate % root_of_unit;
+
 			res->cont_map1 = the_maps::append_new_map(res->cont_map1, map1->level, x, rotate);
 
 			return res;

@@ -25,7 +25,7 @@ int main() {
 
     string path2 = "Benchmarks/";
 
-    string file_name = "test2.qasm";
+    string file_name = "test.qasm";
     int* nodes;
     int n = get_qubits_num(path2 + file_name);
     auto dd = std::make_unique<dd::Package<>>(3 * n);

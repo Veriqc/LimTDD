@@ -13,7 +13,7 @@ namespace dd {
 	//	return the_maps_header;
 	//}
 
-	the_maps* the_maps::append_new_map(the_maps* self, short level, short x, long int rotate) {
+	the_maps* the_maps::append_new_map(the_maps* self, short level, short x, int rotate) {
 
 		rotate = rotate % root_of_unit;
 
