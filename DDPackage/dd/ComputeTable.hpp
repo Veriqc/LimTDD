@@ -211,7 +211,7 @@ namespace dd {
 				LeftOperandType leftOperand;
 				RightOperandType rightOperand;
 				ResultType result;
-				long int extra_phase;
+				Complex extra_phase;
 			};
 
 			static constexpr std::size_t MASK = NBUCKET - 1;
@@ -228,9 +228,9 @@ namespace dd {
 			[[nodiscard]] const auto& getTable() const { return table; }
 
 			void insert(const LeftOperandType& leftOperand,
-				const RightOperandType& rightOperand, const ResultType& result) {
+				const RightOperandType& rightOperand, const ResultType& result,const Complex c) {
 				const auto key = hash(leftOperand, rightOperand);
-				table[key] = { leftOperand, rightOperand, result, result->extra_phase};
+				table[key] = { leftOperand, rightOperand, result, c};
 				++count;
 			}
 

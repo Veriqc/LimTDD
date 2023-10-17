@@ -12,9 +12,9 @@ namespace dd {
 
 	struct the_maps {
 		short level;
-		short x;
-		int rotate;
-		int extra_phase;
+		bool x;
+		Complex rotate;// rotate始终是一个complexTable里的元素，在中间计算过程，可以在temporary里面
+		Complex extra_phase;// rotate始终是一个temporary里的元素
 
 		std::map<std::string, the_maps*> next;
 		the_maps* father;
@@ -23,11 +23,11 @@ namespace dd {
 
 		static constexpr the_maps* the_maps_header() { return &the_maps_header_element; }
 
-		static the_maps* mapdiv(the_maps* self, the_maps* other);
+		//static the_maps* mapdiv(the_maps* self, the_maps* other);
 
-		static the_maps* mapmul(the_maps* self, the_maps* other);
+		//static the_maps* mapmul(the_maps* self, the_maps* other);
 
-		static the_maps* append_new_map(the_maps* self, short level, short x, int rotate);
+		//static the_maps* append_new_map(the_maps* self, short level, bool x, Complex rotate);
 
 		static void print_maps(the_maps* map);
 
