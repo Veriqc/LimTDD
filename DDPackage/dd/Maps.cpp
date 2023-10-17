@@ -130,7 +130,7 @@ namespace dd {
 		}
 		else {
 			auto r = the_maps::mapdiv(self->father, other->father);
-			r->extra_phase += self->rotate * other->x;
+			//r->extra_phase += self->rotate * other->x;
 			short x = (self->x + other->x) % 2;
 			//long int rotate = self->rotate + other->rotate * pow(-1, 1 - x);
 			auto rotate = self->rotate;
