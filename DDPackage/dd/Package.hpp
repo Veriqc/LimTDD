@@ -65,6 +65,8 @@ namespace dd {
 		//==========================================我写的========================================
 		bool to_test = false;
 
+		int mode = 2;
+
 		std::map<std::string, int> varOrder;
 
 		//==========================================我写的========================================
@@ -354,15 +356,21 @@ namespace dd {
 				return Edge<Node>::zero;
 			}
 
-			short x = 0;
+			bool x = 0;
+			auto r = e;
 
-			auto r=e;
 			if (argmax > 0) {
 				r.p->e = {r.p->e[1],r.p->e[0]};
 				zero = { zero[1],zero[0] };
 				x = 1;
 			}
 			argmax = 0;
+
+			//std::cout << "aaa" << std::endl;
+			//std::cout << r.p->e[0].w << " " << r.p->e[1].w << std::endl;
+			//the_maps::print_maps(r.p->e[0].map);
+			//the_maps::print_maps(r.p->e[1].map);
+
 			//std::cout << argmax<<" " << maxc << std::endl;
 			// divide each entry by max
 			for (auto i = 0U; i < R; ++i) {
@@ -409,14 +417,25 @@ namespace dd {
 					if (r.p->e[i].w.approximatelyOne()) {
 						r.p->e[i].w = Complex::one;
 					}
-					auto c = cn.getTemporary();
-					ComplexNumbers::div(c, r.p->e[i].w, maxc);
-					auto angle = ComplexNumbers::arg(c);
-					c.r->value = sqrt(ComplexNumbers::mag2(c));
-					c.i->value = 0;
-					r.p->e[i].w = cn.lookup(c);
-					r.p->e[i].map = mapdiv(r.p->e[i].map, r.map);
-					cn.mul(r.p->e[i].map->extra_phase, r.p->e[i].map->extra_phase,cn.getTemporary(cos(angle),sin(angle)));
+
+					if (mode == 2) {
+						auto c = cn.getCached();
+						ComplexNumbers::div(c, r.p->e[i].w, maxc);
+						r.p->e[i].map = mapdiv(r.p->e[i].map, r.map);
+						cn.mul(r.p->e[i].map->extra_phase, r.p->e[i].map->extra_phase, c);
+						cn.returnToCache(c);
+						r.p->e[i].w = Complex::one;
+					}
+					else {
+						auto c = cn.getTemporary();
+						ComplexNumbers::div(c, r.p->e[i].w, maxc);
+						auto angle = ComplexNumbers::arg(c);
+						c.r->value = sqrt(ComplexNumbers::mag2(c));
+						c.i->value = 0;
+						r.p->e[i].w = cn.lookup(c);
+						r.p->e[i].map = mapdiv(r.p->e[i].map, r.map);
+						cn.mul(r.p->e[i].map->extra_phase, r.p->e[i].map->extra_phase, cn.getTemporary(cos(angle), sin(angle)));
+					}
 				}
 			}
 
@@ -424,6 +443,9 @@ namespace dd {
 			if (!zero[1]) {
 				cn.returnToCache(r.p->e[1].map->extra_phase);
 			}
+			//std::cout << r.w << std::endl;
+			//the_maps::print_maps(r.map);
+			//std::cout << "bbb" << std::endl;
 			return r;
 
 		}
@@ -554,7 +576,7 @@ namespace dd {
 			}
 			else {
 				self->next[new_key] = new the_maps{ level, x, rotate,Complex::one,{}, self };
-
+				//std::cout << 570 << " " << x << " " << rotate << std::endl;
 				return self->next[new_key];
 			}
 		}
@@ -645,8 +667,16 @@ namespace dd {
 			else if (self->level < other->level) {
 				auto r = mapdiv(self, other->father);
 
-				if (1 - other->x == 1) {
-					res = append_new_map(r, other->level, other->x, cn.conj(other->rotate));
+				if (other->x == 0) {
+					if (mode == 2) {
+						auto temp = cn.getTemporary();
+						cn.div(temp, Complex::one, other->rotate);
+						res = append_new_map(r, other->level, other->x, cn.lookup(temp));
+					}
+					else {
+						res = append_new_map(r, other->level, other->x, cn.conj(other->rotate));
+					}
+					
 					res->extra_phase = r->extra_phase;
 				}
 				else {
@@ -662,7 +692,7 @@ namespace dd {
 
 				auto rotate = cn.getTemporary();
 
-				if (1 - x == 0) {
+				if (x==1) {
 					cn.mul(rotate, self->rotate, other->rotate);
 				}
 				else {
@@ -1179,6 +1209,13 @@ namespace dd {
 
 			//the_maps* res[3];
 			//std::cout << 868 << "   " << map1->level << " " << map2->level << std::endl;
+
+			//int to_tset2 = 2;
+			//if (to_tset2 == 1) {
+			//	comm_maps* res = new comm_maps{ the_maps::the_maps_header(),map1,map2 };
+			//	res->remain_map->extra_phase = cn.getCached(1, 0);
+			//	return res;
+			//}
 
 
 			key_2_new_key_node* temp_key_2_new_key1 = key_2_new_key1;

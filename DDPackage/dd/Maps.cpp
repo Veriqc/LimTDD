@@ -18,7 +18,7 @@ namespace dd {
 			if (map->x) {
 				std::cout << "x ";
 			}
-			if (map->rotate != Complex::zero) {
+			if (map->rotate != Complex::one) {
 				std::cout << map->rotate;
 			}
 			std::cout << ";";
@@ -37,7 +37,7 @@ namespace dd {
 			if (map->x) {
 				s+= "x ";
 			}
-			if (map->rotate != Complex::zero) {
+			if (map->rotate != Complex::one) {
 				s+= map->rotate.toString();
 			}
 			s+= ";";
