@@ -65,7 +65,7 @@ namespace dd {
 		//==========================================我写的========================================
 		bool to_test = false;
 
-		int mode = 2;
+		int mode = 1;
 
 		std::map<std::string, int> varOrder;
 
@@ -425,6 +425,7 @@ namespace dd {
 						cn.mul(r.p->e[i].map->extra_phase, r.p->e[i].map->extra_phase, c);
 						cn.returnToCache(c);
 						r.p->e[i].w = Complex::one;
+
 					}
 					else {
 						auto c = cn.getTemporary();
