@@ -217,6 +217,7 @@ class TDD:
         temp.index_set = copy.copy(self.index_set)
         temp.key_2_index=copy.copy(self.key_2_index)
         temp.index_2_key=copy.copy(self.index_2_key)
+        temp.key_width = copy.copy(self.key_width)
         return temp
     
     def show(self,real_label=True,file_name='output'):
