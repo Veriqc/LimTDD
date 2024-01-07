@@ -10,7 +10,12 @@ mkdir build
 cd build
 
 # Run CMake to generate Makefiles
-cmake ..
+if [ "$1" == "debug" ]; then
+    # Run cmake in the parent directory
+    cmake -DCMAKE_BUILD_TYPE=Debug ..
+else
+    cmake ..
+fi
 
 make
 
