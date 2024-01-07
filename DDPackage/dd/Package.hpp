@@ -15,7 +15,6 @@
 #include "UniqueTable.hpp"
 
 #include "Tdd.hpp"
-#include "Tensor.hpp"
 #include "Maps.hpp"
 
 #include <algorithm>
@@ -42,6 +41,15 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+#include <numeric>
+
+#include <xtensor/xarray.hpp>
+#include <xtensor/xshape.hpp>
+#include <xtensor/xio.hpp>
+#include <xtensor/xslice.hpp>
+#include <xtensor/xfixed.hpp>
+#include <xtensor/xview.hpp>
 
 namespace dd {
 
@@ -113,20 +121,59 @@ namespace dd {
 
 
 		//==========================================我写的========================================
-		//template <class Node>
+		Edge<mNode> xarray_2_edge(
+			const xt::xarray<ComplexValue>& array,
+			std::vector<int> order){
+			if (array.size() == 1) {
+				 if (array[0] == ComplexValue(0,0)) {
+				 	return Edge<mNode>::zero;
+				 }
+				 else if (array[0] == ComplexValue(1,0)) {
+				 	return Edge<mNode>::one;
+				 }
+				 else {
+				 	return Edge<mNode>::terminal(cn.lookup(array[0]));
+				 }
+			}
 
-		//TDD Tensor_2_TDD(const Tensor tn)
-		//{
+			auto split_pos = std::distance(order.begin(), std::max_element(order.begin(), order.end()));
+			int16_t x = order[split_pos];
+			order[split_pos] = -1;
+			
+			std::vector<xt::xarray<ComplexValue>> split_U;
+			for (const auto& u : xt::split(array, array.shape(split_pos), split_pos)) {
+				split_U.push_back(u);
+			}
+			// xt::split return a const type data, it is not good.
 
-		//	TDD res;
+			while (std::find(order.begin(), order.end(), x) != order.end()) {
+				auto split_pos = std::distance(order.begin(), std::find(order.begin(), order.end(), x));
+				order[split_pos] = -1;
+				std::vector<xt::xarray<ComplexValue>> temp_U;
+				for (int i = 0; i < split_U.size(); ++i) {
+					auto temp = xt::split(split_U.at(i), split_U.at(i).shape(split_pos), split_pos).at(i);
+					temp_U.push_back(temp);
+				}
+				split_U = temp_U;
+			}
 
-		//	if()
+			std::vector<Edge<mNode>> edges;
+			for (const auto u : split_U) {
+				edges.push_back(xarray_2_edge(u, order));
+			}
 
+			return makeDDNode((int16_t)x, edges, false);
 
+		}
 
-
-		//	return res;
-		//}
+		int update_map_value() {
+			if (varOrder.empty()) {
+				return 0;
+			}
+			auto compare_function = [](const auto& a, const auto& b) { return a.second < b.second; };
+			auto max_pair = std::max_element(varOrder.begin(), varOrder.end(), compare_function);
+			return (max_pair->second) + 1;
+		}
 
 		TDD Matrix2TDD(const GateMatrix mat, std::vector<Index> var_out)
 		{
@@ -731,7 +778,8 @@ namespace dd {
 				return self->next[new_key];
 			}
 			else {
-				self->next[new_key] = new key_2_new_key_node{ self->level + 1, new_key, {}, self };
+				self->next[new_key] = new key_2_new_key_node{ short(self->level + 1), new_key, {}, self };
+
 
 				return self->next[new_key];
 			}
