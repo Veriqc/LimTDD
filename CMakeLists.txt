@@ -23,9 +23,4 @@ endif()
 include_directories(${PROJECT_SOURCE_DIR}/DDPackage)
 
 add_subdirectory(DDPackage)
-
-# Add the executable
-add_executable(test main.cpp) 
-
-# Link the library
-target_link_libraries(test Limdd_lib) 
+add_subdirectory(test)
