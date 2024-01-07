@@ -141,7 +141,7 @@ std::map<int, gate> import_circuit(std::string  file_name) {
 	std::getline(infile, line);
 	std::getline(infile, line);
 	std::getline(infile, line);
-	std::getline(infile, line);
+	// std::getline(infile, line);
 	while (std::getline(infile, line))
 	{
 		gate temp_gate;
@@ -223,7 +223,7 @@ std::map<int, std::vector<dd::Index>> get_index(std::map<int, gate> gate_set, st
 			targ_idx2 += to_string(tar_q);
 			targ_idx2 += to_string(0);
 			targ_idx2 += to_string(qubit_idx[tar_q]);
-			Index_set[k] = { {cont_idx,hyper_idx[cont_idx]},{cont_idx,hyper_idx[cont_idx] + 1},{cont_idx,hyper_idx[cont_idx] + 2},{targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
+			Index_set[k] = { {cont_idx,hyper_idx[cont_idx]},{cont_idx,static_cast<short>(hyper_idx[cont_idx] + 1)},{cont_idx,static_cast<short>(hyper_idx[cont_idx] + 2)},{targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
 			//std::cout << cont_idx<<" " << hyper_idx[cont_idx] << " " << cont_idx << " " << hyper_idx[cont_idx] + 1 << " " << cont_idx << " " << hyper_idx[cont_idx] + 2 << " " << targ_idx1 << " " << hyper_idx[targ_idx1] << " " << targ_idx2 << " " <<hyper_idx[targ_idx2] << " " << std::endl;
 			hyper_idx[cont_idx] += 2;
 
@@ -453,9 +453,9 @@ std::map<int, map<int, std::vector<int>>>  cir_partition2(std::map<int, gate> ga
 }
 
 
-dd::TDD apply(dd::TDD tdd, std::string nam, std::vector<dd::Index> index_set, std::unique_ptr<dd::Package<>>& dd) {
+dd::TDD apply(dd::TDD tdd, std::string gate_name, std::vector<dd::Index> index_set, std::unique_ptr<dd::Package<>>& dd) {
 
-	std::cout << nam << std::endl;
+	std::cout << gate_name << std::endl;
 
 	std::map<std::string, int> gate_type;
 	gate_type["x"] = 1;
@@ -469,11 +469,11 @@ dd::TDD apply(dd::TDD tdd, std::string nam, std::vector<dd::Index> index_set, st
 
 	dd::TDD temp_tdd;
 
-	if (nam == "cx") {
+	if (gate_name == "cx") {
 		temp_tdd = dd->cnot_2_TDD(index_set, 1);
 	}
 	else {
-		switch (gate_type[nam]) {
+		switch (gate_type[gate_name]) {
 		case 1:
 			temp_tdd = dd->Matrix2TDD(dd::Xmat, index_set);
 			break;
@@ -504,16 +504,16 @@ dd::TDD apply(dd::TDD tdd, std::string nam, std::vector<dd::Index> index_set, st
 			temp_tdd = dd->diag_matrix_2_TDD(dd::Tdagmat, index_set);
 			break;
 		default:
-			if (nam[0] == 'r' and nam[1] == 'z') {
+			if (gate_name[0] == 'r' and gate_name[1] == 'z') {
 				regex pattern("rz\\((-?\\d.\\d+)\\)");
 				smatch result;
-				regex_match(nam, result, pattern);
+				regex_match(gate_name, result, pattern);
 				float theta = stof(result[1]);
 				//dd::GateMatrix Rzmat = { { 1, 0 }, { 0, 0 } , { 0, 0 }, { cos(theta), sin(theta) } };
 				temp_tdd = dd->diag_matrix_2_TDD(dd::Phasemat(theta), index_set);
 				break;
 			}
-			if (nam[0] == 'u' and nam[1] == '1') {
+			if (gate_name[0] == 'u' and gate_name[1] == '1') {
 				//regex pattern("u1\\((-?\\d.\\d+)\\)");
 				//smatch result;
 				//regex_match(nam, result, pattern);
@@ -521,7 +521,7 @@ dd::TDD apply(dd::TDD tdd, std::string nam, std::vector<dd::Index> index_set, st
 
 				regex para(".*?\\((.*?)\\)");
 				smatch result;
-				regex_match(nam, result, para);
+				regex_match(gate_name, result, para);
 				float theta = match_a_string(result[1]);
 
 				//dd::GateMatrix  U1mat = { { 1, 0 }, { 0, 0 } , { 0, 0 }, { cos(theta), sin(theta) }  };
@@ -529,7 +529,7 @@ dd::TDD apply(dd::TDD tdd, std::string nam, std::vector<dd::Index> index_set, st
 				temp_tdd = dd->diag_matrix_2_TDD(dd::Phasemat(theta), index_set);
 				break;
 			}
-			if (nam[0] == 'u' and nam[1] == '3') {
+			if (gate_name[0] == 'u' and gate_name[1] == '3') {
 				//regex pattern("u3\\((-?\\d.\\d+), ?(-?\\d.\\d+), ?(-?\\d.\\d+)\\)");
 				//smatch result;
 				//regex_match(nam, result, pattern);
@@ -539,7 +539,7 @@ dd::TDD apply(dd::TDD tdd, std::string nam, std::vector<dd::Index> index_set, st
 
 				regex para(".*?\\((.*?)\\)");
 				smatch result;
-				regex_match(nam, result, para);
+				regex_match(gate_name, result, para);
 				vector<string> para2 = split(result[1], ",");
 				float theta = match_a_string(para2[0]);
 				float phi = match_a_string(para2[1]);
