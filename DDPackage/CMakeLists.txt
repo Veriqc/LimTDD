@@ -9,5 +9,5 @@ file(GLOB SOURCES
 )
 
 # Create the library
-add_library(Limdd_lib INTERFACE ${SOURCES})
-target_include_directories(Limdd_lib INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/graph ${XTENSOR_INCLUDE_DIRS} ${XTL_INCLUDE_DIRS})
+add_library(Limdd_lib SHARED ${SOURCES})
+target_include_directories(Limdd_lib PUBLIC ${XTENSOR_INCLUDE_DIRS} ${XTL_INCLUDE_DIRS})
