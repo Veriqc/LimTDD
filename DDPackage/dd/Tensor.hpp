@@ -1,3 +1,6 @@
+#ifndef DDTENSOR
+#define DDTENSOR
+
 #include <xtensor/xarray.hpp>
 #include <xtensor/xtensor.hpp>
 #include <complex>
@@ -138,3 +141,5 @@ namespace dd {
 			};
     };
 }
+
+#endif

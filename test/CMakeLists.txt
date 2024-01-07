@@ -1,6 +1,7 @@
 # List your test source files here
 set(TEST_SOURCES
-    test_whole.cpp
+    # test_whole.cpp
+    test_tn.cpp
     test_tdd.cpp
     # Add new test files here
 )
