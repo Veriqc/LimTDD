@@ -1,4 +1,5 @@
 # List your test source files here
+add_definitions(-DPROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 set(TEST_SOURCES
     # test_whole.cpp
     test_tn.cpp

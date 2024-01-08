@@ -29,7 +29,7 @@ void test_gate() {
 }
 
 void test_tn1() {
-    std::string path2 = "/home/gaodc/LimTDD/Benchmarks/";
+    std::string path2 = std::string(PROJECT_SOURCE_DIR)+"/Benchmarks/";
     std::string file_name = "test_one.qasm";
 	std::cout << path2+file_name << std::endl;
     int n = get_qubits_num(path2 + file_name);
@@ -42,7 +42,7 @@ void test_tn1() {
 }
 
 void test_tn2() {
-    std::string path2 = "/home/gaodc/LimTDD/Benchmarks/";
+    std::string path2 = std::string(PROJECT_SOURCE_DIR)+"/Benchmarks/";
     std::string file_name = "test.qasm";
 	std::cout << path2+file_name << std::endl;
     int n = get_qubits_num(path2 + file_name);

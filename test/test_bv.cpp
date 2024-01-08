@@ -17,7 +17,7 @@ int main(){
 }
 
 void test_bv(int qubits) {
-    std::string path2 = "/home/gaodc/LimTDD/Benchmarks/";
+    std::string path2 = std::string(PROJECT_SOURCE_DIR)+"/Benchmarks/";
     std::string file_name = "bv_" + std::to_string(qubits) + ".qasm";
 	std::cout << path2+file_name << std::endl;
     clock_t start,end;
