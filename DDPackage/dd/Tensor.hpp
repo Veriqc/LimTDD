@@ -117,27 +117,37 @@ namespace dd {
 				return "a tensor network with " + std::to_string(this->tensors.size()) + " tensors";
 			}
 
-			TDD cont(Package<>* ddpackage) {
+			TDD cont(Package<>* ddpackage, bool release = true) {
 				if (!ddpackage) {
 					throw std::runtime_error("ddpackage is null");
 				}
 				if (this->tensors.size() == 0) {
 					throw std::runtime_error("null tensor network");
 				}
-				TDD dd_temp = tensors[0].to_tdd(ddpackage);
+
+				TDD res_dd = tensors[0].to_tdd(ddpackage);
+				TDD temp_dd,cur_dd;
+
 				for (int i = 1; i < this->tensors.size(); ++i) {
 					std::cout << "-------------------------" <<std::endl;
 					std::cout << i+1 << "th" <<"/" << this->tensors.size() << " tdd:" << std::endl;
 					try{
-						dd_temp = ddpackage->cont(dd_temp, this->tensors[i].to_tdd(ddpackage));
-						// dd_temp = this->tensors[i].to_tdd(ddpackage);
+						cur_dd = this->tensors[i].to_tdd(ddpackage);
+						temp_dd = ddpackage->cont(res_dd, cur_dd);
+						if (release) {
+							ddpackage->incRef(temp_dd.e);
+							ddpackage->decRef(cur_dd.e);
+							ddpackage->decRef(res_dd.e);
+							ddpackage->garbageCollect();
+						}
+						res_dd = temp_dd;
 					}
 					catch(...){
 						std::exception_ptr p = std::current_exception();
 						std::clog <<(p ? p.__cxa_exception_type()->name() : "null") << std::endl;
 					}
 				}
-				return dd_temp;
+				return res_dd;
 			};
     };
 }
