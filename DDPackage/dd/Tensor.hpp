@@ -126,7 +126,7 @@ namespace dd {
 				}
 
 				TDD res_dd = tensors[0].to_tdd(ddpackage);
-				TDD temp_dd,cur_dd;
+				TDD cur_dd , temp_dd;
 
 				for (int i = 1; i < this->tensors.size(); ++i) {
 					std::cout << "-------------------------" <<std::endl;
@@ -136,7 +136,6 @@ namespace dd {
 						temp_dd = ddpackage->cont(res_dd, cur_dd);
 						if (release) {
 							ddpackage->incRef(temp_dd.e);
-							ddpackage->decRef(cur_dd.e);
 							ddpackage->decRef(res_dd.e);
 							ddpackage->garbageCollect();
 						}

@@ -29,8 +29,8 @@ void test_gate() {
 }
 
 void test_tn1() {
-    std::string path2 = std::string(PROJECT_SOURCE_DIR)+"/Benchmarks/";
-    std::string file_name = "test2.qasm";
+    std::string path2 = std::string(PROJECT_SOURCE_DIR)+"/Benchmarks/combinational/bv/";
+    std::string file_name = "bv_15.qasm";
 	std::cout << path2+file_name << std::endl;
     int n = get_qubits_num(path2 + file_name);
 	std::cout << "qubits num: " << n << std::endl;
@@ -38,12 +38,12 @@ void test_tn1() {
     dd::TensorNetwork tn = cir_2_tn(path2, file_name, ddpack.get());
 	tn.infor();
 	ddpack->to_test = true;
-	dd::TDD tdd = tn.cont(ddpack.get());
+	dd::TDD tdd = tn.cont(ddpack.get(),false);
 }
 
 void test_tn2() {
-    std::string path2 = std::string(PROJECT_SOURCE_DIR)+"/Benchmarks/";
-    std::string file_name = "test.qasm";
+    std::string path2 = std::string(PROJECT_SOURCE_DIR)+"/Benchmarks/combinational/bv/";
+    std::string file_name = "bv_10.qasm";
 	std::cout << path2+file_name << std::endl;
     int n = get_qubits_num(path2 + file_name);
 	std::cout << "qubits num: " << n << std::endl;
