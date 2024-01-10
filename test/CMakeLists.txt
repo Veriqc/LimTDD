@@ -4,7 +4,7 @@ set(TEST_SOURCES
     # test_whole.cpp
     test_tn.cpp
     test_tdd.cpp
-    # test_bv.cpp
+    test_bv.cpp
     # Add new test files here
 )
 
