@@ -771,8 +771,8 @@ namespace dd {
 
 
 			[[maybe_unused]] const auto before = cn.cacheCount();
-			std::cout << "-----------" << std::endl;
-			std::cout << tdd1.e.w<<" "<<tdd2.e.w << std::endl;
+			// std::cout << "-----------" << std::endl;
+			// std::cout << tdd1.e.w<<" "<<tdd2.e.w << std::endl;
 			res.e = cont2(tdd1.e, tdd2.e, key_2_new_key1, key_2_new_key2, var_cont.size());
 
 			if (to_test) {
@@ -804,8 +804,8 @@ namespace dd {
 			//the_maps::print_maps(tdd2.e.map);
 			//the_maps::print_maps(res.e.map);
 			//std::cout << tdd1.e.w << " " << tdd2.e.w <<" "<<res.e.w << std::endl;
-			std::cout << size(res.e)<<" "<< res.e.p->v << std::endl;
-			std::cout << "-----------" << std::endl;
+			// std::cout << size(res.e)<<" "<< res.e.p->v << std::endl;
+			// std::cout << "-----------" << std::endl;
 			return res;
 		}
 

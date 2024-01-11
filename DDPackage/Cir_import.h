@@ -184,7 +184,7 @@ circuitReslut import_circuit(std::string file_name) {
 	return res;
 }
 
-std::map<int, std::vector<dd::Index>> get_index(const circuitReslut& cir, std::map<std::string, int> var) {
+std::map<int, std::vector<dd::Index>> get_index(const circuitReslut& cir, std::map<std::string, int> var, bool use_hyper = false) {
 
 	std::map<int, std::vector<dd::Index>> Index_set;
 
@@ -214,6 +214,12 @@ std::map<int, std::vector<dd::Index>> get_index(const circuitReslut& cir, std::m
 			cont_idx += std::to_string(con_q);
 			cont_idx += std::to_string(0);
 			cont_idx += std::to_string(qubit_idx[con_q]);
+			qubit_idx[con_q] +=1;
+			std::string cont_idx2 = "x";
+			cont_idx2 += std::to_string(con_q);
+			cont_idx2 += std::to_string(0);
+			cont_idx2 += std::to_string(qubit_idx[con_q]);
+
 			std::string targ_idx1 = "x";
 			targ_idx1 += std::to_string(tar_q);
 			targ_idx1 += std::to_string(0);
@@ -223,7 +229,13 @@ std::map<int, std::vector<dd::Index>> get_index(const circuitReslut& cir, std::m
 			targ_idx2 += std::to_string(tar_q);
 			targ_idx2 += std::to_string(0);
 			targ_idx2 += std::to_string(qubit_idx[tar_q]);
-			Index_set[k] = { {cont_idx,hyper_idx[cont_idx]},{cont_idx,static_cast<short>(hyper_idx[cont_idx] + 1)},{targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
+
+			if(use_hyper){
+				Index_set[k] = { {cont_idx,hyper_idx[cont_idx]},{cont_idx,static_cast<short>(hyper_idx[cont_idx] + 1)},{targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
+			}
+			else{
+				Index_set[k] = { {cont_idx,hyper_idx[cont_idx]},{cont_idx2,hyper_idx[cont_idx]},{targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
+			}
 			// TODO:Q: hyper index here?
 			//std::cout << cont_idx<<" " << hyper_idx[cont_idx] << " " << cont_idx << " " << hyper_idx[cont_idx] + 1 << " " << cont_idx << " " << hyper_idx[cont_idx] + 2 << " " << targ_idx1 << " " << hyper_idx[targ_idx1] << " " << targ_idx2 << " " <<hyper_idx[targ_idx2] << " " << std::endl;
 			hyper_idx[cont_idx] += 2;
