@@ -140,7 +140,7 @@ circuitReslut import_circuit(std::string file_name) {
 	std::getline(infile, line);
 	std::getline(infile, line);
 	std::getline(infile, line);
-	// std::getline(infile, line);
+	std::getline(infile, line);
 	while (std::getline(infile, line))
 	{
 		gate temp_gate;
@@ -184,7 +184,7 @@ circuitReslut import_circuit(std::string file_name) {
 	return res;
 }
 
-std::map<int, std::vector<dd::Index>> get_index(const circuitReslut& cir, std::map<std::string, int> var) {
+std::map<int, std::vector<dd::Index>> get_index(const circuitReslut& cir, std::map<std::string, int> var, bool use_hyper = false) {
 
 	std::map<int, std::vector<dd::Index>> Index_set;
 
@@ -214,6 +214,12 @@ std::map<int, std::vector<dd::Index>> get_index(const circuitReslut& cir, std::m
 			cont_idx += std::to_string(con_q);
 			cont_idx += std::to_string(0);
 			cont_idx += std::to_string(qubit_idx[con_q]);
+			qubit_idx[con_q] +=1;
+			std::string cont_idx2 = "x";
+			cont_idx2 += std::to_string(con_q);
+			cont_idx2 += std::to_string(0);
+			cont_idx2 += std::to_string(qubit_idx[con_q]);
+
 			std::string targ_idx1 = "x";
 			targ_idx1 += std::to_string(tar_q);
 			targ_idx1 += std::to_string(0);
@@ -223,10 +229,16 @@ std::map<int, std::vector<dd::Index>> get_index(const circuitReslut& cir, std::m
 			targ_idx2 += std::to_string(tar_q);
 			targ_idx2 += std::to_string(0);
 			targ_idx2 += std::to_string(qubit_idx[tar_q]);
-			Index_set[k] = { {cont_idx,hyper_idx[cont_idx]},{cont_idx,static_cast<short>(hyper_idx[cont_idx] + 1)},{targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
-			//std::cout << cont_idx<<" " << hyper_idx[cont_idx] << " " << cont_idx << " " << hyper_idx[cont_idx] + 1 << " " << cont_idx << " " << hyper_idx[cont_idx] + 2 << " " << targ_idx1 << " " << hyper_idx[targ_idx1] << " " << targ_idx2 << " " <<hyper_idx[targ_idx2] << " " << std::endl;
-			hyper_idx[cont_idx] += 2;
 
+			if(use_hyper){
+				Index_set[k] = { {cont_idx,hyper_idx[cont_idx]},{cont_idx,static_cast<short>(hyper_idx[cont_idx] + 1)},{targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
+				// std::cout << cont_idx<<" " << hyper_idx[cont_idx] << " " << cont_idx << " " << hyper_idx[cont_idx] + 1 << " " << targ_idx1 << " " << hyper_idx[targ_idx1] << " " << targ_idx2 << " " <<hyper_idx[targ_idx2] << " " << std::endl;
+			hyper_idx[cont_idx] += 2;
+			}
+			else{
+				Index_set[k] = { {cont_idx,hyper_idx[cont_idx]},{cont_idx2,hyper_idx[cont_idx]},{targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
+				// std::cout << cont_idx<<" " << hyper_idx[cont_idx] << " " << cont_idx2 << " " << hyper_idx[cont_idx] << " " << targ_idx1 << " " << hyper_idx[targ_idx1] << " " << targ_idx2 << " " <<hyper_idx[targ_idx2] << " " << std::endl;
+			}
 		}
 		else {
 			int tar_q = gateObj.qubits[0];
@@ -817,7 +829,7 @@ int get_qubits_num(std::string  file_name) {
 	std::getline(infile, line);
 	std::getline(infile, line);
 	std::getline(infile, line);
-	// std::getline(infile, line);
+	std::getline(infile, line);
 	while (std::getline(infile, line))
 	{
 
@@ -827,7 +839,7 @@ int get_qubits_num(std::string  file_name) {
 
 		if (g[0] == "cx") {
 
-			std::regex pattern("q\\[(\\d+)\\],q\\[(\\d+)\\];");
+			std::regex pattern("q\\[(\\d+)\\],q\\[(\\d+)\\];\r?");
 			if (regex_match(g[1], result, pattern))
 			{
 				if (stoi(result[1]) > qubits_num) {
@@ -840,7 +852,7 @@ int get_qubits_num(std::string  file_name) {
 
 		}
 		else {
-			std::regex pattern("q\\[(\\d+)\\];");
+			std::regex pattern("q\\[(\\d+)\\];\r?");
 			if (regex_match(g[1], result, pattern))
 			{
 				if (stoi(result[1]) > qubits_num) {
@@ -870,7 +882,7 @@ int get_gates_num(std::string  file_name) {
 	std::getline(infile, line);
 	std::getline(infile, line);
 	std::getline(infile, line);
-	// std::getline(infile, line);
+	std::getline(infile, line);
 	while (std::getline(infile, line))
 	{
 		gates_num += 1;

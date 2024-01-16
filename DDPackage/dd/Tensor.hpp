@@ -106,7 +106,7 @@ namespace dd {
     };
 
     class TensorNetwork {
-		private:
+		public:
 			std::vector<Tensor> tensors;
 		public:
 			TensorNetwork(std::vector<Tensor> tensors_={}): tensors(tensors_) {}
@@ -126,17 +126,14 @@ namespace dd {
 				}
 
 				TDD res_dd = tensors[0].to_tdd(ddpackage);
-				TDD temp_dd,cur_dd;
+				TDD cur_dd , temp_dd;
 
 				for (int i = 1; i < this->tensors.size(); ++i) {
-					std::cout << "-------------------------" <<std::endl;
-					std::cout << i+1 << "th" <<"/" << this->tensors.size() << " tdd:" << std::endl;
 					try{
 						cur_dd = this->tensors[i].to_tdd(ddpackage);
 						temp_dd = ddpackage->cont(res_dd, cur_dd);
 						if (release) {
 							ddpackage->incRef(temp_dd.e);
-							ddpackage->decRef(cur_dd.e);
 							ddpackage->decRef(res_dd.e);
 							ddpackage->garbageCollect();
 						}
