@@ -232,14 +232,13 @@ std::map<int, std::vector<dd::Index>> get_index(const circuitReslut& cir, std::m
 
 			if(use_hyper){
 				Index_set[k] = { {cont_idx,hyper_idx[cont_idx]},{cont_idx,static_cast<short>(hyper_idx[cont_idx] + 1)},{targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
+				// std::cout << cont_idx<<" " << hyper_idx[cont_idx] << " " << cont_idx << " " << hyper_idx[cont_idx] + 1 << " " << targ_idx1 << " " << hyper_idx[targ_idx1] << " " << targ_idx2 << " " <<hyper_idx[targ_idx2] << " " << std::endl;
+			hyper_idx[cont_idx] += 2;
 			}
 			else{
 				Index_set[k] = { {cont_idx,hyper_idx[cont_idx]},{cont_idx2,hyper_idx[cont_idx]},{targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
+				// std::cout << cont_idx<<" " << hyper_idx[cont_idx] << " " << cont_idx2 << " " << hyper_idx[cont_idx] << " " << targ_idx1 << " " << hyper_idx[targ_idx1] << " " << targ_idx2 << " " <<hyper_idx[targ_idx2] << " " << std::endl;
 			}
-			// TODO:Q: hyper index here?
-			//std::cout << cont_idx<<" " << hyper_idx[cont_idx] << " " << cont_idx << " " << hyper_idx[cont_idx] + 1 << " " << cont_idx << " " << hyper_idx[cont_idx] + 2 << " " << targ_idx1 << " " << hyper_idx[targ_idx1] << " " << targ_idx2 << " " <<hyper_idx[targ_idx2] << " " << std::endl;
-			hyper_idx[cont_idx] += 2;
-
 		}
 		else {
 			int tar_q = gateObj.qubits[0];
