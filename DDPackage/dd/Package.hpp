@@ -764,7 +764,7 @@ namespace dd {
 			res.index_set = var_out;
 			res.key_2_index = new_key_2_index;
 
-			if (true) {
+			if (to_test) {
 				std::cout << "dd order: " << std::endl;
 				for(auto it: this->varOrder){
 					std::cout << it.first << " " << it.second ;
@@ -790,7 +790,7 @@ namespace dd {
 			// std::cout << tdd1.e.w<<" "<<tdd2.e.w << std::endl;
 			res.e = cont2(tdd1.e, tdd2.e, key_2_new_key1, key_2_new_key2, var_cont.size());
 
-			if (true) {
+			if (to_test) {
 				std::cout << "TDD: ";
 				for (const auto& element : res.key_2_index) {
 					std::cout << element << " ";
