@@ -17,9 +17,10 @@ TDD makezero(int n, dd::Package<>* ddpackage) {
         Tensor temp = Tensor(zero,{{"x"+std::to_string(i)+"_0",0}});
         tn.add_ts(temp);
     }
-    return tn.cont(ddpackage);
+    auto res_dd = tn.cont(ddpackage);
+    return res_dd;
 }
-TDD cont(dd::TensorNetwork* tn,dd::Package<>* ddpackage, int n,bool release = true) {
+TDD cont(dd::TensorNetwork* tn,dd::Package<>* ddpackage,int n, bool release = true) {
     if (!ddpackage) {
         throw std::runtime_error("ddpackage is null");
     }
@@ -37,7 +38,8 @@ TDD cont(dd::TensorNetwork* tn,dd::Package<>* ddpackage, int n,bool release = tr
     for (int i=0; i < tn->tensors.size(); ++i) {
         auto tensor = tn->tensors[i];
         try{
-            temp_dd = ddpackage->cont(res_dd, tensor.to_tdd(ddpackage));
+            auto dd = tensor.to_tdd(ddpackage);
+            temp_dd = ddpackage->cont(res_dd, dd);
             if (release) {
                 ddpackage->incRef(temp_dd.e);
                 ddpackage->decRef(res_dd.e);
@@ -63,8 +65,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::string path2 = std::string(PROJECT_SOURCE_DIR)+"/Benchmark/combinational/bv/";
-    std::string file_name = std::string("bv_") + argv[1] + ".qasm";
+    std::string path2 = std::string(PROJECT_SOURCE_DIR)+"/Benchmark/combinational/qft/";
+    std::string file_name = std::string("qft_") + argv[1] + ".qasm";
 	std::cout << path2+file_name << std::endl;
     
     int n = get_qubits_num(path2 + file_name);
