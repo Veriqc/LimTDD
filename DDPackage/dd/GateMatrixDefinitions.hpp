@@ -10,6 +10,8 @@ namespace dd {
 // Complex constants
 // NOLINTBEGIN(readability-identifier-naming) As these constants are used by
 // other projects, we keep the naming
+std::set<std::string> singleGate = {"X","Y","Z","S","Sdag"};
+std::set<std::string> twoGate = {"cx","cu1","swap"};
 ComplexValue complex_one = {1., 0.};
 ComplexValue complex_mone = {-1., 0.};
 ComplexValue complex_zero = {0., 0.};
@@ -129,5 +131,52 @@ return GateMatrix{
               }
           }
       };
+}
+xt::xarray<dd::ComplexValue> SWAPmat{
+      {
+          {
+              {complex_one, complex_zero},
+              {complex_zero, complex_zero}
+          },
+          {
+              {complex_zero, complex_zero},
+              {complex_one, complex_zero}
+          }
+      },
+      {
+          {
+              {complex_zero, complex_one},
+              {complex_zero, complex_zero}
+          },
+          {
+              {complex_zero, complex_zero},
+              {complex_zero, complex_one}
+          }
+      }
+  };
+
+xt::xarray<dd::ComplexValue> CU1mat(double lambda){
+return xt::xarray<dd::ComplexValue>{
+      {
+          {
+              {complex_one, complex_zero},
+              {complex_zero, complex_one}
+          },
+          {
+              {complex_zero, complex_zero},
+              {complex_zero, complex_zero}
+          }
+      },
+      {
+          {
+              {complex_zero, complex_zero},
+              {complex_zero, complex_zero}
+          },
+          {
+              {complex_one, complex_zero},
+              {complex_zero, {std::cos(lambda), std::sin(lambda)}}
+          }
+      }
+  };
 }
 }// namespace dd

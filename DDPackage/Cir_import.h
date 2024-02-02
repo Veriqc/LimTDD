@@ -150,8 +150,8 @@ circuitReslut import_circuit(std::string file_name) {
 
 		temp_gate.name = g[0];
 
-		if (g[0] == "cx") {
-			std::regex pattern("q\\[(\\d+)\\], ?q\\[(\\d+)\\];");
+		if (dd::twoGate.find(g[0])!=dd::twoGate.end()||g[0].substr(0,3)=="cu1") {
+			std::regex pattern("q\\[(\\d+)\\], ?q\\[(\\d+)\\];\r?");
 			if (regex_match(g[1], result, pattern))
 			{
 				if (stoi(result[1]) > res.qubits_num) {
@@ -166,7 +166,7 @@ circuitReslut import_circuit(std::string file_name) {
 
 		}
 		else {
-			std::regex pattern("q\\[(\\d+)\\];");
+			std::regex pattern("q\\[(\\d+)\\];\r?");
 			if (regex_match(g[1], result, pattern))
 			{
 				if (stoi(result[1]) > res.qubits_num) {
@@ -207,27 +207,27 @@ std::map<int, std::vector<dd::Index>> get_index(const circuitReslut& cir, std::m
 		std::string nam = gateObj.name;
 		//std::cout << nam << std::endl;
 		//std::cout << gateObj.qubits[0]<<"    "<<gateObj.qubits[1] << std::endl;
-		if (nam == "cx") {
+		if (dd::twoGate.find(nam)!=dd::twoGate.end()||nam.substr(0,3)=="cu1") {
 			int con_q = gateObj.qubits[0];
 			int tar_q = gateObj.qubits[1];
 			std::string cont_idx = "x";
 			cont_idx += std::to_string(con_q);
-			cont_idx += std::to_string(0);
+			cont_idx += "_";
 			cont_idx += std::to_string(qubit_idx[con_q]);
 			qubit_idx[con_q] +=1;
 			std::string cont_idx2 = "x";
 			cont_idx2 += std::to_string(con_q);
-			cont_idx2 += std::to_string(0);
+			cont_idx2 += "_";
 			cont_idx2 += std::to_string(qubit_idx[con_q]);
 
 			std::string targ_idx1 = "x";
 			targ_idx1 += std::to_string(tar_q);
-			targ_idx1 += std::to_string(0);
+			targ_idx1 += "_";
 			targ_idx1 += std::to_string(qubit_idx[tar_q]);
 			qubit_idx[tar_q] += 1;
 			std::string targ_idx2 = "x";
 			targ_idx2 += std::to_string(tar_q);
-			targ_idx2 += std::to_string(0);
+			targ_idx2 += "_";
 			targ_idx2 += std::to_string(qubit_idx[tar_q]);
 
 			if(use_hyper){
@@ -246,11 +246,11 @@ std::map<int, std::vector<dd::Index>> get_index(const circuitReslut& cir, std::m
 			std::string targ_idx2 = "x";
 
 			targ_idx1 += std::to_string(tar_q);
-			targ_idx1 += std::to_string(0);
+			targ_idx1 += "_";
 			targ_idx1 += std::to_string(qubit_idx[tar_q]);
 			qubit_idx[tar_q] += 1;
 			targ_idx2 += std::to_string(tar_q);
-			targ_idx2 += std::to_string(0);
+			targ_idx2 += "_";
 			targ_idx2 += std::to_string(qubit_idx[tar_q]);
 			Index_set[k] = { {targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
 			//if (nam == "z" || nam == "s" || nam == "sdg" || nam == "t" || nam == "tdg" || (nam[0] == 'u' && nam[1] == '1') || (nam[0] == 'r' && nam[1] == 'z')) {
@@ -261,7 +261,7 @@ std::map<int, std::vector<dd::Index>> get_index(const circuitReslut& cir, std::m
 			//else {
 			//	Index_set[k] = { {targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
 			//}
-			Index_set[k] = { {targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
+			// Index_set[k] = { {targ_idx1,hyper_idx[targ_idx1]},{targ_idx2,hyper_idx[targ_idx2]} };
 
 		}
 		//std::cout << k << " ";
@@ -599,7 +599,7 @@ std::map<std::string, int> get_var_order(const int qubits_num,const int gates_nu
 		for (int k2 = gates_num; k2 >= 0; k2--) {
 			idx_nam = "x";
 			idx_nam += std::to_string(k);
-			idx_nam += std::to_string(0);
+			idx_nam += "_";
 			idx_nam += std::to_string(k2);
 			var[idx_nam] = order_num;
 			order_num -= 1;
@@ -837,7 +837,7 @@ int get_qubits_num(std::string  file_name) {
 
 		std::smatch result;
 
-		if (g[0] == "cx") {
+		if (dd::twoGate.find(g[0])!=dd::twoGate.end()||g[0].substr(0,3)=="cu1") {
 
 			std::regex pattern("q\\[(\\d+)\\],q\\[(\\d+)\\];\r?");
 			if (regex_match(g[1], result, pattern))
@@ -973,7 +973,7 @@ dd::Tensor gate_2_tensor(std::string name, std::vector<dd::Index> index_set) {
 	static const std::map<std::string, xt::xarray<dd::ComplexValue>> gate_type = {
 		{"x", dd::Xmat}, {"y", dd::Ymat}, {"z", dd::Zmat}, {"h", dd::Hmat},
 		{"s", dd::Smat}, {"sdg", dd::Sdagmat}, {"t", dd::Tmat}, {"tdg", dd::Tdagmat},
-		{"cx",dd::CXmat}
+		{"cx",dd::CXmat},{"swap", dd::SWAPmat},
 	};
 
 	auto it = gate_type.find(name);
@@ -992,6 +992,13 @@ dd::Tensor gate_2_tensor(std::string name, std::vector<dd::Index> index_set) {
 		if (std::regex_search(name, result, std::regex("u1\\((-?\\d+\\.\\d+)\\)"))) {
 			float theta = stof(result[1]);
 			return dd::Tensor(dd::Phasemat(theta), index_set, "Rz");
+		}
+	}
+	if (name.rfind("cu1(", 0) == 0) {
+		std::smatch result;
+		if (std::regex_search(name, result, std::regex("cu1\\(pi/(\\d+)(?:\\))"))) {
+			int Fraction = stof(result[1]);
+			return dd::Tensor(dd::CU1mat(dd::PI/Fraction), index_set, "cu1");
 		}
 	}
 	if (name.rfind("u3(", 0) == 0) {
