@@ -394,6 +394,16 @@ namespace dd {
 			Qubit var,
 			const std::vector<Edge<Node>>& edges,
 			bool cached = false) {
+				if(to_test){
+					std::cout << "var: " << var << std::endl;
+					std::cout << "edge.node.key: " << std::endl;
+					for(auto edge:edges){
+						std::cout << edge.p->v << " " ;
+						// if(edge.p->v == var) throw std::runtime_error("bug here");
+					}
+					std::cout << std::endl;
+
+				}
 
 			auto& uniqueTable = getUniqueTable<Node>();
 			Edge<Node> e{uniqueTable.getNode(), Complex::one};
@@ -754,7 +764,12 @@ namespace dd {
 			res.index_set = var_out;
 			res.key_2_index = new_key_2_index;
 
-			if (to_test) {
+			if (true) {
+				std::cout << "dd order: " << std::endl;
+				for(auto it: this->varOrder){
+					std::cout << it.first << " " << it.second ;
+				}
+				std::cout << std::endl;
 				std::cout << "TDD1: ";
 				for (const auto& element : tdd1.key_2_index) {
 					std::cout << element << " ";
@@ -775,7 +790,7 @@ namespace dd {
 			// std::cout << tdd1.e.w<<" "<<tdd2.e.w << std::endl;
 			res.e = cont2(tdd1.e, tdd2.e, key_2_new_key1, key_2_new_key2, var_cont.size());
 
-			if (to_test) {
+			if (true) {
 				std::cout << "TDD: ";
 				for (const auto& element : res.key_2_index) {
 					std::cout << element << " ";
@@ -1064,7 +1079,17 @@ namespace dd {
 					cn.returnToCache(e2.w);
 				}
 			}
+			if(to_test){
+					std::cout << "T_add2 function: " << 1083 << std::endl; 
+					std::cout << "var: " << w << std::endl;
+					std::cout << "edge.node.key: " << std::endl;
+					for(auto e:edge){
+						std::cout << e.p->v << " " ;
+						if(e.p->v == w) throw std::runtime_error("bug here");
+					}
+					std::cout << std::endl;
 
+				}
 			auto e = makeDDNode(w, edge, true);
 
 			addTable.insert({ xCopy.p,xCopy.w,xCopy.map }, { yCopy.p,yCopy.w,yCopy.map }, { e.p, e.w,e.map });
@@ -1116,14 +1141,14 @@ namespace dd {
 			float newk1 = temp_key_2_new_key1->new_key;
 			float newk2 = temp_key_2_new_key2->new_key;
 
-			if (newk1 > newk2 && int(newk1 * 2) % 2 != 1) {
+			if (newk1 > newk2 && int(newk1 * 2) % 2 == 0) {
 				auto res = find_remain_map(map1->father, map2, temp_key_2_new_key1, temp_key_2_new_key2);
 				auto temp_pahse = res->remain_map->extra_phase;
 				res->remain_map = append_new_map(res->remain_map, newk1, map1->x, map1->rotate);
 				res->remain_map->extra_phase = temp_pahse;
 				return res;
 			}
-			if (newk1 < newk2 && int(newk2 * 2) % 2 != 1) {
+			if (newk1 < newk2 && int(newk2 * 2) % 2 == 0) {
 				auto res = find_remain_map(map1, map2->father, temp_key_2_new_key1, temp_key_2_new_key2);
 				auto temp_pahse = res->remain_map->extra_phase;
 				res->remain_map = append_new_map(res->remain_map, newk2, map2->x, map2->rotate);
@@ -1269,11 +1294,14 @@ namespace dd {
 			float newk1 = temp_key_2_new_key1->new_key;
 
 			float newk2 = temp_key_2_new_key2->new_key;
-
+			if(to_test){
+				std::cout << 1298 << std::endl;
+				std::cout << "newk1: " << newk1 << " newk2: " << newk2 << std::endl;
+			}
 			ResultEdge e1{}, e2{}, r{};
 
 			if (newk1 > newk2) {
-				if (int(newk1 * 2) % 2 == 1) {
+				if (int(newk1 * 2) % 2 != 0) {
 					r = ResultEdge::zero;
 					ResultEdge etemp{};
 					for (int k = 0; k < x.p->e.size(); ++k) {
@@ -1310,11 +1338,23 @@ namespace dd {
 							cn.returnToCache(e1.w);
 						}
 					}
+					if(to_test){
+					std::cout <<"cont2 function: " << 1342 << std::endl; 
+					std::cout << "var: " << newk1 << std::endl;
+					std::cout << "var(newk2): " << newk2 << std::endl;
+					std::cout << "edge.node.key: " << std::endl;
+					for(auto edge:e){
+						std::cout << edge.p->v << " " ;
+						if(edge.p->v == newk1) throw std::runtime_error("bug here");
+					}
+					std::cout << std::endl;
+
+				}
 					r = makeDDNode(Qubit(newk1), e, true);
 				}
 			}
 			else if (newk1 < newk2) {
-				if (int(newk2 * 2) % 2 == 1) {
+				if (int(newk2 * 2) % 2 != 0) {
 					r = ResultEdge::zero;
 					ResultEdge etemp{};
 					for (int k = 0; k < y.p->e.size(); ++k) {
@@ -1351,12 +1391,27 @@ namespace dd {
 							cn.returnToCache(e2.w);
 						}
 					}
+					if(to_test){
+					std::cout << "cont2 function: " << 1391 << std::endl; 
+					std::cout << "var: " << newk2 << std::endl;
+					std::cout << "edge.node.key: " << std::endl;
+					for(auto edge:e){
+						std::cout << edge.p->v << " " ;
+						if(edge.p->v == newk2) throw std::runtime_error("bug here");
+					}
+					std::cout << std::endl;
+
+				}
 					r = makeDDNode(Qubit(newk2), e, true);
 				}
 
 			}
 			else {
-				if (int(newk2 * 2) % 2 == 1) {
+				if(to_test){
+				std:: cout << 1410 << int(newk2 * 2) % 2 << std::endl; 
+
+				}
+				if (int(newk2 * 2) % 2 != 0) {
 					r = ResultEdge::zero;
 					ResultEdge etemp{};
 					for (int k = 0; k < x.p->e.size(); ++k) {
@@ -1401,6 +1456,18 @@ namespace dd {
 							cn.returnToCache(e2.w);
 						}
 					}
+					if(to_test){
+					std::cout <<"cont2 function: " << 1456 << std::endl; 
+					std::cout << "var: " << newk1 << std::endl;
+					std::cout << "var(newk2): " << newk2 << std::endl;
+					std::cout << "edge.node.key: " << std::endl;
+					for(auto edge:e){
+						std::cout << edge.p->v << " " ;
+						if(edge.p->v == newk1) throw std::runtime_error("bug here");
+					}
+					std::cout << std::endl;
+
+				}
 					r = makeDDNode(Qubit(newk1), e, true);
 				}
 			}
