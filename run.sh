@@ -4,7 +4,7 @@ run_tests() {
     local exper="$1"
     local start_index="$2"
     local end_index="$3"
-    local LOG_FILE="LimTDD_$exper.txt"
+    local LOG_FILE="LimTDD_cir_2_$exper.txt"
     local program="test_$exper"
 
     # Empty the log file at the start
@@ -26,7 +26,7 @@ run_tests() {
 }
 
 # Run tests for each experiment with specific ranges
-run_tests "clt" 1 19
-run_tests "cl" 1 19
-run_tests "qft" 2 17
-run_tests "bv" 2 21
+# run_tests "clt" 1 19
+# run_tests "cl" 1 19
+run_tests "qft" 2 15
+# run_tests "bv" 2 21

@@ -18,6 +18,10 @@ TDD makezero(int n, dd::Package<>* ddpackage) {
         tn.add_ts(temp);
     }
     auto res_dd = tn.cont(ddpackage);
+    // for(auto it: res_dd.index_set){
+    //     std::cout << it.idx <<" " << it.key ;
+    // }
+    // std::cout << std::endl;
     return res_dd;
 }
 TDD cont(dd::TensorNetwork* tn,dd::Package<>* ddpackage,int n, bool release = true) {
@@ -30,6 +34,7 @@ TDD cont(dd::TensorNetwork* tn,dd::Package<>* ddpackage,int n, bool release = tr
 
     clock_t start,end;
     TDD res_dd = makezero(n,ddpackage);
+    // TDD res_dd = tn->tensors[0].to_tdd(ddpackage);
 
     ddpackage->incRef(res_dd.e);
     TDD temp_dd;
