@@ -10,4 +10,4 @@ file(GLOB SOURCES
 
 # Create the library
 add_library(Limdd_lib ${SOURCES})
-target_include_directories(Limdd_lib PRIVATE ${XTENSOR_INCLUDE_DIRS} ${XTL_INCLUDE_DIRS})
+target_include_directories(Limdd_lib PUBLIC ${xtensor_INCLUDE_DIRS} ${xtl_INCLUDE_DIRS})
