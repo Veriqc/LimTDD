@@ -8,3 +8,7 @@ x64/
 enc_temp_folder/
 
 .gitignore
+
+TDD/
+
+.ipynb_checkpoints/
