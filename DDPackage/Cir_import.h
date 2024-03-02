@@ -973,7 +973,7 @@ dd::Tensor gate_2_tensor(std::string name, std::vector<dd::Index> index_set) {
 	static const std::map<std::string, xt::xarray<dd::ComplexValue>> gate_type = {
 		{"x", dd::Xmat}, {"y", dd::Ymat}, {"z", dd::Zmat}, {"h", dd::Hmat},
 		{"s", dd::Smat}, {"sdg", dd::Sdagmat}, {"t", dd::Tmat}, {"tdg", dd::Tdagmat},
-		{"cx",dd::CXmat},{"swap", dd::SWAPmat},
+		{"cx",dd::CXmat},{"swap", dd::SWAPmat},{"id", dd::Imat},
 	};
 
 	auto it = gate_type.find(name);
