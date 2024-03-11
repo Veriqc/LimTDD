@@ -659,7 +659,6 @@ namespace dd {
 		export2Dot(Edge basic, const std::string& outputFilename, bool colored = true,
 			bool edgeLabels = false, bool classic = false, bool memory = false,
 			bool show = true, bool formatAsPolar = true) {
-				// TODO:Q:how to add weight
 		std::ofstream init(outputFilename);
 
 		toDot(basic, init, colored, edgeLabels, classic, memory, formatAsPolar);

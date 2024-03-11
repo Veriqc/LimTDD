@@ -77,6 +77,7 @@ namespace dd {
 
 		std::map<std::string, int> varOrder;
 
+
 		//==========================================我写的========================================
 
 		explicit Package(std::size_t nq = DEFAULT_QUBITS) : nqubits(nq) {
@@ -113,6 +114,8 @@ namespace dd {
 
 	private:
 		std::size_t nqubits;
+
+		
 
 		///
 		/// Vector nodes, edges and quantum states
@@ -246,6 +249,21 @@ namespace dd {
 				r.p->e = {r.p->e[1],r.p->e[0]};
 				zero = { zero[1],zero[0] };
 				x = 1;
+			}
+			else{
+				if(std::abs(ComplexNumbers::mag2(r.p->e[0].w)-ComplexNumbers::mag2(r.p->e[1].w)) < ComplexTable<>::tolerance() && ComplexNumbers::arg(r.p->e[0].w) >  ComplexNumbers::arg(r.p->e[1].w)){
+					r.p->e = {r.p->e[1],r.p->e[0]};
+					zero = { zero[1],zero[0] };
+					x = 1;
+				}
+				// else{
+				// 	if(std::abs(ComplexNumbers::mag2(r.p->e[0].w)-ComplexNumbers::mag2(r.p->e[1].w)) < ComplexTable<>::tolerance() && std::abs(ComplexNumbers::arg(r.p->e[0].w)-ComplexNumbers::arg(r.p->e[1].w)) < ComplexTable<>::tolerance() && r.p->e[0].map > r.p->e[1].map){
+				// 		r.p->e = {r.p->e[1],r.p->e[0]};
+				// 		zero = { zero[1],zero[0] };
+				// 		x = 1;
+				// 	}
+				// }
+
 			}
 			argmax = 0;
 
@@ -1194,6 +1212,7 @@ namespace dd {
 
 		//template <class LeftOperandNode, class RightOperandNode>
 		Edge<mNode> cont2(const Edge<mNode>& x, const Edge<mNode>& y, key_2_new_key_node* key_2_new_key1, key_2_new_key_node* key_2_new_key2, const int var_num) {
+			static constexpr Edge<mNode> identity = xarray_2_edge({{{1,0},{0,0}},{{0,0},{1,0}}},{0,1});
 
 			//std::cout <<"838 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v) << std::endl;
 			//the_maps::print_maps(x.map);
@@ -1254,8 +1273,10 @@ namespace dd {
 
 			
 			auto r_maps = find_remain_map(x.map, y.map, key_2_new_key1, key_2_new_key2);
+
 			xCopy.map = r_maps->cont_map1;
 			yCopy.map = r_maps->cont_map2;
+			yCopy.map->print_maps(yCopy.map);
 			//auto extra_phase = cn.getCached(r_maps->remain_map->extra_phase.r->value, r_maps->remain_map->extra_phase.i->value);
 			auto extra_phase = r_maps->remain_map->extra_phase;
 
@@ -1279,6 +1300,7 @@ namespace dd {
 				if (res.cont_num != var_num) {
 					assert(e.w != Complex::zero);
 					ComplexNumbers::mul(e.w, e.w, cn.getTemporary(pow(2, var_num - res.cont_num), 0));//对于一般形状的tensor,以2为底数可能有问题
+					// TODO: pow(2,n) can be optimized by 1<<n
 				}
 				e.map = mapmul(r_maps->remain_map, e.map);
 				assert(e.w != Complex::zero);
@@ -1290,6 +1312,68 @@ namespace dd {
 				return e;
 			}
 			// TODO: add if here
+			/*
+			check if y is identity.
+			(identity == yCopy)
+			{ auto y0 = varOrder(yCopy.first)
+			auto y1 = varOrder(yCopy.second)
+			auto x = varOrder(yCopy.first.father)
+			auto z = varOrder(yCopy.first.next)
+			if(x>y1 and y1 > z){
+				return xCopy
+			}
+			else{
+				continue ?
+			}
+			}
+			*/
+			bool test_1314 = false;
+			if(yCopy == identity){
+				if(to_test){
+					std::cout << "a identity" << std::endl;
+				}
+				auto temp_temp_key_2_new_key1 = temp_key_2_new_key1;
+				bool flag = true ;
+				int i = 0;
+				while (temp_temp_key_2_new_key1->level > -1) {
+					if (int(temp_temp_key_2_new_key1->new_key * 2) % 2 != 0){
+						temp_temp_key_2_new_key1 = temp_temp_key_2_new_key1->father;
+						++ i;
+					}
+					else{
+						if(temp_temp_key_2_new_key1->level != temp_temp_key_2_new_key1->new_key){
+							flag = false;
+							break;
+						}
+						else{
+							temp_temp_key_2_new_key1 = temp_temp_key_2_new_key1->father;
+						}
+					}
+				}
+
+				// if(flag){
+				// 	auto e = ResultEdge{ xCopy.p, cn.getCached(1,0),xCopy.map };
+				// 	assert(e.w != Complex::zero);
+				// 	ComplexNumbers::mul(e.w, e.w, x.w);
+				// 	ComplexNumbers::mul(e.w, e.w, y.w);
+				// 	if (e.w.approximatelyZero()) {
+				// 		//assert(e.w != Complex::zero);
+				// 		cn.returnToCache(e.w);
+				// 		cn.returnToCache(extra_phase);
+				// 		return ResultEdge::zero;
+				// 	}
+				// 	e.map = mapmul(r_maps->remain_map, e.map);
+				// 	assert(e.w != Complex::zero);
+				// 	cn.mul(e.w, e.w, e.map->extra_phase);
+				// 	cn.returnToCache(e.map->extra_phase);
+				// 	assert(e.w != Complex::zero);
+				// 	cn.mul(e.w, e.w, extra_phase);
+				// 	cn.returnToCache(extra_phase);
+				// 	std::cout << i << std::endl;
+				// 	return e;
+				// }
+				test_1314 = flag;
+			}
 
 
 			float newk1 = temp_key_2_new_key1->new_key;
@@ -1302,6 +1386,8 @@ namespace dd {
 			ResultEdge e1{}, e2{}, r{};
 
 			if (newk1 > newk2) {
+				// TODO: half integer?
+				// bool isHalfInteger = std::abs(newk1 - std::round(newk1)) > 0.4999999 && std::abs(newk1 - std::round(newk1)) < 0.5000001;
 				if (int(newk1 * 2) % 2 != 0) {
 					r = ResultEdge::zero;
 					ResultEdge etemp{};
@@ -1472,7 +1558,22 @@ namespace dd {
 					r = makeDDNode(Qubit(newk1), e, true);
 				}
 			}
+			if(test_1314){
+				
+				if(r == xCopy ){
+					std::cout << "true" << std::endl;
+				}
+				
+				else{
+					if(r.p == xCopy.p) std::cout << "p right" << std::endl;
+					else std::cout << "p wrong" << std::endl;
 
+					std::cout << "r w:" << r.w << " x w:" << xCopy.w << std::endl;
+					r.map->print_maps(r.map);
+					r.map->print_maps(xCopy.map);
+					std::cout << "r size: "<< size(r) << " x size: " << size(xCopy) << std::endl;
+				}
+			}
 			contTable.insert(xCopy, yCopy, { r.p, r.w,r.map }, temp_key_2_new_key1, temp_key_2_new_key2, var_num);
 			
 			if (!r.w.exactlyZero() && (x.w.exactlyOne() || !y.w.exactlyZero())) {
