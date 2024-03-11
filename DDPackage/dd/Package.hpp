@@ -77,11 +77,11 @@ namespace dd {
 
 		std::map<std::string, int> varOrder;
 
-
+		Edge<mNode> identity;
 		//==========================================我写的========================================
-
 		explicit Package(std::size_t nq = DEFAULT_QUBITS) : nqubits(nq) {
 			resize(nq);
+			this->identity = this->xarray_2_edge({{{1,0},{0,0}},{{0,0},{1,0}}},{0,1});
 		};
 		~Package() = default;
 		Package(const Package& package) = delete;
@@ -115,7 +115,9 @@ namespace dd {
 	private:
 		std::size_t nqubits;
 
-		
+		static bool inline isHalf(float k){
+			return std::abs(k - std::round(k)) > 0.4999999 && std::abs(k - std::round(k)) < 0.5000001;
+		}
 
 		///
 		/// Vector nodes, edges and quantum states
@@ -1212,7 +1214,7 @@ namespace dd {
 
 		//template <class LeftOperandNode, class RightOperandNode>
 		Edge<mNode> cont2(const Edge<mNode>& x, const Edge<mNode>& y, key_2_new_key_node* key_2_new_key1, key_2_new_key_node* key_2_new_key2, const int var_num) {
-			static constexpr Edge<mNode> identity = xarray_2_edge({{{1,0},{0,0}},{{0,0},{1,0}}},{0,1});
+			// auto& id = this->identity;
 
 			//std::cout <<"838 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v) << std::endl;
 			//the_maps::print_maps(x.map);
@@ -1328,7 +1330,7 @@ namespace dd {
 			}
 			*/
 			bool test_1314 = false;
-			if(yCopy == identity){
+			if(yCopy == this->identity){
 				if(to_test){
 					std::cout << "a identity" << std::endl;
 				}
@@ -1682,5 +1684,6 @@ namespace dd {
 		}
 
 	};
+
 
 } // namespace dd
