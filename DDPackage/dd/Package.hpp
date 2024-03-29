@@ -53,6 +53,29 @@
 
 namespace dd {
 
+	bool mapCompare(the_maps* map1, the_maps* map2) {
+		const auto maxArg = dd::PI;
+
+		while (map1->level >= 0 || map2->level >= 0) {
+			if (map1->level > map2->level) {
+				if (-std::pow(-1, map1->x)*ComplexNumbers::arg(map1->rotate) > maxArg) return true;
+				map1 = (map1->level > 0) ? map1->father : map1;
+			} else if (map2->level > map1->level) {
+				if (ComplexNumbers::arg(map2->rotate) > maxArg) return true;
+				map2 = (map2->level > 0) ? map2->father : map2;
+			} else { // map1->level == map2->level
+				fp theta1 = ComplexNumbers::arg(map1->rotate);
+				fp theta2 = ComplexNumbers::arg(map2->rotate);
+				fp phaseDiff = theta2 - theta1 * std::pow(-1, map1->x ^ map2->x);
+				if (phaseDiff > maxArg) return true;
+				map1 = (map1->level > 0) ? map1->father : map1;
+				map2 = (map2->level > 0) ? map2->father : map2;
+			}
+		}
+
+		return false;
+	}
+
 	template <class Config> class Package {
 		static_assert(std::is_base_of_v<DDPackageConfig, Config>, "Config must be derived from DDPackageConfig");
 
@@ -197,6 +220,9 @@ namespace dd {
 			//auto zero = std::array{	e.p->e[0].w.approximatelyZero(), e.p->e[1].w.approximatelyZero()};
 			int nodeCount = e.p->e.size();
 			// during now, nodeCount should be  2
+			// if(to_test){
+			// 	std::cout << "224: " << nodeCount <<std::endl;
+			// }
 			assert(nodeCount == 2);
 
 			std::vector<bool> isZero(nodeCount, false);
@@ -247,7 +273,6 @@ namespace dd {
 					// the chain
 					getUniqueTable<Node>().returnNode(e.p);
 				}
-				//std::cout << "aaa" << std::endl;
 				return Edge<Node>::zero;
 			}
 
@@ -255,15 +280,15 @@ namespace dd {
 			auto res = e;
 
 			if (maxArgIndex > 0) {
-				add_x = 1;
+				add_x = true;
 			}
 			else if(std::abs(ComplexNumbers::mag2(res.p->e[0].w)-ComplexNumbers::mag2(res.p->e[1].w)) < ComplexTable<>::tolerance()){
 				add_x = false;
 			}
-			else if(ComplexNumbers::arg(res.p->e[0].w) >  ComplexNumbers::arg(res.p->e[1].w)){
+			else if(res.p->e[0].p >  res.p->e[1].p){
 				add_x = true ;
 			}
-			else if(ComplexNumbers::arg(res.p->e[0].w) <  ComplexNumbers::arg(res.p->e[1].w)){
+			else if(res.p->e[0].p <  res.p->e[1].p){
 				add_x = false;
 			}
 			else{
@@ -1341,7 +1366,7 @@ namespace dd {
 			}
 			}
 			*/
-			bool test_1314 = false;
+			// bool test_1314 = false;
 			if(yCopy == this->identity){
 				if(to_test){
 					std::cout << "a identity" << std::endl;
@@ -1386,7 +1411,7 @@ namespace dd {
 				// 	std::cout << i << std::endl;
 				// 	return e;
 				// }
-				test_1314 = flag;
+				// test_1314 = flag;
 			}
 
 
@@ -1572,22 +1597,22 @@ namespace dd {
 					r = makeDDNode(Qubit(newk1), e, true);
 				}
 			}
-			if(test_1314){
+			// if(test_1314){
 				
-				if(r == xCopy ){
-					std::cout << "true" << std::endl;
-				}
+			// 	if(r == xCopy ){
+			// 		std::cout << "true" << std::endl;
+			// 	}
 				
-				else{
-					if(r.p == xCopy.p) std::cout << "p right" << std::endl;
-					else std::cout << "p wrong" << std::endl;
+			// 	else{
+			// 		if(r.p == xCopy.p) std::cout << "p right" << std::endl;
+			// 		else std::cout << "p wrong" << std::endl;
 
-					std::cout << "r w:" << r.w << " x w:" << xCopy.w << std::endl;
-					r.map->print_maps(r.map);
-					r.map->print_maps(xCopy.map);
-					std::cout << "r size: "<< size(r) << " x size: " << size(xCopy) << std::endl;
-				}
-			}
+			// 		std::cout << "r w:" << r.w << " x w:" << xCopy.w << std::endl;
+			// 		r.map->print_maps(r.map);
+			// 		r.map->print_maps(xCopy.map);
+			// 		std::cout << "r size: "<< size(r) << " x size: " << size(xCopy) << std::endl;
+			// 	}
+			// }
 			contTable.insert(xCopy, yCopy, { r.p, r.w,r.map }, temp_key_2_new_key1, temp_key_2_new_key2, var_num);
 			
 			if (!r.w.exactlyZero() && (x.w.exactlyOne() || !y.w.exactlyZero())) {

@@ -2,7 +2,6 @@
 
 #include "Complex.hpp"
 #include "ComplexValue.hpp"
-#include "ComplexNumbers.hpp"
 #include "Definitions.hpp"
 
 #include <array>
@@ -44,29 +43,6 @@ namespace dd {
 		the_maps* cont_map2;
 
 	};
-
-	bool mapCompare(the_maps* map1, the_maps* map2) {
-		const auto maxArg = dd::PI;
-
-		while (map1->level >= 0 || map2->level >= 0) {
-			if (map1->level > map2->level) {
-				if (-std::pow(-1, map1->x)*ComplexNumbers::arg(map1->rotate) > maxArg) return true;
-				map1 = (map1->level > 0) ? map1->father : map1;
-			} else if (map2->level > map1->level) {
-				if (ComplexNumbers::arg(map2->rotate) > maxArg) return true;
-				map2 = (map2->level > 0) ? map2->father : map2;
-			} else { // map1->level == map2->level
-				fp theta1 = ComplexNumbers::arg(map1->rotate);
-				fp theta2 = ComplexNumbers::arg(map2->rotate);
-				fp phaseDiff = theta2 - theta1 * std::pow(-1, map1->x ^ map2->x);
-				if (phaseDiff > maxArg) return true;
-				map1 = (map1->level > 0) ? map1->father : map1;
-				map2 = (map2->level > 0) ? map2->father : map2;
-			}
-		}
-
-		return false;
-	}
 
 
 }
