@@ -115,7 +115,8 @@ namespace dd {
 	private:
 		std::size_t nqubits;
 
-		static bool inline isHalf(float k){
+		static bool inline ifContract(float k){
+			//when k is half, means this index will be contracted
 			return std::abs(k - std::round(k)) > 0.4999999 && std::abs(k - std::round(k)) < 0.5000001;
 		}
 
@@ -188,53 +189,59 @@ namespace dd {
 		///
 		template <class Node> Edge<Node> normalize(const Edge<Node>& e, bool cached) {
 
-			auto argmax = -1;
-
+			auto maxArgIndex = -1;
+			// v0 = e.p->e[0].p
+			// v1 = e.p->e[1].p
+			// w0 = e.p->e[0].w
+			// w0 = e.p->e[1].w
 			//auto zero = std::array{	e.p->e[0].w.approximatelyZero(), e.p->e[1].w.approximatelyZero()};
-			int R = e.p->e.size();
-			std::vector<bool> zero;
-			for (int k = 0; k < R; k++) {
-				zero.push_back(e.p->e[k].w.approximatelyZero());
+			int nodeCount = e.p->e.size();
+			// during now, nodeCount should be  2
+			assert(nodeCount == 2);
+
+			std::vector<bool> isZero(nodeCount, false);
+
+			// Check if any values are approximately isZero
+			for (int k = 0; k < nodeCount; k++) {
+				isZero[k] = e.p->e[k].w.approximatelyZero();
 			}
 
-			// make sure to release cached numbers approximately zero, but not exactly
-			// zero
-			if (cached) {
-				for (auto i = 0U; i < R; i++) {
-					if (zero[i] && e.p->e[i].w != Complex::zero) {
-						//assert(e.p->e[i].w != Complex::zero);
+			// Release cached numbers approximately zero, but not exactly zero
+			if(cached) {
+				for (auto i = 0U; i < nodeCount; i++) {
+					if (isZero[i] && e.p->e[i].w != Complex::zero) {
 						cn.returnToCache(e.p->e[i].w);
 						e.p->e[i] = Edge<Node>::zero;
 					}
 				}
 			}
 
-			fp max = 0;
-			auto maxc = Complex::one;
+			fp max_mag2 = 0;
+			auto max_value = Complex::one;
 			// determine max amplitude
-			for (auto i = 0U; i < R; ++i) {
-				//std::cout << 299 << " " << zero[i]<<" "<< e.p->e[i].w << std::endl;
-				if (zero[i]) {
+			for (auto i = 0U; i < nodeCount; ++i) {
+				//std::cout << 299 << " " << isZero[i]<<" "<< e.p->e[i].w << std::endl;
+				if (isZero[i]) {
 					continue;
 				}
-				if (argmax == -1) {
-					argmax = static_cast<decltype(argmax)>(i);
-					max = ComplexNumbers::mag2(e.p->e[i].w);
-					maxc = e.p->e[i].w;
+				if (maxArgIndex == -1) {
+					maxArgIndex = static_cast<decltype(maxArgIndex)>(i);
+					max_mag2 = ComplexNumbers::mag2(e.p->e[i].w);
+					max_value = e.p->e[i].w;
 				}
 				else {
 					auto mag = ComplexNumbers::mag2(e.p->e[i].w);
-					if (mag - max > ComplexTable<>::tolerance()) {
-						argmax = static_cast<decltype(argmax)>(i);
-						max = mag;
-						maxc = e.p->e[i].w;
+					if (mag - max_mag2 > ComplexTable<>::tolerance()) {
+						maxArgIndex = static_cast<decltype(maxArgIndex)>(i);
+						max_mag2 = mag;
+						max_value = e.p->e[i].w;
 					}
 				}
-				//std::cout << 315 << " " << i << " " << argmax << " " << max << " " << maxc << std::endl;
+				//std::cout << 315 << " " << i << " " << maxArgIndex << " " << max << " " << max_value << std::endl;
 			}
 
 			// all equal to zero
-			if (argmax == -1) {
+			if (maxArgIndex == -1) {
 				if (!cached && !e.isTerminal()) {
 					// If it is not a cached computation, the node has to be put back into
 					// the chain
@@ -244,113 +251,118 @@ namespace dd {
 				return Edge<Node>::zero;
 			}
 
-			bool x = 0;
-			auto r = e;
+			bool add_x = 0;
+			auto res = e;
 
-			if (argmax > 0) {
-				r.p->e = {r.p->e[1],r.p->e[0]};
-				zero = { zero[1],zero[0] };
-				x = 1;
+			if (maxArgIndex > 0) {
+				add_x = 1;
+			}
+			else if(std::abs(ComplexNumbers::mag2(res.p->e[0].w)-ComplexNumbers::mag2(res.p->e[1].w)) < ComplexTable<>::tolerance()){
+				add_x = false;
+			}
+			else if(ComplexNumbers::arg(res.p->e[0].w) >  ComplexNumbers::arg(res.p->e[1].w)){
+				add_x = true ;
+			}
+			else if(ComplexNumbers::arg(res.p->e[0].w) <  ComplexNumbers::arg(res.p->e[1].w)){
+				add_x = false;
 			}
 			else{
-				if(std::abs(ComplexNumbers::mag2(r.p->e[0].w)-ComplexNumbers::mag2(r.p->e[1].w)) < ComplexTable<>::tolerance() && ComplexNumbers::arg(r.p->e[0].w) >  ComplexNumbers::arg(r.p->e[1].w)){
-					r.p->e = {r.p->e[1],r.p->e[0]};
-					zero = { zero[1],zero[0] };
-					x = 1;
-				}
-				// else{
-				// 	if(std::abs(ComplexNumbers::mag2(r.p->e[0].w)-ComplexNumbers::mag2(r.p->e[1].w)) < ComplexTable<>::tolerance() && std::abs(ComplexNumbers::arg(r.p->e[0].w)-ComplexNumbers::arg(r.p->e[1].w)) < ComplexTable<>::tolerance() && r.p->e[0].map > r.p->e[1].map){
-				// 		r.p->e = {r.p->e[1],r.p->e[0]};
-				// 		zero = { zero[1],zero[0] };
-				// 		x = 1;
-				// 	}
+				add_x = mapCompare(res.p->e[0].map,res.p->e[1].map);
+			}
+				// if( && ComplexNumbers::arg(res.p->e[0].w) >  ComplexNumbers::arg(res.p->e[1].w)){
+				// 	res.p->e = {res.p->e[1],res.p->e[0]};
+				// 	isZero = { isZero[1],isZero[0] };
+				// 	add_x = 1;
 				// }
 
+			if(add_x){
+				res.p->e = {res.p->e[1],res.p->e[0]};
+				isZero = { isZero[1],isZero[0] };
 			}
-			argmax = 0;
+			maxArgIndex = 0;
 
 			//std::cout << "aaa" << std::endl;
 			//std::cout << r.p->e[0].w << " " << r.p->e[1].w << std::endl;
 			//the_maps::print_maps(r.p->e[0].map);
 			//the_maps::print_maps(r.p->e[1].map);
 
-			//std::cout << argmax<<" " << maxc << std::endl;
+			//std::cout << argmax<<" " << max_value << std::endl;
 			// divide each entry by max
-			for (auto i = 0U; i < R; ++i) {
-				if (static_cast<decltype(argmax)>(i) == argmax) {
+			for (auto i = 0U; i < nodeCount; ++i) {
+				if (static_cast<decltype(maxArgIndex)>(i) == maxArgIndex) {
 					if (cached) {
-						if (r.w.exactlyOne()) {
-							r.w = maxc;
+						if (res.w.exactlyOne()) {
+							res.w = max_value;
 						}
 						else {
-							assert(r.w != Complex::zero);
-							ComplexNumbers::mul(r.w, r.w, maxc);
+							assert(res.w != Complex::zero);
+							ComplexNumbers::mul(res.w, res.w, max_value);
 						}
 					}
 					else {
-						if (r.w.exactlyOne()) {
-							r.w = maxc;
+						if (res.w.exactlyOne()) {
+							res.w = max_value;
 						}
 						else {
 							auto c = cn.getTemporary();
 							assert(c != Complex::zero);
-							ComplexNumbers::mul(c, r.w, maxc);
-							r.w = cn.lookup(c);
+							ComplexNumbers::mul(c, res.w, max_value);
+							res.w = cn.lookup(c);
 						}
 					}
-					r.map = r.p->e[i].map;
-					r.p->e[i].w = Complex::one;
-					r.p->e[i].map = the_maps::the_maps_header();
+					res.map = res.p->e[i].map;
+					res.p->e[i].w = Complex::one;
+					res.p->e[i].map = the_maps::the_maps_header();
 				}
 				else {
-					if (zero[i]) {
-						if (cached && r.p->e[i].w != Complex::zero) {
+					if (isZero[i]) {
+						if (cached && res.p->e[i].w != Complex::zero) {
 							//assert(r.p->e[i].w != Complex::zero);
-							cn.returnToCache(r.p->e[i].w);
+							cn.returnToCache(res.p->e[i].w);
 						}
 						//r.p->e[i] = Edge<Node>::zero;
-						r.p->e[i] = { r.p->e[0].p,Complex::zero, the_maps::the_maps_header() };
-						r.p->e[i].map->extra_phase = cn.getTemporary(1,0);
+						res.p->e[i] = { res.p->e[0].p,Complex::zero, the_maps::the_maps_header() };
+						res.p->e[i].map->extra_phase = cn.getTemporary(1,0);
 						continue;
 					}
-					if (cached && !zero[i] && !r.p->e[i].w.exactlyOne()) {
+					if (cached && !isZero[i] && !res.p->e[i].w.exactlyOne()) {
 						//assert(r.p->e[i].w != Complex::zero);
-						cn.returnToCache(r.p->e[i].w);
+						cn.returnToCache(res.p->e[i].w);
 					}
-					if (r.p->e[i].w.approximatelyOne()) {
-						r.p->e[i].w = Complex::one;
+					if (res.p->e[i].w.approximatelyOne()) {
+						res.p->e[i].w = Complex::one;
 					}
 
 					if (mode == 2) {
 						auto c = cn.getCached();
-						ComplexNumbers::div(c, r.p->e[i].w, maxc);
-						r.p->e[i].map = mapdiv(r.p->e[i].map, r.map);
-						cn.mul(r.p->e[i].map->extra_phase, r.p->e[i].map->extra_phase, c);
+						ComplexNumbers::div(c, res.p->e[i].w, max_value);
+						res.p->e[i].map = mapdiv(res.p->e[i].map, res.map);
+						cn.mul(res.p->e[i].map->extra_phase, res.p->e[i].map->extra_phase, c);
 						cn.returnToCache(c);
-						r.p->e[i].w = Complex::one;
+						res.p->e[i].w = Complex::one;
 
 					}
 					else {
 						auto c = cn.getTemporary();
-						ComplexNumbers::div(c, r.p->e[i].w, maxc);
+						ComplexNumbers::div(c, res.p->e[i].w, max_value);
 						auto angle = ComplexNumbers::arg(c);
 						c.r->value = sqrt(ComplexNumbers::mag2(c));
 						c.i->value = 0;
-						r.p->e[i].w = cn.lookup(c);
-						r.p->e[i].map = mapdiv(r.p->e[i].map, r.map);
-						cn.mul(r.p->e[i].map->extra_phase, r.p->e[i].map->extra_phase, cn.getTemporary(cos(angle), sin(angle)));
+						res.p->e[i].w = cn.lookup(c);
+						res.p->e[i].map = mapdiv(res.p->e[i].map, res.map);
+						cn.mul(res.p->e[i].map->extra_phase, res.p->e[i].map->extra_phase, cn.getTemporary(cos(angle), sin(angle)));
 					}
 				}
 			}
 
-			r.map = append_new_map(r.map, r.p->v, x, cn.lookup(r.p->e[1].map->extra_phase));
-			if (!zero[1]) {
-				cn.returnToCache(r.p->e[1].map->extra_phase);
+			res.map = append_new_map(res.map, res.p->v, add_x, cn.lookup(res.p->e[1].map->extra_phase));
+			if (!isZero[1]) {
+				cn.returnToCache(res.p->e[1].map->extra_phase);
 			}
 			//std::cout << r.w << std::endl;
 			//the_maps::print_maps(r.map);
 			//std::cout << "bbb" << std::endl;
-			return r;
+			return res;
 
 		}
 
@@ -1161,14 +1173,14 @@ namespace dd {
 			float newk1 = temp_key_2_new_key1->new_key;
 			float newk2 = temp_key_2_new_key2->new_key;
 
-			if (newk1 > newk2 && int(newk1 * 2) % 2 == 0) {
+			if (newk1 > newk2 && !ifContract(newk1)) {
 				auto res = find_remain_map(map1->father, map2, temp_key_2_new_key1, temp_key_2_new_key2);
 				auto temp_pahse = res->remain_map->extra_phase;
 				res->remain_map = append_new_map(res->remain_map, newk1, map1->x, map1->rotate);
 				res->remain_map->extra_phase = temp_pahse;
 				return res;
 			}
-			if (newk1 < newk2 && int(newk2 * 2) % 2 == 0) {
+			if (newk1 < newk2 && !ifContract(newk2)) {
 				auto res = find_remain_map(map1, map2->father, temp_key_2_new_key1, temp_key_2_new_key2);
 				auto temp_pahse = res->remain_map->extra_phase;
 				res->remain_map = append_new_map(res->remain_map, newk2, map2->x, map2->rotate);
@@ -1338,7 +1350,7 @@ namespace dd {
 				bool flag = true ;
 				int i = 0;
 				while (temp_temp_key_2_new_key1->level > -1) {
-					if (int(temp_temp_key_2_new_key1->new_key * 2) % 2 != 0){
+					if (ifContract(temp_temp_key_2_new_key1->new_key)){
 						temp_temp_key_2_new_key1 = temp_temp_key_2_new_key1->father;
 						++ i;
 					}
@@ -1390,7 +1402,7 @@ namespace dd {
 			if (newk1 > newk2) {
 				// TODO: half integer?
 				// bool isHalfInteger = std::abs(newk1 - std::round(newk1)) > 0.4999999 && std::abs(newk1 - std::round(newk1)) < 0.5000001;
-				if (int(newk1 * 2) % 2 != 0) {
+				if (ifContract(newk1)) {
 					r = ResultEdge::zero;
 					ResultEdge etemp{};
 					for (int k = 0; k < x.p->e.size(); ++k) {
@@ -1443,7 +1455,7 @@ namespace dd {
 				}
 			}
 			else if (newk1 < newk2) {
-				if (int(newk2 * 2) % 2 != 0) {
+				if (ifContract(newk2)) {
 					r = ResultEdge::zero;
 					ResultEdge etemp{};
 					for (int k = 0; k < y.p->e.size(); ++k) {
@@ -1500,7 +1512,7 @@ namespace dd {
 				std:: cout << 1410 << int(newk2 * 2) % 2 << std::endl; 
 
 				}
-				if (int(newk2 * 2) % 2 != 0) {
+				if (ifContract(newk2)) {
 					r = ResultEdge::zero;
 					ResultEdge etemp{};
 					for (int k = 0; k < x.p->e.size(); ++k) {
