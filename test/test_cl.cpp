@@ -7,6 +7,7 @@
 #include <xtensor/xio.hpp>
 #include <xtensor/xarray.hpp>
 #include "Cir_import.h"
+#include "dd/Export.hpp"
 #include <algorithm>
 
 using namespace dd;
@@ -37,6 +38,9 @@ TDD cont(dd::TensorNetwork* tn,dd::Package<>* ddpackage, int n,bool release = tr
     for (int i=0; i < tn->tensors.size(); ++i) {
         auto tensor = tn->tensors[i];
         try{
+            std::cout << i << std::endl;
+            // std::cout << tensor
+            std::cout << "------" << std::endl;
             temp_dd = ddpackage->cont(res_dd, tensor.to_tdd(ddpackage));
             if (release) {
                 ddpackage->incRef(temp_dd.e);
@@ -74,5 +78,6 @@ int main(int argc, char *argv[]) {
 	dd::TDD tdd = cont(&tn,ddpack.get(),n);
     
     std::cout<<"final node: " << ddpack->size(tdd.e) <<std::endl;
+    dd::export2Dot(tdd.e,"test",true,true);
     return 0;
 }

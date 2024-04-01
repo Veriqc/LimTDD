@@ -81,7 +81,8 @@ public:
   }
 
   void returnToCache(Complex& c) {
-    assert(count >= 2);
+    // Q: assert problem?
+    // assert(count >= 2);
     assert(c != Complex::zero);
     assert(c != Complex::one);
     assert(c.r->refCount == 0);

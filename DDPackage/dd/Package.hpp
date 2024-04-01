@@ -53,7 +53,7 @@
 
 namespace dd {
 
-	bool mapCompare(the_maps* map1, the_maps* map2) {
+	bool mapCompare(const the_maps* map1, const the_maps* map2) {
 		const auto maxArg = dd::PI;
 
 		while (map1->level >= 0 || map2->level >= 0) {
