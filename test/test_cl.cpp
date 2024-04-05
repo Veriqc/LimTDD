@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::string path2 = std::string(PROJECT_SOURCE_DIR)+"/Benchmark/combinational/rand_cliff/";
+    std::string path2 = std::string(PROJECT_SOURCE_DIR)+"/Benchmarks/combinational/rand_cliff/";
     std::string file_name = std::string("rand_cliff_") + argv[1]+"_AG" + ".qasm";
 	std::cout << path2+file_name << std::endl;
     
