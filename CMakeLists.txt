@@ -1,11 +1,13 @@
 cmake_minimum_required(VERSION 3.10)
-project(Limdd) 
+project(Limtdd) 
 
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-set(CORE_INCLUDE_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DDPackage/mqt-core")
+set(CORE_INCLUDE_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DDPackage/core")
+set(CORE_NAME ${PROJECT_NAME}_core)
+
 message(STATUS "add submodule")
 find_package(xtensor REQUIRED)
 if(NOT xtensor_FOUND)

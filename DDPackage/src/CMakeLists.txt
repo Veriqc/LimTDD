@@ -1,5 +1,3 @@
-set(CORE_NAME ${PROJECT_NAME})
-
 # main project library
 add_library(
   ${CORE_NAME}
@@ -49,6 +47,4 @@ add_library(
   QuantumComputation.cpp)
 
   # set include directories
-  target_include_directories(
-    ${CORE_NAME} PUBLIC $<BUILD_INTERFACE:${CORE_INCLUDE_BUILD_DIR}>
-                                   $<INSTALL_INTERFACE:${MQT_CORE_INCLUDE_INSTALL_DIR}>)
+  target_include_directories(${CORE_NAME} PUBLIC ${CORE_INCLUDE_BUILD_DIR})
