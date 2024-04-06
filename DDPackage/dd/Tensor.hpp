@@ -127,6 +127,7 @@ namespace dd {
 				}
 
 				TDD res_dd = tensors[0].to_tdd(ddpackage);
+				ddpackage->incRef(res_dd.e);
 				TDD cur_dd , temp_dd;
 
 				for (int i = 1; i < this->tensors.size(); ++i) {
