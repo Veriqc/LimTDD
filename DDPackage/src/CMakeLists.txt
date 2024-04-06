@@ -1,0 +1,54 @@
+set(CORE_NAME ${PROJECT_NAME})
+
+# main project library
+add_library(
+  ${CORE_NAME}
+  ${CORE_INCLUDE_BUILD_DIR}/CircuitOptimizer.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/Definitions.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/operations/Expression.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/operations/ClassicControlledOperation.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/operations/CompoundOperation.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/operations/Control.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/operations/NonUnitaryOperation.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/operations/Operation.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/operations/StandardOperation.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/operations/SymbolicOperation.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/parsers/qasm3_parser/Scanner.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/parsers/qasm3_parser/Token.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/parsers/qasm3_parser/Parser.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/parsers/qasm3_parser/Statement.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/parsers/qasm3_parser/Types.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/parsers/qasm3_parser/InstVisitor.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/parsers/qasm3_parser/NestedEnvironment.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/parsers/qasm3_parser/Exception.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/parsers/qasm3_parser/Gate.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/parsers/qasm3_parser/StdGates.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/parsers/qasm3_parser/passes/CompilerPass.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/parsers/qasm3_parser/passes/ConstEvalPass.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/parsers/qasm3_parser/passes/TypeCheckPass.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/Permutation.hpp
+  ${CORE_INCLUDE_BUILD_DIR}/QuantumComputation.hpp
+  CircuitOptimizer.cpp
+  operations/ClassicControlledOperation.cpp
+  operations/Expression.cpp
+  operations/NonUnitaryOperation.cpp
+  operations/Operation.cpp
+  operations/StandardOperation.cpp
+  operations/SymbolicOperation.cpp
+  parsers/GRCSParser.cpp
+  parsers/QASM3Parser.cpp
+  parsers/QCParser.cpp
+  parsers/RealParser.cpp
+  parsers/TFCParser.cpp
+  parsers/qasm3_parser/Parser.cpp
+  parsers/qasm3_parser/Scanner.cpp
+  parsers/qasm3_parser/Types.cpp
+  parsers/qasm3_parser/Statement.cpp
+  parsers/qasm3_parser/passes/ConstEvalPass.cpp
+  parsers/qasm3_parser/passes/TypeCheckPass.cpp
+  QuantumComputation.cpp)
+
+  # set include directories
+  target_include_directories(
+    ${CORE_NAME} PUBLIC $<BUILD_INTERFACE:${CORE_INCLUDE_BUILD_DIR}>
+                                   $<INSTALL_INTERFACE:${MQT_CORE_INCLUDE_INSTALL_DIR}>)

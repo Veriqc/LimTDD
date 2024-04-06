@@ -1,3 +1,4 @@
+add_subdirectory(src)
 # Include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dd)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/operations)
