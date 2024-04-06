@@ -8,6 +8,7 @@ set(TEST_SOURCES
     # test_qft.cpp
     test_cl.cpp
     test_io.cpp
+    test_core.cpp
     # test_clt.cpp
     # test_id.cpp
     # Add new test files here
