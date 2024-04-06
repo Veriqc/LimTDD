@@ -1141,9 +1141,9 @@ xt::xarray<dd::ComplexValue> getOpData(const std::unique_ptr<qc::Operation>& op)
 
 	size_t c = op->getNcontrols();
 	auto mat = dd::controlMat(res,c);
-	std::string prefix(c, 'c');
-	std::cout << prefix << gateName << std::endl;
-	std::cout << mat << std::endl;
+	// std::string prefix(c, 'c');
+	// std::cout << prefix << gateName << std::endl;
+	// std::cout << mat << std::endl;
 	return mat;
 }
 
@@ -1180,7 +1180,7 @@ dd::TensorNetwork cir_2_tn(std::shared_ptr<qc::QuantumComputation>& QC, std::sha
 		}
 
 		auto indexSet = getOpIndex(op,existIndexs,hyperIndexs);
-		print_index_set(indexSet);
+		// print_index_set(indexSet);
 		auto data = getOpData(op);
 
 		std::string prefix(op->getControls().size(), 'c');
