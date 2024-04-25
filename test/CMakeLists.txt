@@ -6,7 +6,10 @@ set(TEST_SOURCES
     # test_tdd.cpp
     # test_bv.cpp
     # test_qft.cpp
-    test_cl.cpp
+    # test_cl.cpp
+    # test_io.cpp
+    # test_core.cpp
+    test_data.cpp
     # test_clt.cpp
     # test_id.cpp
     # Add new test files here
@@ -16,5 +19,5 @@ set(TEST_SOURCES
 foreach(TEST_SOURCE ${TEST_SOURCES})
     get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
     add_executable(${TEST_NAME} ${TEST_SOURCE})
-    target_link_libraries(${TEST_NAME} Limdd_lib)
+    target_link_libraries(${TEST_NAME} PRIVATE ${PROJECT_NAME} ${CORE_NAME})
 endforeach()
