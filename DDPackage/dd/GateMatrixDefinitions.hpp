@@ -105,6 +105,13 @@ GateMatrix CXmat{
       }
   };
 
+inline GateMatrix U2mat(double phi, double lambda){
+        return GateMatrix{
+            {complex_SQRT2_2,{-SQRT2_2 *std::cos(lambda),-SQRT2_2 * std::sin(lambda)}},
+            {{SQRT2_2*std::cos(phi), SQRT2_2*std::sin(phi)},{SQRT2_2* std::cos(lambda+phi), SQRT2_2* std::sin(lambda+phi)}}
+        };
+    }
+
 inline GateMatrix U3mat(double lambda, double phi, double theta) {
 return GateMatrix{
           {
@@ -133,7 +140,35 @@ return GateMatrix{
           }
       };
 }
-xt::xarray<dd::ComplexValue> SWAPmat{
+
+GateMatrix Rzmat(double lambda) {
+return GateMatrix{
+        {{std::cos(lambda/2.),
+            -1*std::sin(lambda/2.)}
+            ,complex_zero},
+        {
+            complex_zero,
+            {std::cos(lambda/2.),
+            std::sin(lambda/2.)
+            }
+        }
+    };
+}
+
+GateMatrix Rxmat(double lambda) {
+return GateMatrix{
+        {{std::cos(lambda/2.),0.},{0.,-1*std::sin(lambda/2)}},
+        {{0.,-1*std::sin(lambda/2.)},{cos(lambda/2.),0.}}
+    };
+}
+
+GateMatrix Rymat(double lambda) {
+return GateMatrix{
+        {{std::cos(lambda/2.),0.},{-1*std::sin(lambda/2),0.}},
+        {{std::sin(lambda/2.),0.},{cos(lambda/2.),0.}}
+    };
+}
+GateMatrix SWAPmat{
       {
           {
               {complex_one, complex_zero},
@@ -156,8 +191,8 @@ xt::xarray<dd::ComplexValue> SWAPmat{
       }
   };
 
-xt::xarray<dd::ComplexValue> CU1mat(double lambda){
-return xt::xarray<dd::ComplexValue>{
+GateMatrix CU1mat(double lambda){
+return GateMatrix{
       {
           {
               {complex_one, complex_zero},
@@ -180,17 +215,17 @@ return xt::xarray<dd::ComplexValue>{
       }
   };
 }
-xt::xarray<dd::ComplexValue> identity(int n) {
+GateMatrix identity(int n) {
     if (n == 1) {
         return Imat;
     }
 
-    xt::xarray<dd::ComplexValue> I = identity(n - 1);
+    GateMatrix I = identity(n - 1);
 
     // Directly calculate the new shape without intermediate steps
     std::vector<size_t> newShape(2+ I.dimension(), 2); // Fills the new shape with 2s
 
-    xt::xarray<dd::ComplexValue> combined = xt::xarray<dd::ComplexValue>::from_shape(newShape); 
+    GateMatrix combined = GateMatrix::from_shape(newShape); 
     combined.fill(complex_zero);
     // Initialized to 0s
     for (size_t i = 0; i < 2; ++i) {
@@ -198,14 +233,14 @@ xt::xarray<dd::ComplexValue> identity(int n) {
     }
     return combined;
 }
-xt::xarray<dd::ComplexValue> controlMat(xt::xarray<dd::ComplexValue> mat, int c) {
+GateMatrix controlMat(GateMatrix mat, int c) {
     if (c == 0) return mat;
 
     mat = controlMat(mat, c - 1);
 
     std::vector<size_t> newShape(2 + mat.dimension(), 2); 
 
-    xt::xarray<dd::ComplexValue> combined = xt::xarray<dd::ComplexValue>::from_shape(newShape); 
+    GateMatrix combined = GateMatrix::from_shape(newShape); 
     combined.fill(complex_zero);
 
     xt::view(combined, 0, 0, xt::all(), xt::all()) = identity(mat.dimension() / 2); // Place identity matrix

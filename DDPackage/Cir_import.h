@@ -1130,8 +1130,24 @@ xt::xarray<dd::ComplexValue> getOpData(const std::unique_ptr<qc::Operation>& op)
 			throw std::invalid_argument("Unsupported gate: " + prefix + gateName);
 		}
     } 
-    else if (Npara == 1 && gateName == "p") {
-        res = dd::Phasemat(parameters[0]);
+    else if (Npara == 1) {
+        if (gateName == "p") {
+            res = dd::Phasemat(parameters[0]);
+        } else if (gateName == "rx") {
+            res = dd::Rxmat(parameters[0]);
+        } else if (gateName == "ry") {
+            res = dd::Rymat(parameters[0]);
+        } else if (gateName == "rz") {
+            res = dd::Rzmat(parameters[0]);
+        } else {
+            throw std::invalid_argument("Unsupported single-parameter gate: " + gateName);
+			}
+	}
+	else if(Npara == 2 && gateName == "u2"){
+		res = dd::U2mat(parameters[0],parameters[1]);
+	}
+	else if (Npara == 3 && gateName == "u") {
+        res = dd::U3mat(parameters[0],parameters[1],parameters[2]);
     } 
     else{
 		// If no condition is met, throw an exception
