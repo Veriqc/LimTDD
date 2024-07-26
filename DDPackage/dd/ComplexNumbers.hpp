@@ -103,6 +103,18 @@ struct ComplexNumbers {
     return ret;
   }
 
+  bool inCache(const Complex& c){
+    auto valr = CTEntry::val(c.r);
+    auto vali = CTEntry::val(c.i);
+    return complexCache.isInCache(valr,vali);
+  }
+  bool inTable(const Complex& c) const {
+        if (c == Complex::zero || c == Complex::one) {
+            return true;
+        }
+        return complexTable.exists(CTEntry::val(c.r)) && complexTable.exists(CTEntry::val(c.i));
+  }
+
   inline Complex addCached(const Complex& a, const Complex& b) {
     auto c = getCached();
     add(c, a, b);

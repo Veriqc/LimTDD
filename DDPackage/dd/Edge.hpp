@@ -38,6 +38,28 @@ namespace dd {
 
 	};
 
+	template <class Node>
+	Edge<Node> deepCopyEdge(const Edge<Node>& original) {
+		Edge<Node> newEdge;
+		newEdge.w = original.w;
+
+		if (original.p) {
+			newEdge.p = new Node(*original.p);  // Deep copy of mNode, assuming mNode has a proper copy constructor.
+		} else {
+			newEdge.p = nullptr;
+		}
+
+		if (original.map) {
+			newEdge.map = new the_maps(*original.map);  // Deep copy of the_maps, assuming the_maps has a proper copy constructor.
+			// newEdge.map = original.map;  // Deep copy of the_maps, assuming the_maps has a proper copy constructor.
+		} else {
+			newEdge.map = nullptr;
+		}
+
+		return newEdge;
+	}
+
+
 
 
 	template <typename Node> struct CachedEdge {

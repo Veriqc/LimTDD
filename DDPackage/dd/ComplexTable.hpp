@@ -153,6 +153,29 @@ public:
 
   [[nodiscard]] bool availableEmpty() const { return available == nullptr; };
 
+  bool exists(const fp& val) const {
+        if (Entry::approximatelyZero(val)) {
+            return true;
+        }
+        if (Entry::approximatelyOne(val)) {
+            return true;
+        }
+        if (Entry::approximatelyEquals(val, SQRT2_2)) {
+            return true;
+        }
+
+        const auto key = hash(val);
+        Entry* curr = table[static_cast<std::size_t>(key)];
+
+        while (curr != nullptr) {
+            if (Entry::approximatelyEquals(curr->value, val)) {
+                return true;
+            }
+            curr = curr->next;
+        }
+        return false;
+  }
+  
   Entry* lookup(const fp& val) {
     assert(!std::isnan(val));
     assert(val >= 0); // required anyway for the hash function

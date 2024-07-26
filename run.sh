@@ -28,5 +28,6 @@ run_tests() {
 # Run tests for each experiment with specific ranges
 # run_tests "clt" 1 19
 # run_tests "cl" 1 19
-run_tests "qft" 2 15
+# run_tests "qft" 2 15
 # run_tests "bv" 2 21
+run_tests "cls" 1 1000
