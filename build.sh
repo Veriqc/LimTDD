@@ -17,7 +17,7 @@ else
     cmake ..
 fi
 
-make
+make -j10
 
 # Pause to keep the terminal open (optional)
 read -p "Press Enter to exit..."

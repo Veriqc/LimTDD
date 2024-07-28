@@ -3,9 +3,11 @@
 #include "Complex.hpp"
 #include "ComplexTable.hpp"
 
+#include <unordered_map>
 #include <cassert>
 #include <cstddef>
 #include <vector>
+#include <utility>
 
 namespace dd {
 
@@ -13,6 +15,15 @@ template <std::size_t INITIAL_ALLOCATION_SIZE = 2048,
           std::size_t GROWTH_FACTOR = 2>
 class ComplexCache {
   using Entry = ComplexTable<>::Entry;
+  using ComplexKey = std::pair<fp*, fp*>;
+  // Custom hash function for ComplexKey
+  struct ComplexKeyHash {
+    std::size_t operator()(const ComplexKey& key) const {
+      auto hash1 = std::hash<fp*>{}(key.first);
+      auto hash2 = std::hash<fp*>{}(key.second);
+      return hash1 ^ (hash2 << 1);  // Shift and XOR for combining hash values
+    }
+  };
 
 public:
   ComplexCache() : allocationSize(INITIAL_ALLOCATION_SIZE) {
@@ -39,6 +50,8 @@ public:
       auto entry = Complex{available, available->next};
       available = entry.i->next;
       count += 2;
+      std::cout << "53: "<< entry.r->value <<","<< entry.i->value << " get Cached Complex function in: " << &entry << std::endl;
+      complexMap.insert({{&entry.r->value, &entry.i->value}, true});
       return entry;
     }
 
@@ -58,6 +71,8 @@ public:
     c.i = &(*chunkIt);
     ++chunkIt;
     count += 2;
+    std::cout << "74:"<< c.r->value <<","<< c.i->value<<" get Cached Complex function in: " << &c<< std::endl;
+    complexMap.insert({{&c.r->value, &c.i->value}, true});
     return c;
   }
 
@@ -81,7 +96,7 @@ public:
   }
 
   void returnToCache(Complex& c) {
-    // Q: assert problem?
+    std::cout << c << " return to cache in " << &c << std::endl;
     assert(count >= 2);
     assert(c != Complex::zero);
     assert(c != Complex::one);
@@ -91,6 +106,16 @@ public:
     c.r->next = c.i;
     available = c.r;
     count -= 2;
+    complexMap.erase({&c.r->value, &c.i->value});
+  }
+
+  bool isInCache(fp real, fp imag) {
+    for (const auto& [key, _] : complexMap) {
+      if (*key.first == real && *key.second == imag) {
+        return true;
+      }
+    }
+    return false;
   }
 
   void clear() {
@@ -111,6 +136,7 @@ public:
 
     count = 0;
     peakCount = 0;
+    complexMap.clear();
   };
 
 private:
@@ -124,5 +150,6 @@ private:
   std::size_t allocations = 0;
   std::size_t count = 0;
   std::size_t peakCount = 0;
+  std::unordered_map<ComplexKey, bool, ComplexKeyHash> complexMap;
 };
 } // namespace dd

@@ -117,6 +117,8 @@ int main(int argc, char *argv[]) {
     const auto qc = qc::QuantumComputation::fromQASM(fileContent);
     std::shared_ptr<qc::QuantumComputation> QC = std::make_shared<qc::QuantumComputation>(std::move(qc));
     auto ddPack = std::make_shared<dd::Package<>>(3*QC->getNqubits());
+    // ddPack->to_test = true ;
+    // ddPack->to_test = true ;
     auto tn = cir_2_tn(QC,ddPack);
 
     bool simulate = false;
@@ -134,6 +136,7 @@ int main(int argc, char *argv[]) {
     std::cout <<"simulate:" << simulate << std::endl;
 
 	dd::TDD tdd = cont(&tn,ddPack.get(),QC->getNqubits(),simulate, initialStates);
+    dd::export2Dot(tdd.e,"test",true,true);
     
     std::cout<<"final node: " << ddPack->size(tdd.e) <<std::endl;
     return 0;
