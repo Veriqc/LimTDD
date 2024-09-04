@@ -236,7 +236,7 @@ namespace dd {
 			if(cached) {
 				for (auto i = 0U; i < nodeCount; i++) {
 					if (isZero[i] && e.p->e[i].w != Complex::zero) {
-						cn.returnToCache(e.p->e[i].w);
+						// cn.returnToCache(e.p->e[i].w);
 						e.p->e[i] = Edge<Node>::zero;
 					}
 				}
@@ -343,7 +343,7 @@ namespace dd {
 					if (isZero[i]) {
 						if (cached && res.p->e[i].w != Complex::zero) {
 							//assert(r.p->e[i].w != Complex::zero);
-							cn.returnToCache(res.p->e[i].w);
+							// cn.returnToCache(res.p->e[i].w);
 						}
 						//r.p->e[i] = Edge<Node>::zero;
 						res.p->e[i] = { res.p->e[0].p,Complex::zero, the_maps::the_maps_header() };
@@ -352,7 +352,7 @@ namespace dd {
 					}
 					if (cached && !isZero[i] && !res.p->e[i].w.exactlyOne()) {
 						//assert(r.p->e[i].w != Complex::zero);
-						cn.returnToCache(res.p->e[i].w);
+						// cn.returnToCache(res.p->e[i].w);
 					}
 					if (res.p->e[i].w.approximatelyOne()) {
 						res.p->e[i].w = Complex::one;
@@ -363,7 +363,7 @@ namespace dd {
 						ComplexNumbers::div(c, res.p->e[i].w, max_value);
 						res.p->e[i].map = mapdiv(res.p->e[i].map, res.map);
 						cn.mul(res.p->e[i].map->extra_phase, res.p->e[i].map->extra_phase, c);
-						cn.returnToCache(c);
+						// cn.returnToCache(c);
 						res.p->e[i].w = Complex::one;
 
 					}
@@ -382,7 +382,7 @@ namespace dd {
 
 			res.map = append_new_map(res.map, res.p->v, add_x, cn.lookup(res.p->e[1].map->extra_phase));
 			if (!isZero[1]) {
-				cn.returnToCache(res.p->e[1].map->extra_phase);
+				// cn.returnToCache(res.p->e[1].map->extra_phase);
 			}
 			//std::cout << r.w << std::endl;
 			//the_maps::print_maps(r.map);
@@ -863,13 +863,13 @@ namespace dd {
 
 			if (!res.e.w.exactlyZero() && !res.e.w.exactlyOne()) {
 				//assert(res.e.w != Complex::zero);
-				cn.returnToCache(res.e.w);
+				// cn.returnToCache(res.e.w);
 				res.e.w = cn.lookup(res.e.w);
 			}
 
 			[[maybe_unused]] const auto after = cn.cacheCount();
 
-			assert(before == after);
+			// assert(before == after);
 
 			
 			the_maps::print_maps(tdd1.e.map);
@@ -903,7 +903,7 @@ namespace dd {
 
 						assert(temp.w != Complex::zero);
 						cn.mul(temp.w, temp.w, temp.map->extra_phase);
-						cn.returnToCache(temp.map->extra_phase);
+						// cn.returnToCache(temp.map->extra_phase);
 					}
 					return temp;
 				}
@@ -915,7 +915,7 @@ namespace dd {
 
 						assert(temp.w != Complex::zero);
 						cn.mul(temp.w, temp.w, temp.map->extra_phase);
-						cn.returnToCache(temp.map->extra_phase);
+						// cn.returnToCache(temp.map->extra_phase);
 
 						if (c == 1) {
 								assert(temp.w != Complex::zero);
@@ -933,7 +933,7 @@ namespace dd {
 
 						assert(temp.w != Complex::zero);
 						cn.mul(temp.w, temp.w, temp.map->extra_phase);
-						cn.returnToCache(temp.map->extra_phase);
+						// cn.returnToCache(temp.map->extra_phase);
 						if (c == 0) {
 
 							assert(temp.w != Complex::zero);
@@ -995,50 +995,56 @@ namespace dd {
 			if (e.p->v == x) {
 				if (e.p->v != e.map->level) {
 					Edge<Node>* temp = new Edge<Node>(e.p->e[c]);
-					std::cout << "969 e.p->e[c]: " << & (e.p->e[c]) << std::endl;
-					std::cout << "969 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
+					// std::cout << "969 e.p->e[c]: " << & (e.p->e[c]) << std::endl;
+					// std::cout << "969 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
 					if (temp->w != Complex::zero) {
 						temp->map = mapmul(e.map, temp->map);
 						temp->w=cn.mulCached(temp->w, temp->map->extra_phase);
-						cn.returnToCache(temp->map->extra_phase);
-						std::cout << "1004 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
-						std::cout << "1002 temp w: " << temp->w << " in:" << &(temp->w.i) << std::endl;
+						// cn.returnToCache(temp->map->extra_phase);
+						// std::cout << "1004 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
+						// std::cout << "1002 temp w: " << temp->w << " in:" << &(temp->w.i) << std::endl;
 					}
 					return temp;
 				}
 				else if (e.map->x == 0) {
 					Edge<Node>* temp = new Edge<Node>(e.p->e[c]);
-					std::cout << "979 w: " << & (e.p->e[c].w) << " " << & (temp->w) << std::endl;
-					std::cout << "1012 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
-					std::cout << "979: " <<  & (e.p->e[c]) << " "<<& (temp) << std::endl;
+					temp->w = cn.lookup(e.p->e[c].w);
+					std::cout << "1011 temp w: " << temp->w << " " << temp->w.i << " " << temp->w.r << " " << temp->p << std::endl;
+					std::cout << "979 w: " << e.p->e[c].w.i << " " << e.p->e[c].w.r << " " << e.p->e[c].p << std::endl;
+					// std::cout << "1012 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
+					// std::cout << "979: " <<  & (e.p->e[c]) << " "<<& (temp) << std::endl;
 					if (temp->w != Complex::zero) {
 						temp->map = mapmul(e.map->father, temp->map);
+						// if(temp->w == Complex::one) {
+						// 	temp->w = cn.getCached(1., 0.)
+						// }
 						temp->w = cn.mulCached(temp->w, temp->map->extra_phase);
-						cn.returnToCache(temp->map->extra_phase);
+						std::cout << "1018 temp w: " << temp->w << " " << temp->w.i << " " << temp->w.r << std::endl;
+						// cn.returnToCache(temp->map->extra_phase);
 						if (c == 1) {
 							assert(temp->w != Complex::zero);
 							cn.mul(temp->w, temp->w, e.map->rotate);
 						}
-						std::cout << "1021 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
-						std::cout << "1020 temp w: " << temp->w << " in:" << &(temp->w.i) << std::endl;
+						// std::cout << "1021 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
+						// std::cout << "1020 temp w: " << temp->w << " in:" << temp->w.i << " " << temp->w.r << std::endl;
 						// return {temp->p,  temp_w, temp_map};
 					}
 					return temp;
 				}
 				else {
 					Edge<Node>* temp = new Edge<Node>(e.p->e[1-c]);
-					std::cout << "1026: " << & (temp->w) << std::endl;
-					std::cout << "1029 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
+					// std::cout << "1026: " << & (temp->w) << std::endl;
+					// std::cout << "1029 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
 					if (temp->w != Complex::zero) {
 						temp->map = mapmul(e.map->father, temp->map);
 						temp->w = cn.mulCached(temp->w, temp->map->extra_phase);
-						cn.returnToCache(temp->map->extra_phase);
+						// cn.returnToCache(temp->map->extra_phase);
 						if (c == 0) {
 							assert(temp->w != Complex::zero);
 							cn.mul(temp->w, temp->w, e.map->rotate);
 						}
-						std::cout << "1038 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
-						std::cout << "1037 temp w: " << temp->w << " in:" << &(temp->w.i) << std::endl;
+						// std::cout << "1038 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
+						// std::cout << "1037 temp w: " << temp->w << " in:" << &(temp->w.i) << std::endl;
 						// return {temp.p,  temp_w, temp_map};
 					}
 					return temp;
@@ -1084,7 +1090,7 @@ namespace dd {
 				r.w = cn.addCached(x.w, y.w);
 				if (r.w.approximatelyZero()) {
 					//assert(r.w != Complex::zero);
-					cn.returnToCache(r.w);
+					// cn.returnToCache(r.w);
 					return Edge<Node>::zero;
 				}
 				r.map = x.map;
@@ -1103,7 +1109,7 @@ namespace dd {
 			if (yCopy.w != Complex::zero) {
 				cn.mul(yCopy.w, yCopy.w, yCopy.map->extra_phase);
 			}
-			cn.returnToCache(yCopy.map->extra_phase);
+			// cn.returnToCache(yCopy.map->extra_phase);
 
 
 			auto r = addTable.lookup({ xCopy.p, xCopy.w,xCopy.map }, { yCopy.p, yCopy.w,yCopy.map });
@@ -1111,7 +1117,7 @@ namespace dd {
 			if (r.p != nullptr) {
 				//std::cout << "Case 1" << std::endl;
 				//assert(yCopy.w != Complex::zero);
-				cn.returnToCache(yCopy.w);
+				// cn.returnToCache(yCopy.w);
 				if (r.w.approximatelyZero()) {
 					return Edge<Node>::zero;
 				}
@@ -1125,7 +1131,7 @@ namespace dd {
 				if (c != Complex::zero) {
 					cn.mul(c, c, temp_map->extra_phase);
 				}
-				cn.returnToCache(temp_map->extra_phase);
+				// cn.returnToCache(temp_map->extra_phase);
 				return { r.p, c,temp_map };
 			}
 
@@ -1172,12 +1178,12 @@ namespace dd {
 
 				if (!x.isTerminal() && x.p->v == w && e1.w != Complex::zero) {
 					//assert(e1.w != Complex::zero);
-					cn.returnToCache(e1.w);
+					// cn.returnToCache(e1.w);
 				}
 
 				if (!y.isTerminal() && y.p->v == w && e2.w != Complex::zero) {
 					//assert(e2.w != Complex::zero);
-					cn.returnToCache(e2.w);
+					// cn.returnToCache(e2.w);
 				}
 			}
 			if(to_test){
@@ -1207,10 +1213,10 @@ namespace dd {
 
 				assert(e.w != Complex::zero);
 				cn.mul(e.w, e.w, e.map->extra_phase);
-				cn.returnToCache(e.map->extra_phase);
+				// cn.returnToCache(e.map->extra_phase);
 			}
 
-			cn.returnToCache(yCopy.w);
+			// cn.returnToCache(yCopy.w);
 			//std::cout << "Case 2" << std::endl;
 			return e;
 		}
@@ -1366,7 +1372,7 @@ namespace dd {
 			auto res = contTable.lookup(xCopy, yCopy, temp_key_2_new_key1, temp_key_2_new_key2);
 			if (res.e.p != nullptr) {
 				if (res.e.w.approximatelyZero()) {
-					cn.returnToCache(extra_phase);
+					// cn.returnToCache(extra_phase);
 					return ResultEdge::zero;
 				}
 				auto e = ResultEdge{ res.e.p, cn.getCached(res.e.w),res.e.map };
@@ -1375,8 +1381,8 @@ namespace dd {
 				ComplexNumbers::mul(e.w, e.w, y.w);
 				if (e.w.approximatelyZero()) {
 					//assert(e.w != Complex::zero);
-					cn.returnToCache(e.w);
-					cn.returnToCache(extra_phase);
+					// cn.returnToCache(e.w);
+					// cn.returnToCache(extra_phase);
 					return ResultEdge::zero;
 				}
 				//std::cout << "1160 " << var_num << " " << res.cont_num << std::endl;
@@ -1388,10 +1394,10 @@ namespace dd {
 				e.map = mapmul(r_maps->remain_map, e.map);
 				assert(e.w != Complex::zero);
 				cn.mul(e.w, e.w, e.map->extra_phase);
-				cn.returnToCache(e.map->extra_phase);
+				// cn.returnToCache(e.map->extra_phase);
 				assert(e.w != Complex::zero);
 				cn.mul(e.w, e.w, extra_phase);
-				cn.returnToCache(extra_phase);
+				// cn.returnToCache(extra_phase);
 				return e;
 			}
 			// TODO: add if here
@@ -1480,7 +1486,7 @@ namespace dd {
 						auto& e2 = yCopy;
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
 						if (e1.w != Complex::zero) {
-							cn.returnToCache(e1.w);
+							// cn.returnToCache(e1.w);
 						}
 						if (etemp.w != Complex::zero) {
 							if (r != ResultEdge::zero) {
@@ -1488,8 +1494,8 @@ namespace dd {
 								r = T_add2(r, etemp);
 								//assert(temp != Complex::zero);
 								//assert(etemp.w != Complex::zero);
-								cn.returnToCache(temp);
-								cn.returnToCache(etemp.w);
+								// cn.returnToCache(temp);
+								// cn.returnToCache(etemp.w);
 							}
 							else {
 								r = etemp;
@@ -1505,7 +1511,7 @@ namespace dd {
 						auto& e2 = yCopy;
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
 						if (e1.w != Complex::zero) {
-							cn.returnToCache(e1.w);
+							// cn.returnToCache(e1.w);
 						}
 					}
 					if(to_test){
@@ -1533,7 +1539,7 @@ namespace dd {
 						auto& e2 = *Slicing2(yCopy, yCopy.p->v, k);
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
 						if (e2.w != Complex::zero) {
-							cn.returnToCache(e2.w);
+							// cn.returnToCache(e2.w);
 						}
 						if (etemp.w != Complex::zero) {
 							if (r != ResultEdge::zero) {
@@ -1541,8 +1547,8 @@ namespace dd {
 								r = T_add2(r, etemp);
 								//assert(temp != Complex::zero);
 								//assert(etemp.w != Complex::zero);
-								cn.returnToCache(temp);
-								cn.returnToCache(etemp.w);
+								// cn.returnToCache(temp);
+								// cn.returnToCache(etemp.w);
 							}
 							else {
 								r = etemp;
@@ -1558,7 +1564,7 @@ namespace dd {
 						auto& e2 = *Slicing2(yCopy, yCopy.p->v, k);
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
 						if (e2.w != Complex::zero) {
-							cn.returnToCache(e2.w);
+							// cn.returnToCache(e2.w);
 						}
 					}
 					if(to_test){
@@ -1589,18 +1595,20 @@ namespace dd {
 						auto& e1 = *Slicing2(xCopy, xCopy.p->v, k);
 						//e2 = y.p->e[k];
 						std::cout << "1554, e1 " << e1.w << std::endl;
-						std::cout << "e1.w in: " << &(e1.w) << std::endl;
-						the_maps::print_maps(e1.map);
+						std::cout << "e1.w in: " << (e1.w.i) << " " << e1.w.r << std::endl;
+						// the_maps::print_maps(e1.map);
 						auto& e2 = *Slicing2(yCopy, yCopy.p->v, k);
 						std::cout << "1556, e1 " << e1.w << std::endl;
-						std::cout << "e1.w in: " << &(e1.w) << std::endl;
+						std::cout << "e1.w in: " << (e1.w.i) << " " << e1.w.r << std::endl;
+						std::cout << "1558, e2 " << e2.w << std::endl;
+						std::cout << "e2.w in: " << (e2.w.i) << " " << e2.w.r << std::endl;
 						the_maps::print_maps(e1.map);
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
 						if (e1.w != Complex::zero) {
-							cn.returnToCache(e1.w);
+							// cn.returnToCache(e1.w);
 						}
 						if (e2.w != Complex::zero) {
-							cn.returnToCache(e2.w);
+							// cn.returnToCache(e2.w);
 						}
 						if (etemp.w != Complex::zero) {
 							if (r != ResultEdge::zero) {
@@ -1608,8 +1616,8 @@ namespace dd {
 								r = T_add2(r, etemp);
 								//assert(temp != Complex::zero);
 								//assert(etemp.w != Complex::zero);
-								cn.returnToCache(temp);
-								cn.returnToCache(etemp.w);
+								// cn.returnToCache(temp);
+								// cn.returnToCache(etemp.w);
 							}
 							else {
 								r = etemp;
@@ -1626,10 +1634,10 @@ namespace dd {
 						auto& e2 = *Slicing2(yCopy, yCopy.p->v, k);
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
 						if (e1.w != Complex::zero) {
-							cn.returnToCache(e1.w);
+							// cn.returnToCache(e1.w);
 						}
 						if (e2.w != Complex::zero) {
-							cn.returnToCache(e2.w);
+							// cn.returnToCache(e2.w);
 						}
 					}
 					if(to_test){
@@ -1676,23 +1684,23 @@ namespace dd {
 				}
 				if (r.w.approximatelyZero()) {
 					//assert(r.w != Complex::zero);
-					cn.returnToCache(r.w);
-					cn.returnToCache(extra_phase);
+					// cn.returnToCache(r.w);
+					// cn.returnToCache(extra_phase);
 					return ResultEdge::zero;
 				}
 			}
 			if (r.w == Complex::zero) {
-				cn.returnToCache(extra_phase);
+				// cn.returnToCache(extra_phase);
 				return ResultEdge::zero;
 			}
 			else {
 				r.map = mapmul(r_maps->remain_map, r.map);
 				assert(r.w != Complex::zero);
 				cn.mul(r.w, r.w, r.map->extra_phase);
-				cn.returnToCache(r.map->extra_phase);
+				// cn.returnToCache(r.map->extra_phase);
 				assert(r.w != Complex::zero);
 				cn.mul(r.w, r.w, extra_phase);
-				cn.returnToCache(extra_phase);
+				// cn.returnToCache(extra_phase);
 			}
 
 			

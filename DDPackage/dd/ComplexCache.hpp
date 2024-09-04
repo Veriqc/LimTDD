@@ -50,7 +50,7 @@ public:
       auto entry = Complex{available, available->next};
       available = entry.i->next;
       count += 2;
-      std::cout << "53: "<< entry.r->value <<","<< entry.i->value << " get Cached Complex function in: " << &entry << std::endl;
+      std::cout << "53:  get Cached Complex function in: " << entry.r << " " << entry.i << " " << available << std::endl;
       complexMap.insert({{&entry.r->value, &entry.i->value}, true});
       return entry;
     }
@@ -96,7 +96,7 @@ public:
   }
 
   void returnToCache(Complex& c) {
-    std::cout << c << " return to cache in " << &c << std::endl;
+    std::cout << c << " return to cache in " << c.r << " " << c.i << " " << available << std::endl;
     assert(count >= 2);
     assert(c != Complex::zero);
     assert(c != Complex::one);
@@ -107,6 +107,11 @@ public:
     available = c.r;
     count -= 2;
     complexMap.erase({&c.r->value, &c.i->value});
+    // Remove these debugging lines later!!
+    if(available->next->next == available) {
+      std::cout << available << " " << available->next << " " << std::endl;
+      assert(1 == 0);
+    }
   }
 
   bool isInCache(fp real, fp imag) {
