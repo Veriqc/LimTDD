@@ -34,4 +34,7 @@ int main(){
     std::cout << "e: " << *e <<" in: " << e << std::endl;
     auto& f = test__();
     std::cout << "f: " << f <<" in: " << &f << std::endl;
+    int t;
+    std::cin >> t;
+    return 0;
 }

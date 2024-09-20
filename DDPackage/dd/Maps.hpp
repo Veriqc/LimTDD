@@ -13,8 +13,11 @@ namespace dd {
 	struct the_maps {
 		short level;
 		bool x;
-		Complex rotate;// rotate始终是一个complexTable里的元素，在中间计算过程，可以在temporary里面
-		Complex extra_phase;// rotate始终是一个temporary里的元素
+		// Complex rotate;// rotate始终是一个complexTable里的元素，在中间计算过程，可以在temporary里面
+		// Complex extra_phase;// rotate始终是一个temporary里的元素
+		int rotate;// rotate始终是一个complexTable里的元素，在中间计算过程，可以在temporary里面
+		int extra_phase;// rotate始终是一个temporary里的元素
+
 
 		std::map<std::string, the_maps*> next;
 		the_maps* father;

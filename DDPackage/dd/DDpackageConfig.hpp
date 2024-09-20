@@ -25,6 +25,8 @@ struct DDPackageConfig {
   static constexpr std::size_t CT_DM_DM_MULT_NBUCKET = 1U;
   static constexpr std::size_t CT_DM_ADD_NBUCKET = 1U;
 
+
+
   // The number of different quantum operations. I.e., the number of operations
   // defined in the QFR OpType.hpp This parameter is required to initialize the
   // StochasticNoiseOperationTable.hpp

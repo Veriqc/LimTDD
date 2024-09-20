@@ -33,7 +33,6 @@ static constexpr std::uint8_t RADIX = 2;
 // max no. of edges = RADIX^2
 static constexpr std::uint8_t NEDGE = RADIX* RADIX;
 
-
 enum class BasisStates {
   zero,  // NOLINT(readability-identifier-naming)
   one,   // NOLINT(readability-identifier-naming)
@@ -51,6 +50,11 @@ static constexpr fp PI_2 = static_cast<fp>(
     1.570796326794896619231321691639751442098584699687552910487L);
 static constexpr fp PI_4 = static_cast<fp>(
     0.785398163397448309615660845819875721049292349843776455243L);
+
+
+static constexpr int root_of_unit = 8;
+
+static constexpr float rotate_angle = 2*PI/root_of_unit;
 
 using CVec = std::vector<std::complex<fp>>;
 using CMat = std::vector<CVec>;
