@@ -7,7 +7,7 @@
 
 namespace dd {
 
-	the_maps the_maps::the_maps_header_element{ -1, 0, Complex::one, Complex::one, {}, nullptr };
+	the_maps the_maps::the_maps_header_element{ -1, 0, 0, 0, {}, nullptr };
 
 	void the_maps::print_maps(the_maps* map) {
 		if (map->level == -1) {
@@ -38,7 +38,7 @@ namespace dd {
 				s+= "x ";
 			}
 			if (map->rotate != 0) {
-				s+= map->rotate.toString();
+				s+= std::to_string(map->rotate);
 			}
 			s+= ";";
 			s+=to_string(map->father);
