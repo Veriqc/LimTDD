@@ -106,7 +106,7 @@ namespace dd {
 		//==========================================我写的========================================
 		bool to_test = false;
 
-		int mode = 1;
+		int mode = 1;//设置提取的对角门的形式，mode=1,提取的只是Rz旋转门，mode=2,提取的是任意对角门；
 
 		std::map<std::string, int> varOrder;
 
@@ -374,7 +374,7 @@ namespace dd {
 						res.p->e[i].map = mapdiv(res.p->e[i].map, res.map);
 						// cn.mul(res.p->e[i].map->extra_phase, res.p->e[i].map->extra_phase, c);
 						// cn.mul(res.p->e[i].map->extra_phase, res.p->e[i].map->extra_phase, c);
-						res.p->e[i].map->extra_phase=res.p->e[i].map->extra_phase+ComplexNumbers::arg(c);
+						res.p->e[i].map->extra_phase=res.p->e[i].map->extra_phase+int(ComplexNumbers::arg(c)/rotate_angle);
 						// cn.returnToCache(c);
 						res.p->e[i].w = Complex::one;
 
@@ -383,12 +383,24 @@ namespace dd {
 						auto c = cn.getTemporary();
 						ComplexNumbers::div(c, res.p->e[i].w, max_value);
 						auto angle = ComplexNumbers::arg(c);
-						c.r->value = sqrt(ComplexNumbers::mag2(c));
-						c.i->value = 0;
-						res.p->e[i].w = cn.lookup(c);
+						int rot = round(angle / rotate_angle);
+						if (angle- rot*rotate_angle < ComplexTable<>::tolerance()) {
+							c.r->value = sqrt(ComplexNumbers::mag2(c));
+							c.i->value = 0;
+							res.p->e[i].w = cn.lookup(c);
+						}
+						else {
+							c.r->value = sqrt(ComplexNumbers::mag2(c))*cos(angle- rot * rotate_angle);
+							c.i->value = sqrt(ComplexNumbers::mag2(c)) * sin(angle - rot * rotate_angle);
+							res.p->e[i].w = cn.lookup(c);
+						}
+
 						res.p->e[i].map = mapdiv(res.p->e[i].map, res.map);
+						res.p->e[i].map->extra_phase = res.p->e[i].map->extra_phase + rot;
+						
 						// cn.mul(res.p->e[i].map->extra_phase, res.p->e[i].map->extra_phase, cn.getTemporary(cos(angle), sin(angle)));
-						res.p->e[i].map->extra_phase = res.p->e[i].map->extra_phase+angle;
+						
+						//std::cout << angle << " " << rotate_angle << " " << angle / rotate_angle << " " << round(angle / rotate_angle);
 					}
 				}
 			}
@@ -539,8 +551,8 @@ namespace dd {
 				return self->next[new_key];
 			}
 			else {
-				self->next[new_key] = new the_maps{ level, x, rotate,0,{}, self };
-				//std::cout << 570 << " " << x << " " << rotate << std::endl;
+				self->next[new_key] = new the_maps{ level, x, (rotate % root_of_unit+ root_of_unit)% root_of_unit,0,{}, self };
+				//std::cout << 570 << " " << x << " " << rotate<< " " << rotate % root_of_unit << std::endl;
 				return self->next[new_key];
 			}
 		}
@@ -580,16 +592,16 @@ namespace dd {
 				//long int rotate = other->rotate + self->rotate * pow(-1, other->x);
 				auto rotate = 0;
 				if (other->x == 0) {
-					rotate=other->rotate*self->rotate;
+					rotate=other->rotate+self->rotate;
 				}
 				else {
-					rotate=other->rotate/self->rotate;
+					rotate=other->rotate-self->rotate;
 				}
 
 				res = append_new_map(r, self->level, (self->x + other->x) % 2, rotate%root_of_unit);
 				res->extra_phase = r->extra_phase;
 				if (other->x) {
-					res->extra_phase = res->extra_phase*self->rotate;
+					res->extra_phase = res->extra_phase+self->rotate;
 				}
 			}
 
@@ -645,7 +657,7 @@ namespace dd {
 				else {
 					res = append_new_map(r, other->level, other->x, other->rotate);
 					res->extra_phase= r->extra_phase;
-					res->extra_phase=res->extra_phase/other->rotate;
+					res->extra_phase=res->extra_phase-other->rotate;
 				}
 			}
 			else {
@@ -656,15 +668,15 @@ namespace dd {
 				auto rotate = 0;
 
 				if (x==1) {
-					rotate = self->rotate * other->rotate;
+					rotate = self->rotate + other->rotate;
 				}
 				else {
-					rotate = self->rotate/other->rotate;
+					rotate = self->rotate-other->rotate;
 				}
 				res = append_new_map(r, self->level, x, rotate%root_of_unit);
 				res->extra_phase = r->extra_phase;
 				if (x == 1) {
-					res->extra_phase = res->extra_phase / other->rotate;
+					res->extra_phase = res->extra_phase - other->rotate;
 				}
 			}
 			//auto temp = res->extra_phase;
@@ -884,12 +896,15 @@ namespace dd {
 			// assert(before == after);
 
 			
-			the_maps::print_maps(tdd1.e.map);
-			the_maps::print_maps(tdd2.e.map);
-			the_maps::print_maps(res.e.map);
-			std::cout << tdd1.e.w << " " << tdd2.e.w <<" "<<res.e.w << std::endl;
-			std::cout << size(res.e)<<" "<< res.e.p->v << std::endl;
-			std::cout << "-----------" << std::endl;
+
+			/*std::cout << tdd1.e.w.r->value << " " << tdd1.e.w.i->value << " " << tdd2.e.w.r->value << " " << tdd2.e.w.i->value << " " << res.e.w.r->value << " " << res.e.w.i->value << std::endl;*/
+			//std::cout << "-----------" << std::endl;
+			//the_maps::print_maps(tdd1.e.map);
+			//the_maps::print_maps(tdd2.e.map);
+			//the_maps::print_maps(res.e.map);
+			//std::cout << tdd1.e.w << " " << tdd2.e.w <<" "<<res.e.w << std::endl;
+			//std::cout << size(res.e)<<" "<< res.e.p->v << std::endl;
+			//std::cout << "-----------" << std::endl;
 			return res;
 		}
 
@@ -918,6 +933,7 @@ namespace dd {
 						cn.mul(temp.w, temp.w, cn.getTemporary(cos(temp.map->extra_phase*rotate_angle),sin(temp.map->extra_phase*rotate_angle)));
 						// cn.returnToCache(temp.map->extra_phase);
 					}
+					//std::cout << "Slicing " << temp.w << std::endl;
 					return temp;
 				}
 				else if (e.map->x == 0) {
@@ -938,6 +954,7 @@ namespace dd {
 						}
 
 					}
+					//std::cout << "Slicing " << temp.w << std::endl;
 					return temp;
 				}
 				else {
@@ -956,6 +973,7 @@ namespace dd {
                             cn.mul(temp.w, temp.w, cn.getTemporary(cos(e.map->rotate*rotate_angle),sin(e.map->rotate*rotate_angle)));
 						}
 					}
+					//std::cout << "Slicing " << temp.w << std::endl;
 					return temp;
 				}
 
@@ -981,15 +999,15 @@ namespace dd {
 			// 	temp = edge;
 			// }
 			// temp.w = cn.getCached(edge.w.r,edge.w.i);
-			std::cout << temp.w << " value in: " << &(temp.w) << std::endl;
-			std::cout << "temp in table? " << cn.inTable(temp.w) << std::endl;
-			std::cout << "temp in cache? " << cn.inCache(temp.w) << std::endl;
+			//std::cout << temp.w << " value in: " << &(temp.w) << std::endl;
+			//std::cout << "temp in table? " << cn.inTable(temp.w) << std::endl;
+			//std::cout << "temp in cache? " << cn.inCache(temp.w) << std::endl;
 			return temp;
 		}
 		void returnToCache(Complex& c){
 			if(!c.exactlyZero() && !c.exactlyOne()){
-				std::cout << "975: return to cache: " << c.r->value << ","<< c.i->value << std::endl;
-				std::cout << Complex::zero <<" zero?: "<< (c==Complex::zero) << " " << Complex::one << " one?: "<< (c == Complex::one)  << std::endl;
+				//std::cout << "975: return to cache: " << c.r->value << ","<< c.i->value << std::endl;
+				//std::cout << Complex::zero <<" zero?: "<< (c==Complex::zero) << " " << Complex::one << " one?: "<< (c == Complex::one)  << std::endl;
 				cn.returnToCache(c);
 			}
 		}
@@ -1021,13 +1039,14 @@ namespace dd {
 						// std::cout << "1004 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
 						// std::cout << "1002 temp w: " << temp->w << " in:" << &(temp->w.i) << std::endl;
 					}
+					//std::cout << "Scling2 1 " << temp->w << std::endl;
 					return temp;
 				}
 				else if (e.map->x == 0) {
 					Edge<Node>* temp = new Edge<Node>(e.p->e[c]);
 					temp->w = cn.lookup(e.p->e[c].w);
-					std::cout << "1011 temp w: " << temp->w << " " << temp->w.i << " " << temp->w.r << " " << temp->p << std::endl;
-					std::cout << "979 w: " << e.p->e[c].w.i << " " << e.p->e[c].w.r << " " << e.p->e[c].p << std::endl;
+					//std::cout << "1011 temp w: " << temp->w << " " << temp->w.i << " " << temp->w.r << " " << temp->p << std::endl;
+					//std::cout << "979 w: " << e.p->e[c].w.i << " " << e.p->e[c].w.r << " " << e.p->e[c].p << std::endl;
 					// std::cout << "1012 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
 					// std::cout << "979: " <<  & (e.p->e[c]) << " "<<& (temp) << std::endl;
 					if (temp->w != Complex::zero) {
@@ -1036,18 +1055,23 @@ namespace dd {
 						// 	temp->w = cn.getCached(1., 0.)
 						// }
 						// temp->w = cn.mulCached(temp->w, temp->map->extra_phase);
+						//std::cout << "Scling2 2 " << temp->w << std::endl;
 						temp->w = cn.mulCached(temp->w, cn.getTemporary(cos(temp->map->extra_phase*rotate_angle),sin(temp->map->extra_phase*rotate_angle)));
-						std::cout << "1018 temp w: " << temp->w << " " << temp->w.i << " " << temp->w.r << std::endl;
+						//std::cout << "1018 temp w: " << temp->w << " " << temp->w.i << " " << temp->w.r << std::endl;
 						// cn.returnToCache(temp->map->extra_phase);
+						//std::cout << "Scling2 2 " << temp->w << std::endl;
 						if (c == 1) {
 							assert(temp->w != Complex::zero);
 							// cn.mul(temp->w, temp->w, e.map->rotate);
 							cn.mul(temp->w, temp->w, cn.getTemporary(cos(e.map->rotate*rotate_angle),sin(e.map->rotate*rotate_angle)));
+							//std::cout << "Scling2 2 " << temp->w << std::endl;
+							//std::cout<< e.map->rotate<<" "<< e.map->rotate * rotate_angle << " " << cos(e.map->rotate * rotate_angle) << " " << sin(e.map->rotate * rotate_angle) <<std::endl;
 						}
 						// std::cout << "1021 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
 						// std::cout << "1020 temp w: " << temp->w << " in:" << temp->w.i << " " << temp->w.r << std::endl;
 						// return {temp->p,  temp_w, temp_map};
 					}
+					//std::cout << "Scling2 2 " << temp->w << std::endl;
 					return temp;
 				}
 				else {
@@ -1069,6 +1093,7 @@ namespace dd {
 						// std::cout << "1037 temp w: " << temp->w << " in:" << &(temp->w.i) << std::endl;
 						// return {temp.p,  temp_w, temp_map};
 					}
+					//std::cout << "Scling2 3 " << temp->w << std::endl;
 					return temp;
 				}
 
@@ -1308,16 +1333,16 @@ namespace dd {
 			auto x = (map1->x + map2->x) % 2;
 			if (x == 1) {
 				// assert(res->remain_map->extra_phase != Complex::zero);
-				res->remain_map->extra_phase =  res->remain_map->extra_phase* map2->rotate;
+				res->remain_map->extra_phase =  res->remain_map->extra_phase+ map2->rotate;
 			}
 
 			auto rotate = 0;
 			if (x == 0) {
 				// assert(rotate != Complex::zero);
-				rotate = map1->rotate*map2->rotate;
+				rotate = map1->rotate+map2->rotate;
 			}
 			else {
-				rotate = map1->rotate/ map2->rotate;
+				rotate = map1->rotate- map2->rotate;
 			}
 
 			res->cont_map1 = append_new_map(res->cont_map1, map1->level, x, rotate%root_of_unit);
@@ -1328,10 +1353,10 @@ namespace dd {
 		//template <class LeftOperandNode, class RightOperandNode>
 		Edge<mNode> cont2(const Edge<mNode>& x, const Edge<mNode>& y, key_2_new_key_node* key_2_new_key1, key_2_new_key_node* key_2_new_key2, const int var_num) {
 			auto& id = this->identity;
-
-			std::cout <<"838 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v) << std::endl;
-			the_maps::print_maps(x.map);
-			the_maps::print_maps(y.map);
+			//std::cout <<"838 " << x.w << " " << y.w.r->value<<" "<<y.w.i->value<< std::endl;
+			//std::cout <<"838 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v) << std::endl;
+			//the_maps::print_maps(x.map);
+			//the_maps::print_maps(y.map);
 
 			using ResultEdge = Edge<mNode>;
 
@@ -1622,15 +1647,15 @@ namespace dd {
 						//e1 = x.p->e[k];
 						auto& e1 = *Slicing2(xCopy, xCopy.p->v, k);
 						//e2 = y.p->e[k];
-						std::cout << "1554, e1 " << e1.w << std::endl;
-						std::cout << "e1.w in: " << (e1.w.i) << " " << e1.w.r << std::endl;
+						//std::cout << "1554, e1 " << e1.w << std::endl;
+						//std::cout << "e1.w in: " << (e1.w.i) << " " << e1.w.r << std::endl;
 						// the_maps::print_maps(e1.map);
 						auto& e2 = *Slicing2(yCopy, yCopy.p->v, k);
-						std::cout << "1556, e1 " << e1.w << std::endl;
-						std::cout << "e1.w in: " << (e1.w.i) << " " << e1.w.r << std::endl;
-						std::cout << "1558, e2 " << e2.w << std::endl;
-						std::cout << "e2.w in: " << (e2.w.i) << " " << e2.w.r << std::endl;
-						the_maps::print_maps(e1.map);
+						//std::cout << "1556, e1 " << e1.w << std::endl;
+						//std::cout << "e1.w in: " << (e1.w.i) << " " << e1.w.r << std::endl;
+						//std::cout << "1558, e2 " << e2.w << std::endl;
+						//std::cout << "e2.w in: " << (e2.w.i) << " " << e2.w.r << std::endl;
+						//the_maps::print_maps(e1.map);
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
 						if (e1.w != Complex::zero) {
 							// cn.returnToCache(e1.w);
@@ -1735,7 +1760,7 @@ namespace dd {
 
 			
 			//std::cout << "Case 2 " << r.w << " " << int(r.p->v) << std::endl;
-			std::cout << "<<<<<< cont2 >>>>>>>" << std::endl; 
+			//std::cout << "<<<<<< cont2 >>>>>>>" << std::endl; 
 			return r;
 		}
 

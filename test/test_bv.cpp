@@ -58,13 +58,14 @@ TDD cont(dd::TensorNetwork* tn,dd::Package<>* ddpackage, int n,bool release = tr
     return res_dd;
 };
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " <number>\n";
-        return 1;
-    }
+    // if (argc != 2) {
+    //     std::cerr << "Usage: " << argv[0] << " <number>\n";
+    //     system("pause");
+    //     return 1;
+    // }
 
     std::string path2 = std::string(PROJECT_SOURCE_DIR)+"/Benchmark/combinational/bv/";
-    std::string file_name = std::string("bv_") + argv[1] + ".qasm";
+    std::string file_name = std::string("bv_2") + ".qasm";
 	std::cout << path2+file_name << std::endl;
     
     int n = get_qubits_num(path2 + file_name);
@@ -74,5 +75,12 @@ int main(int argc, char *argv[]) {
 	dd::TDD tdd = cont(&tn,ddpack.get(),n);
     
     std::cout<<"final node: " << ddpack->size(tdd.e) <<std::endl;
+    dd::export2Dot(tdd.e, "tdd1", true,true);
+    int number;
+    std::cout << "Enter an integer: ";
+    std::cin >> number;
+    system("pause");
+    system("pause");
+    system("pause");
     return 0;
 }
