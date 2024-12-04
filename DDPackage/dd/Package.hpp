@@ -543,7 +543,7 @@ namespace dd {
 				return self;
 			}
 
-			std::string new_key = std::to_string(level) + "_" + std::to_string(x) + "_" + std::to_string(rotate);
+			std::string new_key = std::to_string(level) + "_" + std::to_string(x) + "_" + std::to_string((rotate % root_of_unit + root_of_unit) % root_of_unit);
 
 			auto it = self->next.find(new_key);
 
