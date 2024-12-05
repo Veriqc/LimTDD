@@ -29,7 +29,7 @@ def get_real_qubit_num(cir):
     gates=cir.data
     q=0
     for k in range(len(gates)):
-        q=max(q,max([qbit.index for qbit in gates[k][1]]))
+        q=max(q,max([qbit._index for qbit in gates[k][1]]))
     return q+1
 
 def cir_2_tn(cir):
@@ -54,7 +54,7 @@ def cir_2_tn(cir):
     for k in range(len(gates)):
         g=gates[k]
         nam=g[0].name
-        q = [q.index for q in g[1]]
+        q = [q._index for q in g[1]]
         q.reverse()
         var=[]
 
