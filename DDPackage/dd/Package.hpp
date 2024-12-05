@@ -539,11 +539,13 @@ namespace dd {
 
 		the_maps* append_new_map(the_maps* self, short level, bool x, int rotate) {
 
+			rotate = (rotate % root_of_unit + root_of_unit) % root_of_unit;
+
 			if (x == 0 && rotate==0) {
 				return self;
 			}
 
-			std::string new_key = std::to_string(level) + "_" + std::to_string(x) + "_" + std::to_string((rotate % root_of_unit + root_of_unit) % root_of_unit);
+			std::string new_key = std::to_string(level) + "_" + std::to_string(x) + "_" + std::to_string(rotate);
 
 			auto it = self->next.find(new_key);
 
@@ -551,7 +553,7 @@ namespace dd {
 				return self->next[new_key];
 			}
 			else {
-				self->next[new_key] = new the_maps{ level, x, (rotate % root_of_unit+ root_of_unit)% root_of_unit,0,{}, self };
+				self->next[new_key] = new the_maps{ level, x, rotate,0,{}, self };
 				//std::cout << 570 << " " << x << " " << rotate<< " " << rotate % root_of_unit << std::endl;
 				return self->next[new_key];
 			}
