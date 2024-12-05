@@ -8,3 +8,7 @@ DDPackage/
 x64/
 
 TDD/__pycache__
+
+build/
+
+Benchmark/
