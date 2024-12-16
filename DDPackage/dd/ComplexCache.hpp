@@ -50,7 +50,7 @@ public:
       auto entry = Complex{available, available->next};
       available = entry.i->next;
       count += 2;
-      std::cout << "53:  get Cached Complex function in: " << entry.r << " " << entry.i << " " << available << std::endl;
+      // std::cout << "53:  get Cached Complex function in: " << entry.r << " " << entry.i << " " << available << std::endl;
       complexMap.insert({{&entry.r->value, &entry.i->value}, true});
       return entry;
     }
@@ -71,7 +71,7 @@ public:
     c.i = &(*chunkIt);
     ++chunkIt;
     count += 2;
-    std::cout << "74:"<< c.r->value <<","<< c.i->value<<" get Cached Complex function in: " << &c<< std::endl;
+    // std::cout << "74:"<< c.r->value <<","<< c.i->value<<" get Cached Complex function in: " << &c<< std::endl;
     complexMap.insert({{&c.r->value, &c.i->value}, true});
     return c;
   }
