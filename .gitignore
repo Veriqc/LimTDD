@@ -1,2 +1,7 @@
 build/
 Benchmark/
+Benchmarks/
+TDD/
+output
+output.png
+.ipynb_checkpoints/

@@ -267,7 +267,7 @@ namespace dd {
 				}
 				else {
 					auto mag = ComplexNumbers::mag2(e.p->e[i].w);
-					if (mag - max_mag2 > ComplexTable<>::tolerance()) {
+					if (mag - max_mag2 > ComplexTable<>::tolerance()/2) {
 						maxArgIndex = static_cast<decltype(maxArgIndex)>(i);
 						max_mag2 = mag;
 						max_value = e.p->e[i].w;
@@ -386,14 +386,21 @@ namespace dd {
 						ComplexNumbers::div(c, res.p->e[i].w, max_value);
 						auto angle = ComplexNumbers::arg(c);
 						int rot = round(angle / rotate_angle);
-						if (angle- rot*rotate_angle < ComplexTable<>::tolerance()) {
+						double detla_angle = angle - rot * rotate_angle;
+						if (abs(detla_angle) < ComplexTable<>::tolerance()* rotate_angle) {
 							c.r->value = sqrt(ComplexNumbers::mag2(c));
 							c.i->value = 0;
+							//std::cout << c << " a " << ComplexNumbers::mag2(c) << std::endl;
 							res.p->e[i].w = cn.lookup(c);
 						}
 						else {
-							c.r->value = sqrt(ComplexNumbers::mag2(c))*cos(angle- rot * rotate_angle);
-							c.i->value = sqrt(ComplexNumbers::mag2(c)) * sin(angle - rot * rotate_angle);
+							//c.r->value = sqrt(ComplexNumbers::mag2(c))*cos(angle- rot * rotate_angle);
+							//c.i->value = sqrt(ComplexNumbers::mag2(c))*sin(angle - rot * rotate_angle);
+							double mags = sqrt(ComplexNumbers::mag2(c));
+							c.r->value = mags * cos(detla_angle);
+							c.i->value = mags * sin(detla_angle);
+							//std::cout << mags * cos(angle - rot * rotate_angle) * mags * cos(angle - rot * rotate_angle) + mags * sin(angle - rot * rotate_angle) * mags * sin(angle - rot * rotate_angle) << std::endl;
+							//std::cout << c.r->value * c.r->value + c.i->value * c.i->value << std::endl;
 							res.p->e[i].w = cn.lookup(c);
 						}
 
@@ -912,6 +919,22 @@ namespace dd {
 			return res;
 		}
 
+		template <class Node>
+		Edge<Node> renormalize(const Edge<Node>& e) {
+
+			if (e.p->v == -1) {
+				return e;
+			}
+			std::vector<Edge<Node>> edge(2);
+			edge[0] = renormalize(Slicing(e, e.p->v, 0));
+			edge[1] = renormalize(Slicing(e, e.p->v, 1));
+			
+			//std::cout << "-----aa----"<< ComplexTable<>::tolerance() << std::endl;
+
+			auto e2 = makeDDNode(e.p->v, edge, true);
+
+			return e2;
+		}
 
 	private:
 

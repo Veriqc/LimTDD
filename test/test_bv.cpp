@@ -75,7 +75,9 @@ int main(int argc, char *argv[]) {
 	dd::TDD tdd = cont(&tn,ddpack.get(),n);
     
     std::cout<<"final node: " << ddpack->size(tdd.e) <<std::endl;
-    dd::export2Dot(tdd.e, "tdd1", true,true);
+    tdd.e = ddpack->renormalize(tdd.e);
+    std::cout << "after norm: " << ddpack->size(tdd.e) << std::endl;
+    dd::export2Dot(tdd.e, "tdd1", true,true);    
     int number;
     std::cout << "Enter an integer: ";
     std::cin >> number;
