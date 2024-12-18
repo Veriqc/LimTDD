@@ -158,7 +158,7 @@ def add_trace_line(tn,qubits_num):
 def gen_cir(name=None,qubit_num = 1,gate_num = 1):
     from qiskit import QuantumCircuit
     import random
-    cir=QuantumCircuit(qubit_num)
+    cir=QuantumCircuit(qubit_num,qubit_num)
     
     if name=='Random_Clifford':
         gate_set = ['x','y','z','h','s','cx']
