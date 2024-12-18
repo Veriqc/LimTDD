@@ -4,6 +4,7 @@ import time
 import random
 from graphviz import Digraph
 from IPython.display import Image
+import math
 
 """Define global variables"""
 computed_table = dict()
@@ -14,7 +15,8 @@ add_find_time=0
 add_hit_time=0
 cont_find_time=0
 cont_hit_time=0
-epi=0.000001
+# epi=0.000001
+epi=2.2204460492503131e-016*1024*1024*1024*8
 
 the_maps_table = dict()
 
@@ -477,7 +479,7 @@ def Find_Or_Add_Unique_table(x,weigs=[],succ_nodes=[],the_map2=[]):
 
 def normalize(x,the_successors):
     """The normalize and reduce procedure"""
-#     print('a',x,the_successors[0].weight,the_successors[0].map,the_successors[1].weight,the_successors[1].map)
+    # print('a',x,the_successors[0].weight,the_successors[0].map,the_successors[1].weight,the_successors[1].map)
     all_zero = True
     
 #     for k in range(len(the_successors)):
@@ -527,13 +529,20 @@ def normalize(x,the_successors):
     weig_max = the_successors[0].weight
     w2 = the_successors[1].weight/the_successors[0].weight
     
-    w2_rotate = int(np.angle(w2)//rotate_angle)
+    # w2_rotate = int(np.angle(w2)//rotate_angle)
     
-    if abs(np.angle(w2)%rotate_angle-rotate_angle)<epi*rotate_angle:
-        w2_rotate+=1
+    # if abs(np.angle(w2)%rotate_angle-rotate_angle)<epi*rotate_angle:
+    #     w2_rotate+=1
+    #     w2 = np.abs(w2)
+    # elif w2_rotate != 0:
+    #     w2 = np.abs(w2)*np.exp(1j*(np.angle(w2)%rotate_angle))
+
+    w2_rotate = int(np.round(np.angle(w2)/rotate_angle))
+    if abs(np.angle(w2)-rotate_angle*w2_rotate)<epi*rotate_angle:
+        # w2_rotate+=1
         w2 = np.abs(w2)
-    elif w2_rotate != 0:
-        w2 = np.abs(w2)*np.exp(1j*(np.angle(w2)%rotate_angle))
+    else:
+        w2 = np.abs(w2)*np.exp(1j*(np.angle(w2)-rotate_angle*w2_rotate))
     
     the_phase = (the_phase + w2_rotate)%root_of_unit
     
@@ -1497,4 +1506,10 @@ def renormalize(tdd):
     res.key_2_index = copy.copy(tdd.key_2_index)
     res.index_2_key = copy.copy(tdd.index_2_key)
     res.key_width = copy.copy(tdd.key_width)
+    # if abs(res.node.out_weight[1])>1:
+    #     print('-------')
+    #     print(left.weight,abs(left.weight))
+    #     print(right.weight,abs(right.weight))
+    #     print(res.node.out_weight,abs(res.node.out_weight[1]))
+    #     print('-------')
     return res
