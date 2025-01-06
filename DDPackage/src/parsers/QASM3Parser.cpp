@@ -48,11 +48,11 @@ class OpenQasm3Parser final : public InstVisitor {
         std::make_shared<DesignatedType<uint64_t>>(Float, 64))};
 
     builtins.emplace("pi", std::pair{ConstEvalValue(qc::PI), floatTy});
-    builtins.emplace("π", std::pair{ConstEvalValue(qc::PI), floatTy});
+    // builtins.emplace("π", std::pair{ConstEvalValue(qc::PI), floatTy});
     builtins.emplace("tau", std::pair{ConstEvalValue(qc::TAU), floatTy});
-    builtins.emplace("τ", std::pair{ConstEvalValue(qc::TAU), floatTy});
+    // builtins.emplace("τ", std::pair{ConstEvalValue(qc::TAU), floatTy});
     builtins.emplace("euler", std::pair{ConstEvalValue(qc::E), floatTy});
-    builtins.emplace("ℇ", std::pair{ConstEvalValue(qc::E), floatTy});
+    // builtins.emplace("ℇ", std::pair{ConstEvalValue(qc::E), floatTy});
 
     return builtins;
   }

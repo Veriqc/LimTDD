@@ -61,7 +61,7 @@ TDD cont(dd::TensorNetwork* tn,dd::Package<>* ddpackage, int n,bool simulate,con
             MAX_NODE = std::max(MAX_NODE, ddpackage->size(res_dd.e));
         } catch (...) {
             std::exception_ptr p = std::current_exception();
-            std::clog << (p ? p.__cxa_exception_type()->name() : "null ") << std::endl;
+            // std::clog << (p ? p.__cxa_exception_type()->name() : "null ") << std::endl;
         }
     }
     end = clock();

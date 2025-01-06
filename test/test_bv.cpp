@@ -48,7 +48,7 @@ TDD cont(dd::TensorNetwork* tn,dd::Package<>* ddpackage, int n,bool release = tr
         }
         catch(...){
             std::exception_ptr p = std::current_exception();
-            std::clog <<(p ? p.__cxa_exception_type()->name() : "null ") << std::endl;
+            // std::clog <<(p ? p.__cxa_exception_type()->name() : "null ") << std::endl;
         }
     }
     end = clock();

@@ -96,7 +96,7 @@ public:
   }
 
   void returnToCache(Complex& c) {
-    std::cout << c << " return to cache in " << c.r << " " << c.i << " " << available << std::endl;
+    // std::cout << c << " return to cache in " << c.r << " " << c.i << " " << available << std::endl;
     assert(count >= 2);
     assert(c != Complex::zero);
     assert(c != Complex::one);
