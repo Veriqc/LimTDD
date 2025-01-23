@@ -5,8 +5,11 @@
 #include <filesystem>
 #include <iostream>
 #include <string>
+
+#include <ctime>
+
 int main(){
-    const std::string filePath = std::string(PROJECT_SOURCE_DIR)+"/Benchmarks/combinational/grover/grover_5.qasm";
+    const std::string filePath = std::string(PROJECT_SOURCE_DIR)+"/Benchmarks/test.qasm";
 
     // Open the file
     std::ifstream fileStream(filePath);
@@ -29,6 +32,24 @@ int main(){
     auto ddPack = std::make_shared<dd::Package<>>(3*QC->getNqubits());
     auto ts = cir_2_tn(QC,ddPack);
     std::cout << ts.infor() << std::endl;
+    std::clock_t start = std::clock();  // 获取开始时间
     auto tdd = ts.cont(ddPack.get());
+    std::cout<<"Key: "<<tdd.e.p->v<<std::endl;
+    std::cout<<"final node: " << ddPack->size(tdd.e) <<std::endl;
+
+    std::clock_t end = std::clock();  // 获取结束时间
+
+    // 计算运行时间（单位：秒）
+    double duration = double(end - start) / CLOCKS_PER_SEC;
+
+    std::cout << "Time: " << duration << "s" << std::endl;
+
     dd::export2Dot(tdd.e, "test");
+    int number;
+    std::cout << "Enter an integer: ";
+    std::cin >> number;
+    system("pause");
+    system("pause");
+    system("pause");
+    return 0;
 }
