@@ -387,7 +387,7 @@ namespace dd {
 						auto angle = ComplexNumbers::arg(c);
 						int rot = round(angle / rotate_angle);
 						double detla_angle = angle - rot * rotate_angle;
-						if (abs(detla_angle) < ComplexTable<>::tolerance()* rotate_angle) {
+						if (abs(detla_angle) < ComplexTable<>::tolerance()/2) {
 							c.r->value = sqrt(ComplexNumbers::mag2(c));
 							c.i->value = 0;
 							//std::cout << c << " a " << ComplexNumbers::mag2(c) << std::endl;
@@ -906,6 +906,7 @@ namespace dd {
 
 			// assert(before == after);
 
+			// bool gab = garbageCollect(force = true);
 			
 
 			/*std::cout << tdd1.e.w.r->value << " " << tdd1.e.w.i->value << " " << tdd2.e.w.r->value << " " << tdd2.e.w.i->value << " " << res.e.w.r->value << " " << res.e.w.i->value << std::endl;*/
@@ -1858,6 +1859,10 @@ namespace dd {
 			contTable.printStatistics();
 			std::cout << "[ComplexTable] ";
 			cn.complexTable.printStatistics();
+			std::cout << "[MapmulTable] ";
+			mapmulTable.printStatistics();
+			std::cout << "[MapdivTable] ";
+			mapdivTable.printStatistics();
 		}
 
 	};

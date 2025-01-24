@@ -44,6 +44,14 @@ int main(){
 
     std::cout << "Time: " << duration << "s" << std::endl;
 
+    ddPack->statistics();
+    // double aa = 3.141592653589793238462643383279502884197169399375105820974;
+    // double bb = std::cos(aa*2/32768);
+    // double cc = std::sin(aa*2/32768);
+    // std::cout << bb << std::endl;
+    // std::cout << cc << std::endl;
+    // std::cout << std::cos(aa*2/32768)*std::cos(aa*2/32768)+std::sin(aa*2/32768)*std::sin(aa*2/32768)<<std::endl;
+    // std::cout << bb*bb+cc*cc<<std::endl;
     dd::export2Dot(tdd.e, "test");
     int number;
     std::cout << "Enter an integer: ";

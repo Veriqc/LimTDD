@@ -17,7 +17,7 @@
 #include <vector>
 
 namespace dd {
-template <std::size_t NBUCKET = 65537,
+template <std::size_t NBUCKET = 65537*256,
           std::size_t INITIAL_ALLOCATION_SIZE = 2048,
           std::size_t GROWTH_FACTOR = 2, std::size_t INITIAL_GC_LIMIT = 65536>
 class ComplexTable {
