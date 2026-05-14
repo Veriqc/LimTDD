@@ -597,6 +597,25 @@ namespace dd {
 			return with_map_extra_phase(map, map->extra_phase + delta);
 		}
 
+		struct DetachedMapPhase {
+			the_maps* map;
+			int phase;
+		};
+
+		[[nodiscard]] DetachedMapPhase detach_map_extra_phase(the_maps* map) {
+			return { with_map_extra_phase(map, 0), normalize_phase(map->extra_phase) };
+		}
+
+		template <class Node>
+		void apply_phase_to_weight(Edge<Node>& edge, int phase) {
+			const auto normalized_phase = normalize_phase(phase);
+			if (normalized_phase == 0 || edge.w == Complex::zero) {
+				return;
+			}
+
+			ComplexNumbers::mul(edge.w, edge.w, cn.getTemporary(cos(normalized_phase * rotate_angle), sin(normalized_phase * rotate_angle)));
+		}
+
 
 		ComputeTable3 <the_maps*, the_maps*, the_maps*>  mapmulTable{};
 
@@ -648,7 +667,7 @@ namespace dd {
 
 			//auto temp = res->extra_phase;
 			//res->extra_phase = cn.lookup(res->extra_phase);
-			mapmulTable.insert(self, other, res, res->extra_phase%root_of_unit);
+			mapmulTable.insert(self, other, res);
 			//res->extra_phase = temp;
 
 			return res;
@@ -718,7 +737,7 @@ namespace dd {
 			}
 			//auto temp = res->extra_phase;
 			//res->extra_phase = cn.lookup(res->extra_phase);
-			mapdivTable.insert(self, other, res, res->extra_phase%root_of_unit);
+			mapdivTable.insert(self, other, res);
 			//res->extra_phase = temp;
 			return res;
 		}
@@ -1466,12 +1485,11 @@ namespace dd {
 
 			
 			auto r_maps = find_remain_map(x.map, y.map, key_2_new_key1, key_2_new_key2);
+			auto detachedRemainMap = detach_map_extra_phase(r_maps->remain_map);
 
 			xCopy.map = r_maps->cont_map1;
 			yCopy.map = r_maps->cont_map2;
 			// yCopy.map->print_maps(yCopy.map);
-			//auto extra_phase = cn.getCached(r_maps->remain_map->extra_phase.r->value, r_maps->remain_map->extra_phase.i->value);
-			auto extra_phase = r_maps->remain_map->extra_phase;
 
 			auto res = contTable.lookup(xCopy, yCopy, temp_key_2_new_key1, temp_key_2_new_key2);
 			if (res.e.p != nullptr) {
@@ -1495,15 +1513,11 @@ namespace dd {
 					ComplexNumbers::mul(e.w, e.w, cn.getTemporary(pow(2, var_num - res.cont_num), 0));//对于一般形状的tensor,以2为底数可能有问题
 					// TODO: pow(2,n) can be optimized by 1<<n
 				}
-				e.map = mapmul(r_maps->remain_map, e.map);
+				e.map = mapmul(detachedRemainMap.map, e.map);
 				assert(e.w != Complex::zero);
-				// cn.mul(e.w, e.w, e.map->extra_phase);
-				cn.mul(e.w, e.w, cn.getTemporary(cos(e.map->extra_phase*rotate_angle),sin(e.map->extra_phase*rotate_angle)));
-				// cn.returnToCache(e.map->extra_phase);
+				apply_phase_to_weight(e, e.map->extra_phase);
 				assert(e.w != Complex::zero);
-				// cn.mul(e.w, e.w, extra_phase);
-				cn.mul(e.w, e.w, cn.getTemporary(cos(extra_phase*rotate_angle),sin(extra_phase*rotate_angle)));
-				// cn.returnToCache(extra_phase);
+				apply_phase_to_weight(e, detachedRemainMap.phase);
 				return e;
 			}
 			// TODO: add if here
@@ -1796,19 +1810,14 @@ namespace dd {
 				}
 			}
 			if (r.w == Complex::zero) {
-				// cn.returnToCache(extra_phase);
 				return ResultEdge::zero;
 			}
 			else {
-				r.map = mapmul(r_maps->remain_map, r.map);
+				r.map = mapmul(detachedRemainMap.map, r.map);
 				assert(r.w != Complex::zero);
-				// cn.mul(r.w, r.w, r.map->extra_phase);
-				cn.mul(r.w, r.w, cn.getTemporary(cos(r.map->extra_phase*rotate_angle),sin(r.map->extra_phase*rotate_angle)));
-				// cn.returnToCache(r.map->extra_phase);
+				apply_phase_to_weight(r, r.map->extra_phase);
 				assert(r.w != Complex::zero);
-				// cn.mul(r.w, r.w, extra_phase);
-				cn.mul(r.w, r.w, cn.getTemporary(cos(extra_phase*rotate_angle),sin(extra_phase*rotate_angle)));
-				// cn.returnToCache(extra_phase);
+				apply_phase_to_weight(r, detachedRemainMap.phase);
 			}
 
 			
