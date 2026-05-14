@@ -65,9 +65,9 @@ namespace dd {
 	};
 
 	struct comm_maps {
-		the_maps* remain_map;
-		the_maps* cont_map1;
-		the_maps* cont_map2;
+		the_maps* remain_map = the_maps::the_maps_header();
+		the_maps* cont_map1 = the_maps::the_maps_header();
+		the_maps* cont_map2 = the_maps::the_maps_header();
 
 	};
 

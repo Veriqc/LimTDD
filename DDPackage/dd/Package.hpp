@@ -30,6 +30,7 @@
 #include <iostream>
 #include <limits>
 #include <map>
+#include <memory>
 #include <queue>
 #include <random>
 #include <regex>
@@ -119,7 +120,7 @@ namespace dd {
 		//==========================================我写的========================================
 		explicit Package(std::size_t nq = DEFAULT_QUBITS) : nqubits(nq) {
 			resize(nq);
-			this->identity = this->xarray_2_edge({{{1,0},{0,0}},{{0,0},{1,0}}},{0,1});
+			rebuildIdentity();
 		};
 		~Package() = default;
 		Package(const Package& package) = delete;
@@ -145,13 +146,36 @@ namespace dd {
 			clearUniqueTables();
 			clearComputeTables();
 			cn.clear();
+			clearPhaseCaches();
+			rebuildIdentity();
 		}
 
 		// getter for qubits
 		[[nodiscard]] auto qubits() const { return nqubits; }
 
 	private:
+		void clearMaps() {
+			the_maps::the_maps_header()->next.clear();
+			mapStorage.clear();
+		}
+
+		void clearPhaseCaches() {
+			phaseFactorCached.fill(false);
+			powerOfTwoCache.clear();
+			powerOfTwoCached.clear();
+		}
+
+		void rebuildIdentity() {
+			assert(the_maps::the_maps_header()->extra_phase == 0);
+			this->identity = this->xarray_2_edge({{{1,0},{0,0}},{{0,0},{1,0}}},{0,1});
+		}
+
 		std::size_t nqubits;
+		std::vector<std::unique_ptr<the_maps>> mapStorage{};
+		std::array<Complex, root_of_unit> phaseFactorCache{};
+		std::array<bool, root_of_unit> phaseFactorCached{};
+		std::vector<Complex> powerOfTwoCache{};
+		std::vector<bool> powerOfTwoCached{};
 
 		static bool inline ifContract(float k){
 			//when k is half, means this index will be contracted
@@ -465,6 +489,7 @@ namespace dd {
 				// Collecting garbage in the complex numbers table requires collecting the
 				// node tables as well
 				force = true;
+				clearPhaseCaches();
 			}
 
 			auto mCollect = nodeUniqueTable.garbageCollect(force);
@@ -475,12 +500,18 @@ namespace dd {
 
 				addTable.clear();
 				contTable.clear();
+				mapmulTable.clear();
+				mapdivTable.clear();
+			}
+			if (force && nodeUniqueTable.getNodeCount() == 0) {
+				clearMaps();
 			}
 			return  mCollect > 0;
 		}
 
 		void clearUniqueTables() {
 			nodeUniqueTable.clear();
+			clearMaps();
 
 		}
 
@@ -546,7 +577,10 @@ namespace dd {
 		///
 	public:
 		void clearComputeTables() {
-
+			addTable.clear();
+			contTable.clear();
+			mapmulTable.clear();
+			mapdivTable.clear();
 		}
 
 
@@ -556,10 +590,74 @@ namespace dd {
 			return the_maps::normalize_phase(phase);
 		}
 
+		[[nodiscard]] Complex phase_factor(int phase) {
+			const auto normalized_phase = normalize_phase(phase);
+			if (normalized_phase == 0) {
+				return Complex::one;
+			}
+
+			if (!phaseFactorCached[static_cast<std::size_t>(normalized_phase)]) {
+				phaseFactorCache[static_cast<std::size_t>(normalized_phase)] = cn.lookup(std::cos(normalized_phase * rotate_angle), std::sin(normalized_phase * rotate_angle));
+				phaseFactorCached[static_cast<std::size_t>(normalized_phase)] = true;
+			}
+
+			return phaseFactorCache[static_cast<std::size_t>(normalized_phase)];
+		}
+
+		[[nodiscard]] Complex power_of_two_factor(int exponent) {
+			assert(exponent >= 0);
+			if (exponent == 0) {
+				return Complex::one;
+			}
+
+			const auto cacheIndex = static_cast<std::size_t>(exponent);
+			if (powerOfTwoCache.size() <= cacheIndex) {
+				powerOfTwoCache.resize(cacheIndex + 1, Complex::zero);
+				powerOfTwoCached.resize(cacheIndex + 1, false);
+			}
+
+			if (!powerOfTwoCached[cacheIndex]) {
+				powerOfTwoCache[cacheIndex] = cn.lookup(std::ldexp(static_cast<fp>(1.0), exponent), 0.0);
+				powerOfTwoCached[cacheIndex] = true;
+			}
+
+			return powerOfTwoCache[cacheIndex];
+		}
+
+		[[nodiscard]] Complex multiply_by_phase(const Complex& value, int phase) {
+			if (value == Complex::zero) {
+				return Complex::zero;
+			}
+
+			const auto normalized_phase = normalize_phase(phase);
+			if (normalized_phase == 0) {
+				return value;
+			}
+
+			return cn.mulCached(value, phase_factor(normalized_phase));
+		}
+
+		[[nodiscard]] Complex multiply_by_power_of_two(const Complex& value, int exponent) {
+			assert(exponent >= 0);
+			if (value == Complex::zero || exponent == 0) {
+				return value;
+			}
+
+			return cn.mulCached(value, power_of_two_factor(exponent));
+		}
+
 		the_maps* append_new_map(the_maps* self, short level, bool x, int rotate, int extra_phase = 0) {
+			assert(self != nullptr);
+			assert(the_maps::the_maps_header()->extra_phase == 0);
 
 			rotate = normalize_phase(rotate);
 			extra_phase = normalize_phase(extra_phase);
+			assert(rotate >= 0 && rotate < root_of_unit);
+			assert(extra_phase >= 0 && extra_phase < root_of_unit);
+			if (level == -1) {
+				assert(!x);
+				assert(rotate == 0);
+			}
 
 			if (level == -1 && x == 0 && rotate == 0 && extra_phase == 0) {
 				return the_maps::the_maps_header();
@@ -577,7 +675,8 @@ namespace dd {
 				return it->second;
 			}
 			else {
-				auto *nm = new the_maps{ level, x, rotate, extra_phase, {}, self };
+				mapStorage.emplace_back(std::make_unique<the_maps>(the_maps{ level, x, rotate, extra_phase, {}, self }));
+				auto* nm = mapStorage.back().get();
 				self->next.emplace(key, nm);
 				//std::cout << 570 << " " << x << " " << rotate<< " " << rotate % root_of_unit << std::endl;
 				return nm;
@@ -608,12 +707,7 @@ namespace dd {
 
 		template <class Node>
 		void apply_phase_to_weight(Edge<Node>& edge, int phase) {
-			const auto normalized_phase = normalize_phase(phase);
-			if (normalized_phase == 0 || edge.w == Complex::zero) {
-				return;
-			}
-
-			ComplexNumbers::mul(edge.w, edge.w, cn.getTemporary(cos(normalized_phase * rotate_angle), sin(normalized_phase * rotate_angle)));
+			edge.w = multiply_by_phase(edge.w, phase);
 		}
 
 
@@ -1004,8 +1098,7 @@ namespace dd {
 						temp.map = mapmul(e.map, temp.map);
 
 						assert(temp.w != Complex::zero);
-						// cn.mul(temp.w, temp.w, temp.map->extra_phase);
-						cn.mul(temp.w, temp.w, cn.getTemporary(cos(temp.map->extra_phase*rotate_angle),sin(temp.map->extra_phase*rotate_angle)));
+						temp.w = multiply_by_phase(temp.w, temp.map->extra_phase);
 						// cn.returnToCache(temp.map->extra_phase);
 					}
 					//std::cout << "Slicing " << temp.w << std::endl;
@@ -1018,14 +1111,12 @@ namespace dd {
 						temp.map = mapmul(e.map->father, temp.map);
 
 						assert(temp.w != Complex::zero);
-						// cn.mul(temp.w, temp.w, temp.map->extra_phase);
-						cn.mul(temp.w, temp.w, cn.getTemporary(cos(temp.map->extra_phase*rotate_angle),sin(temp.map->extra_phase*rotate_angle)));
+						temp.w = multiply_by_phase(temp.w, temp.map->extra_phase);
 						// cn.returnToCache(temp.map->extra_phase);
 
 						if (c == 1) {
 								assert(temp.w != Complex::zero);
-								// cn.mul(temp.w, temp.w, e.map->rotate);
-								cn.mul(temp.w, temp.w, cn.getTemporary(cos(e.map->rotate*rotate_angle),sin(e.map->rotate*rotate_angle)));
+								temp.w = multiply_by_phase(temp.w, e.map->rotate);
 						}
 
 					}
@@ -1039,13 +1130,11 @@ namespace dd {
 						temp.map = mapmul(e.map->father, temp.map);
 
 						assert(temp.w != Complex::zero);
-						// cn.mul(temp.w, temp.w, temp.map->extra_phase);
-						cn.mul(temp.w, temp.w, cn.getTemporary(cos(temp.map->extra_phase*rotate_angle),sin(temp.map->extra_phase*rotate_angle)));
+						temp.w = multiply_by_phase(temp.w, temp.map->extra_phase);
 						if (c == 0) {
 
 							assert(temp.w != Complex::zero);
-							// cn.mul(temp.w, temp.w, e.map->rotate);
-                            cn.mul(temp.w, temp.w, cn.getTemporary(cos(e.map->rotate*rotate_angle),sin(e.map->rotate*rotate_angle)));
+							temp.w = multiply_by_phase(temp.w, e.map->rotate);
 						}
 					}
 					//std::cout << "Slicing " << temp.w << std::endl;
@@ -1061,7 +1150,7 @@ namespace dd {
 		}
 
 		template<class Node>
-		Edge<Node>& copyEdge(const Edge<Node>& edge) {
+		Edge<Node> copyEdge(const Edge<Node>& edge) {
 			auto temp = edge;
 			// if (cn.inCache(edge.w)) {
 			// 	std::cout << "959: complex number not in cache" << std::endl;
@@ -1107,8 +1196,7 @@ namespace dd {
 					// std::cout << "969 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
 					if (temp.w != Complex::zero) {
 						temp.map = mapmul(e.map, temp.map);
-						// temp->w=cn.mulCached(temp->w, temp->map->extra_phase);
-						temp.w=cn.mulCached(temp.w, cn.getTemporary(cos(temp.map->extra_phase*rotate_angle),sin(temp.map->extra_phase*rotate_angle)));
+						temp.w = multiply_by_phase(temp.w, temp.map->extra_phase);
 						
 						// cn.returnToCache(temp->map->extra_phase);
 						// std::cout << "1004 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
@@ -1131,14 +1219,13 @@ namespace dd {
 						// }
 						// temp->w = cn.mulCached(temp->w, temp->map->extra_phase);
 						//std::cout << "Scling2 2 " << temp->w << std::endl;
-						temp.w = cn.mulCached(temp.w, cn.getTemporary(cos(temp.map->extra_phase*rotate_angle),sin(temp.map->extra_phase*rotate_angle)));
+						temp.w = multiply_by_phase(temp.w, temp.map->extra_phase);
 						//std::cout << "1018 temp w: " << temp->w << " " << temp->w.i << " " << temp->w.r << std::endl;
 						// cn.returnToCache(temp->map->extra_phase);
 						//std::cout << "Scling2 2 " << temp->w << std::endl;
 						if (c == 1) {
 							assert(temp.w != Complex::zero);
-							// cn.mul(temp->w, temp->w, e.map->rotate);
-							cn.mul(temp.w, temp.w, cn.getTemporary(cos(e.map->rotate*rotate_angle),sin(e.map->rotate*rotate_angle)));
+							temp.w = multiply_by_phase(temp.w, e.map->rotate);
 							//std::cout << "Scling2 2 " << temp->w << std::endl;
 							//std::cout<< e.map->rotate<<" "<< e.map->rotate * rotate_angle << " " << cos(e.map->rotate * rotate_angle) << " " << sin(e.map->rotate * rotate_angle) <<std::endl;
 						}
@@ -1155,13 +1242,11 @@ namespace dd {
 					// std::cout << "1029 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
 					if (temp.w != Complex::zero) {
 						temp.map = mapmul(e.map->father, temp.map);
-						// temp->w = cn.mulCached(temp->w, temp->map->extra_phase);
-						temp.w = cn.mulCached(temp.w, cn.getTemporary(cos(temp.map->extra_phase*rotate_angle),sin(temp.map->extra_phase*rotate_angle)));
+						temp.w = multiply_by_phase(temp.w, temp.map->extra_phase);
 						// cn.returnToCache(temp->map->extra_phase);
 						if (c == 0) {
 							assert(temp.w != Complex::zero);
-							// cn.mul(temp->w, temp->w, e.map->rotate);
-							cn.mul(temp.w, temp.w, cn.getTemporary(cos(e.map->rotate*rotate_angle),sin(e.map->rotate*rotate_angle)));
+							temp.w = multiply_by_phase(temp.w, e.map->rotate);
 
 						}
 						// std::cout << "1038 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
@@ -1229,8 +1314,7 @@ namespace dd {
 			yCopy.w = cn.divCached(y.w, x.w);
 			yCopy.map = mapdiv(y.map, x.map);
 			if (yCopy.w != Complex::zero) {
-				// cn.mul(yCopy.w, yCopy.w, yCopy.map->extra_phase);
-				cn.mul(yCopy.w, yCopy.w, cn.getTemporary(cos(yCopy.map->extra_phase*rotate_angle),sin(yCopy.map->extra_phase*rotate_angle)));
+				yCopy.w = multiply_by_phase(yCopy.w, yCopy.map->extra_phase);
 				
 			}
 			// cn.returnToCache(yCopy.map->extra_phase);
@@ -1253,8 +1337,7 @@ namespace dd {
 
 				auto temp_map = mapmul(x.map, r.map);
 				if (c != Complex::zero) {
-					// cn.mul(c, c, temp_map->extra_phase);
-					cn.mul(c, c, cn.getTemporary(cos(temp_map->extra_phase*rotate_angle),sin(temp_map->extra_phase*rotate_angle)));
+					c = multiply_by_phase(c, temp_map->extra_phase);
 				}
 				// cn.returnToCache(temp_map->extra_phase);
 				return { r.p, c,temp_map };
@@ -1337,8 +1420,7 @@ namespace dd {
 				e.map = mapmul(x.map, e.map);
 
 				assert(e.w != Complex::zero);
-				// cn.mul(e.w, e.w, e.map->extra_phase);
-				cn.mul(e.w, e.w, cn.getTemporary(cos(e.map->extra_phase*rotate_angle),sin(e.map->extra_phase*rotate_angle)));
+				e.w = multiply_by_phase(e.w, e.map->extra_phase);
 				// cn.returnToCache(e.map->extra_phase);
 			}
 
@@ -1348,17 +1430,9 @@ namespace dd {
 		}
 
 
-		comm_maps* find_remain_map(the_maps* map1, the_maps* map2, key_2_new_key_node* key_2_new_key1, key_2_new_key_node* key_2_new_key2) {
-
-			//the_maps* res[3];
-			//std::cout << 868 << "   " << map1->level << " " << map2->level << std::endl;
-
-			//int to_tset2 = 2;
-			//if (to_tset2 == 1) {
-			//	comm_maps* res = new comm_maps{ the_maps::the_maps_header(),map1,map2 };
-			//	res->remain_map->extra_phase = cn.getCached(1, 0);
-			//	return res;
-			//}
+		comm_maps find_remain_map(the_maps* map1, the_maps* map2, key_2_new_key_node* key_2_new_key1, key_2_new_key_node* key_2_new_key2) {
+			assert(map1 != nullptr);
+			assert(map2 != nullptr);
 
 
 			key_2_new_key_node* temp_key_2_new_key1 = key_2_new_key1;
@@ -1376,28 +1450,27 @@ namespace dd {
 
 			if (newk1 > newk2 && !ifContract(newk1)) {
 				auto res = find_remain_map(map1->father, map2, temp_key_2_new_key1, temp_key_2_new_key2);
-				auto temp_pahse = res->remain_map->extra_phase;
-				res->remain_map = append_new_map(res->remain_map, newk1, map1->x, map1->rotate, temp_pahse);
+				auto temp_pahse = res.remain_map->extra_phase;
+				res.remain_map = append_new_map(res.remain_map, newk1, map1->x, map1->rotate, temp_pahse);
 				return res;
 			}
 			if (newk1 < newk2 && !ifContract(newk2)) {
 				auto res = find_remain_map(map1, map2->father, temp_key_2_new_key1, temp_key_2_new_key2);
-				auto temp_pahse = res->remain_map->extra_phase;
-				res->remain_map = append_new_map(res->remain_map, newk2, map2->x, map2->rotate, temp_pahse);
+				auto temp_pahse = res.remain_map->extra_phase;
+				res.remain_map = append_new_map(res.remain_map, newk2, map2->x, map2->rotate, temp_pahse);
 				return res;
 			}
 			if (map1->level == -1 && map2->level == -1) {
-				comm_maps* res=new comm_maps{ the_maps::the_maps_header(),the_maps::the_maps_header(),the_maps::the_maps_header() };
-				return res;
+				return {};
 			}
 			if (newk1 > newk2) {
 				auto res = find_remain_map(map1->father, map2, temp_key_2_new_key1, temp_key_2_new_key2);
-				res->cont_map1 = append_new_map(res->cont_map1, map1->level, map1->x, map1->rotate);
+				res.cont_map1 = append_new_map(res.cont_map1, map1->level, map1->x, map1->rotate);
 				return res;
 			}
 			if (newk1 < newk2) {
 				auto res = find_remain_map(map1, map2->father, temp_key_2_new_key1, temp_key_2_new_key2);
-				res->cont_map2 = append_new_map(res->cont_map2, map2->level, map2->x, map2->rotate);
+				res.cont_map2 = append_new_map(res.cont_map2, map2->level, map2->x, map2->rotate);
 				return res;
 			}
 			auto res = find_remain_map(map1->father, map2->father, temp_key_2_new_key1, temp_key_2_new_key2);
@@ -1405,7 +1478,7 @@ namespace dd {
 			auto x = (map1->x + map2->x) % 2;
 			if (x == 1) {
 				// assert(res->remain_map->extra_phase != Complex::zero);
-				res->remain_map = add_to_map_extra_phase(res->remain_map, map2->rotate);
+				res.remain_map = add_to_map_extra_phase(res.remain_map, map2->rotate);
 			}
 
 			auto rotate = 0;
@@ -1417,7 +1490,7 @@ namespace dd {
 				rotate = map1->rotate- map2->rotate;
 			}
 
-			res->cont_map1 = append_new_map(res->cont_map1, map1->level, x, rotate%root_of_unit);
+			res.cont_map1 = append_new_map(res.cont_map1, map1->level, x, rotate%root_of_unit);
 
 			return res;
 		}
@@ -1450,7 +1523,7 @@ namespace dd {
 
 				if (var_num > 0) {
 					assert(c != Complex::zero);
-					ComplexNumbers::mul(c, c, cn.getTemporary(pow(2, var_num), 0));
+					c = multiply_by_power_of_two(c, var_num);
 				}
 				//std::cout << "Case 00" << std::endl;
 				return ResultEdge::terminal(c);
@@ -1485,10 +1558,10 @@ namespace dd {
 
 			
 			auto r_maps = find_remain_map(x.map, y.map, key_2_new_key1, key_2_new_key2);
-			auto detachedRemainMap = detach_map_extra_phase(r_maps->remain_map);
+			auto detachedRemainMap = detach_map_extra_phase(r_maps.remain_map);
 
-			xCopy.map = r_maps->cont_map1;
-			yCopy.map = r_maps->cont_map2;
+			xCopy.map = r_maps.cont_map1;
+			yCopy.map = r_maps.cont_map2;
 			// yCopy.map->print_maps(yCopy.map);
 
 			auto res = contTable.lookup(xCopy, yCopy, temp_key_2_new_key1, temp_key_2_new_key2);
@@ -1510,8 +1583,7 @@ namespace dd {
 				//std::cout << "1160 " << var_num << " " << res.cont_num << std::endl;
 				if (res.cont_num != var_num) {
 					assert(e.w != Complex::zero);
-					ComplexNumbers::mul(e.w, e.w, cn.getTemporary(pow(2, var_num - res.cont_num), 0));//对于一般形状的tensor,以2为底数可能有问题
-					// TODO: pow(2,n) can be optimized by 1<<n
+					e.w = multiply_by_power_of_two(e.w, var_num - res.cont_num);//对于一般形状的tensor,以2为底数可能有问题
 				}
 				e.map = mapmul(detachedRemainMap.map, e.map);
 				assert(e.w != Complex::zero);
