@@ -44,22 +44,26 @@
 
 #include <numeric>
 
-#include <xtensor/xarray.hpp>
-#include <xtensor/xshape.hpp>
-#include <xtensor/xio.hpp>
-#include <xtensor/xslice.hpp>
-#include <xtensor/xfixed.hpp>
-#include <xtensor/xview.hpp>
+#include <xtensor/containers/xarray.hpp>
+#include <xtensor/core/xshape.hpp>
+#include <xtensor/io/xio.hpp>
+#include <xtensor/views/xslice.hpp>
+#include <xtensor/containers/xfixed.hpp>
+#include <xtensor/views/xview.hpp>
 
 namespace dd {
 
 	bool mapCompare(const the_maps* map1, const the_maps* map2) {
 		const auto maxArg = dd::PI;
+		auto normalize_phase = [](int value) {
+			return (value % root_of_unit + root_of_unit) % root_of_unit;
+		};
 
 		while (map1->level >= 0 || map2->level >= 0) {
 			if (map1->level > map2->level) {
 				// if (-std::pow(-1, map1->x)*ComplexNumbers::arg(map1->rotate) > maxArg) return true;
-				if ( int(-std::pow(-1, int(map1->x))*map1->rotate)%root_of_unit > int(root_of_unit/2)) return true;
+				const int sign = (map1->x % 2 == 0) ? -1 : 1;
+				if (normalize_phase(sign * map1->rotate) > root_of_unit / 2) return true;
 				
 				map1 = (map1->level >= 0) ? map1->father : map1;
 			} else if (map2->level > map1->level) {
@@ -71,8 +75,9 @@ namespace dd {
 				// fp theta2 = ComplexNumbers::arg(map2->rotate);
 				// fp phaseDiff = theta2 - theta1 * std::pow(-1, map1->x ^ map2->x);
 				// if (phaseDiff > maxArg) return true;
-				int phaseDiff = int(map2->rotate - map1->rotate * std::pow(-1, map1->x ^ map2->x)) %root_of_unit;
-                if (phaseDiff > root_of_unit/2) return true;
+				const int sign = (((map1->x ^ map2->x) & 1) == 0) ? 1 : -1;
+				const int phaseDiff = normalize_phase(map2->rotate - map1->rotate * sign);
+				if (phaseDiff > root_of_unit / 2) return true;
 				map1 = (map1->level >= 0) ? map1->father : map1;
 				map2 = (map2->level >= 0) ? map2->father : map2;
 			}
@@ -190,8 +195,9 @@ namespace dd {
 				order[split_pos] = -1;
 				std::vector<xt::xarray<ComplexValue>> temp_U;
 				for (int i = 0; i < split_U.size(); ++i) {
-					auto temp = xt::split(split_U.at(i), split_U.at(i).shape(split_pos), split_pos).at(i);
-					temp_U.push_back(temp);
+					for (const auto& temp : xt::split(split_U.at(i), split_U.at(i).shape(split_pos), split_pos)) {
+						temp_U.push_back(temp);
+					}
 				}
 				split_U = temp_U;
 			}
@@ -359,7 +365,6 @@ namespace dd {
 						}
 						//r.p->e[i] = Edge<Node>::zero;
 						res.p->e[i] = { res.p->e[0].p,Complex::zero, the_maps::the_maps_header() };
-						res.p->e[i].map->extra_phase = 0;
 						continue;
 					}
 					if (cached && !isZero[i] && !res.p->e[i].w.exactlyOne()) {
@@ -376,7 +381,7 @@ namespace dd {
 						res.p->e[i].map = mapdiv(res.p->e[i].map, res.map);
 						// cn.mul(res.p->e[i].map->extra_phase, res.p->e[i].map->extra_phase, c);
 						// cn.mul(res.p->e[i].map->extra_phase, res.p->e[i].map->extra_phase, c);
-						res.p->e[i].map->extra_phase=res.p->e[i].map->extra_phase+int(ComplexNumbers::arg(c)/rotate_angle);
+						res.p->e[i].map = add_to_map_extra_phase(res.p->e[i].map, int(ComplexNumbers::arg(c)/rotate_angle));
 						// cn.returnToCache(c);
 						res.p->e[i].w = Complex::one;
 
@@ -405,7 +410,7 @@ namespace dd {
 						}
 
 						res.p->e[i].map = mapdiv(res.p->e[i].map, res.map);
-						res.p->e[i].map->extra_phase = res.p->e[i].map->extra_phase + rot;
+						res.p->e[i].map = add_to_map_extra_phase(res.p->e[i].map, rot);
 						
 						// cn.mul(res.p->e[i].map->extra_phase, res.p->e[i].map->extra_phase, cn.getTemporary(cos(angle), sin(angle)));
 						
@@ -414,7 +419,8 @@ namespace dd {
 				}
 			}
 
-			res.map = append_new_map(res.map, res.p->v, add_x, res.p->e[1].map->extra_phase);
+			const int edge1Phase = isZero[1] ? 0 : res.p->e[1].map->extra_phase;
+			res.map = append_new_map(res.map, res.p->v, add_x, edge1Phase);
 			if (!isZero[1]) {
 				// cn.returnToCache(res.p->e[1].map->extra_phase);
 			}
@@ -546,26 +552,49 @@ namespace dd {
 
 	public:
 
-		the_maps* append_new_map(the_maps* self, short level, bool x, int rotate) {
+		[[nodiscard]] static int normalize_phase(int phase) {
+			return the_maps::normalize_phase(phase);
+		}
 
-			rotate = (rotate % root_of_unit + root_of_unit) % root_of_unit;
+		the_maps* append_new_map(the_maps* self, short level, bool x, int rotate, int extra_phase = 0) {
 
-			if (x == 0 && rotate==0) {
+			rotate = normalize_phase(rotate);
+			extra_phase = normalize_phase(extra_phase);
+
+			if (level == -1 && x == 0 && rotate == 0 && extra_phase == 0) {
+				return the_maps::the_maps_header();
+			}
+
+			if (level != -1 && x == 0 && rotate==0 && extra_phase == 0) {
 				return self;
 			}
 
-			std::string new_key = std::to_string(level) + "_" + std::to_string(x) + "_" + std::to_string(rotate);
+			the_maps::MapKey key{level, x, rotate, extra_phase};
 
-			auto it = self->next.find(new_key);
+			auto it = self->next.find(key);
 
 			if (it != self->next.end()) {
-				return self->next[new_key];
+				return it->second;
 			}
 			else {
-				self->next[new_key] = new the_maps{ level, x, rotate,0,{}, self };
+				auto *nm = new the_maps{ level, x, rotate, extra_phase, {}, self };
+				self->next.emplace(key, nm);
 				//std::cout << 570 << " " << x << " " << rotate<< " " << rotate % root_of_unit << std::endl;
-				return self->next[new_key];
+				return nm;
 			}
+		}
+
+		the_maps* with_map_extra_phase(the_maps* map, int extra_phase) {
+			const auto normalized_phase = normalize_phase(extra_phase);
+			if (map->level == -1) {
+				return append_new_map(the_maps::the_maps_header(), -1, false, 0, normalized_phase);
+			}
+
+			return append_new_map(map->father, map->level, map->x, map->rotate, normalized_phase);
+		}
+
+		the_maps* add_to_map_extra_phase(the_maps* map, int delta) {
+			return with_map_extra_phase(map, map->extra_phase + delta);
 		}
 
 
@@ -574,13 +603,17 @@ namespace dd {
 		the_maps* mapmul(the_maps* self, the_maps* other) {
 
 			if (self->level == -1) {
-				other->extra_phase = 0;
-				return other;
+				if (other == the_maps::the_maps_header()) {
+					return other;
+				}
+				return with_map_extra_phase(other, 0);
 			}
 
 			if (other->level == -1) {
-				self->extra_phase = 0;
-				return self;
+				if (self == the_maps::the_maps_header()) {
+					return self;
+				}
+				return with_map_extra_phase(self, 0);
 			}
 
 			auto r = mapmulTable.lookup(self, other);
@@ -590,13 +623,11 @@ namespace dd {
 			the_maps* res;
 			if (self->level > other->level) {
 				auto r = mapmul(self->father, other);
-				res = append_new_map(r, self->level, self->x, self->rotate);
-				res->extra_phase = r->extra_phase;
+				res = append_new_map(r, self->level, self->x, self->rotate, r->extra_phase);
 			}
 			else if (self->level < other->level) {
 				auto r = mapmul(self, other->father);
-				res = append_new_map(r, other->level, other->x, other->rotate);
-				res->extra_phase = r->extra_phase;
+				res = append_new_map(r, other->level, other->x, other->rotate, r->extra_phase);
 			}
 			else {
 				auto r = mapmul(self->father, other->father);
@@ -609,10 +640,9 @@ namespace dd {
 					rotate=other->rotate-self->rotate;
 				}
 
-				res = append_new_map(r, self->level, (self->x + other->x) % 2, rotate%root_of_unit);
-				res->extra_phase = r->extra_phase;
+				res = append_new_map(r, self->level, (self->x + other->x) % 2, rotate%root_of_unit, r->extra_phase);
 				if (other->x) {
-					res->extra_phase = res->extra_phase+self->rotate;
+					res = add_to_map_extra_phase(res, self->rotate);
 				}
 			}
 
@@ -629,13 +659,13 @@ namespace dd {
 		the_maps* mapdiv(the_maps* self, the_maps* other) {
 
 			if (other->level == -1) {
-				self->extra_phase = 0;
-				return self;
+				if (self == the_maps::the_maps_header()) {
+					return self;
+				}
+				return with_map_extra_phase(self, 0);
 			}
 			if (self == other) {
-				auto the_maps_header = the_maps::the_maps_header();
-				the_maps_header->extra_phase = 0;
-				return the_maps_header;
+				return the_maps::the_maps_header();
 			}
 			
 			auto r = mapdivTable.lookup(self, other);
@@ -646,8 +676,7 @@ namespace dd {
 			the_maps* res;
 			if (self->level > other->level) {
 				auto r = mapdiv(self->father, other);
-				res = append_new_map(r, self->level, self->x, self->rotate);
-				res->extra_phase = r->extra_phase;
+				res = append_new_map(r, self->level, self->x, self->rotate, r->extra_phase);
 			}
 			else if (self->level < other->level) {
 				auto r = mapdiv(self, other->father);
@@ -662,13 +691,11 @@ namespace dd {
 					else {
 						res = append_new_map(r, other->level, other->x, (-other->rotate)%root_of_unit);
 					}
-					
-					res->extra_phase = r->extra_phase;
+					res = with_map_extra_phase(res, r->extra_phase);
 				}
 				else {
-					res = append_new_map(r, other->level, other->x, other->rotate);
-					res->extra_phase= r->extra_phase;
-					res->extra_phase=res->extra_phase-other->rotate;
+					res = append_new_map(r, other->level, other->x, other->rotate, r->extra_phase);
+					res = add_to_map_extra_phase(res, -other->rotate);
 				}
 			}
 			else {
@@ -684,10 +711,9 @@ namespace dd {
 				else {
 					rotate = self->rotate-other->rotate;
 				}
-				res = append_new_map(r, self->level, x, rotate%root_of_unit);
-				res->extra_phase = r->extra_phase;
+				res = append_new_map(r, self->level, x, rotate%root_of_unit, r->extra_phase);
 				if (x == 1) {
-					res->extra_phase = res->extra_phase - other->rotate;
+					res = add_to_map_extra_phase(res, -other->rotate);
 				}
 			}
 			//auto temp = res->extra_phase;
@@ -826,7 +852,10 @@ namespace dd {
 				}
 				else if (find(var_out_key.begin(), var_out_key.end(), tdd1.key_2_index[k1]) == var_out_key.end()) {
 					if (new_key - last_cont_idx <= 0.5) {
-						last_cont_idx = last_cont_idx + 1 / (3 * nqubits) * repeat_time;
+						const float spacingBase = (nqubits > 0)
+							? (1.0f / (3.0f * static_cast<float>(nqubits)))
+							: 0.0f;
+						last_cont_idx = last_cont_idx + spacingBase * static_cast<float>(repeat_time);
 						repeat_time += 1;
 						key_2_new_key1 = append_new_key(key_2_new_key1, last_cont_idx);
 						key_2_new_key2 = append_new_key(key_2_new_key2, last_cont_idx);
@@ -1041,26 +1070,26 @@ namespace dd {
 
 
 		template <class Node>
-		Edge<Node>* Slicing2(Edge<Node>& e, int x, int c) {
+		Edge<Node> Slicing2(Edge<Node>& e, int x, int c) {
 
 			assert(e.w != Complex::zero);
 		// used for contract
 			if (e.p->v == -1) {
-				return &e;
+				return e;
 			}
 			if (e.p->v < x) {
-				return &e;
+				return e;
 			}
-			// Edge<Node>* temp = new Edge<Node>;
+			Edge<Node> temp;
 			if (e.p->v == x) {
 				if (e.p->v != e.map->level) {
-					Edge<Node>* temp = new Edge<Node>(e.p->e[c]);
+					temp = e.p->e[c];
 					// std::cout << "969 e.p->e[c]: " << & (e.p->e[c]) << std::endl;
 					// std::cout << "969 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
-					if (temp->w != Complex::zero) {
-						temp->map = mapmul(e.map, temp->map);
+					if (temp.w != Complex::zero) {
+						temp.map = mapmul(e.map, temp.map);
 						// temp->w=cn.mulCached(temp->w, temp->map->extra_phase);
-						temp->w=cn.mulCached(temp->w, cn.getTemporary(cos(temp->map->extra_phase*rotate_angle),sin(temp->map->extra_phase*rotate_angle)));
+						temp.w=cn.mulCached(temp.w, cn.getTemporary(cos(temp.map->extra_phase*rotate_angle),sin(temp.map->extra_phase*rotate_angle)));
 						
 						// cn.returnToCache(temp->map->extra_phase);
 						// std::cout << "1004 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
@@ -1070,27 +1099,27 @@ namespace dd {
 					return temp;
 				}
 				else if (e.map->x == 0) {
-					Edge<Node>* temp = new Edge<Node>(e.p->e[c]);
-					temp->w = cn.lookup(e.p->e[c].w);
+					temp = e.p->e[c];
+					temp.w = cn.lookup(e.p->e[c].w);
 					//std::cout << "1011 temp w: " << temp->w << " " << temp->w.i << " " << temp->w.r << " " << temp->p << std::endl;
 					//std::cout << "979 w: " << e.p->e[c].w.i << " " << e.p->e[c].w.r << " " << e.p->e[c].p << std::endl;
 					// std::cout << "1012 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
 					// std::cout << "979: " <<  & (e.p->e[c]) << " "<<& (temp) << std::endl;
-					if (temp->w != Complex::zero) {
-						temp->map = mapmul(e.map->father, temp->map);
+					if (temp.w != Complex::zero) {
+						temp.map = mapmul(e.map->father, temp.map);
 						// if(temp->w == Complex::one) {
 						// 	temp->w = cn.getCached(1., 0.)
 						// }
 						// temp->w = cn.mulCached(temp->w, temp->map->extra_phase);
 						//std::cout << "Scling2 2 " << temp->w << std::endl;
-						temp->w = cn.mulCached(temp->w, cn.getTemporary(cos(temp->map->extra_phase*rotate_angle),sin(temp->map->extra_phase*rotate_angle)));
+						temp.w = cn.mulCached(temp.w, cn.getTemporary(cos(temp.map->extra_phase*rotate_angle),sin(temp.map->extra_phase*rotate_angle)));
 						//std::cout << "1018 temp w: " << temp->w << " " << temp->w.i << " " << temp->w.r << std::endl;
 						// cn.returnToCache(temp->map->extra_phase);
 						//std::cout << "Scling2 2 " << temp->w << std::endl;
 						if (c == 1) {
-							assert(temp->w != Complex::zero);
+							assert(temp.w != Complex::zero);
 							// cn.mul(temp->w, temp->w, e.map->rotate);
-							cn.mul(temp->w, temp->w, cn.getTemporary(cos(e.map->rotate*rotate_angle),sin(e.map->rotate*rotate_angle)));
+							cn.mul(temp.w, temp.w, cn.getTemporary(cos(e.map->rotate*rotate_angle),sin(e.map->rotate*rotate_angle)));
 							//std::cout << "Scling2 2 " << temp->w << std::endl;
 							//std::cout<< e.map->rotate<<" "<< e.map->rotate * rotate_angle << " " << cos(e.map->rotate * rotate_angle) << " " << sin(e.map->rotate * rotate_angle) <<std::endl;
 						}
@@ -1102,18 +1131,18 @@ namespace dd {
 					return temp;
 				}
 				else {
-					Edge<Node>* temp = new Edge<Node>(e.p->e[1-c]);
+					temp = e.p->e[1-c];
 					// std::cout << "1026: " << & (temp->w) << std::endl;
 					// std::cout << "1029 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
-					if (temp->w != Complex::zero) {
-						temp->map = mapmul(e.map->father, temp->map);
+					if (temp.w != Complex::zero) {
+						temp.map = mapmul(e.map->father, temp.map);
 						// temp->w = cn.mulCached(temp->w, temp->map->extra_phase);
-						temp->w = cn.mulCached(temp->w, cn.getTemporary(cos(temp->map->extra_phase*rotate_angle),sin(temp->map->extra_phase*rotate_angle)));
+						temp.w = cn.mulCached(temp.w, cn.getTemporary(cos(temp.map->extra_phase*rotate_angle),sin(temp.map->extra_phase*rotate_angle)));
 						// cn.returnToCache(temp->map->extra_phase);
 						if (c == 0) {
-							assert(temp->w != Complex::zero);
+							assert(temp.w != Complex::zero);
 							// cn.mul(temp->w, temp->w, e.map->rotate);
-							cn.mul(temp->w, temp->w, cn.getTemporary(cos(e.map->rotate*rotate_angle),sin(e.map->rotate*rotate_angle)));
+							cn.mul(temp.w, temp.w, cn.getTemporary(cos(e.map->rotate*rotate_angle),sin(e.map->rotate*rotate_angle)));
 
 						}
 						// std::cout << "1038 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
@@ -1127,7 +1156,7 @@ namespace dd {
 			}
 			else {
 				std::cout << "Slicing2 not support yet" << std::endl;
-				return &e;
+				return e;
 			}
 
 		}
@@ -1329,20 +1358,17 @@ namespace dd {
 			if (newk1 > newk2 && !ifContract(newk1)) {
 				auto res = find_remain_map(map1->father, map2, temp_key_2_new_key1, temp_key_2_new_key2);
 				auto temp_pahse = res->remain_map->extra_phase;
-				res->remain_map = append_new_map(res->remain_map, newk1, map1->x, map1->rotate);
-				res->remain_map->extra_phase = temp_pahse;
+				res->remain_map = append_new_map(res->remain_map, newk1, map1->x, map1->rotate, temp_pahse);
 				return res;
 			}
 			if (newk1 < newk2 && !ifContract(newk2)) {
 				auto res = find_remain_map(map1, map2->father, temp_key_2_new_key1, temp_key_2_new_key2);
 				auto temp_pahse = res->remain_map->extra_phase;
-				res->remain_map = append_new_map(res->remain_map, newk2, map2->x, map2->rotate);
-				res->remain_map->extra_phase = temp_pahse;
+				res->remain_map = append_new_map(res->remain_map, newk2, map2->x, map2->rotate, temp_pahse);
 				return res;
 			}
 			if (map1->level == -1 && map2->level == -1) {
 				comm_maps* res=new comm_maps{ the_maps::the_maps_header(),the_maps::the_maps_header(),the_maps::the_maps_header() };
-				res->remain_map->extra_phase = 0;
 				return res;
 			}
 			if (newk1 > newk2) {
@@ -1360,7 +1386,7 @@ namespace dd {
 			auto x = (map1->x + map2->x) % 2;
 			if (x == 1) {
 				// assert(res->remain_map->extra_phase != Complex::zero);
-				res->remain_map->extra_phase =  res->remain_map->extra_phase+ map2->rotate;
+				res->remain_map = add_to_map_extra_phase(res->remain_map, map2->rotate);
 			}
 
 			auto rotate = 0;
@@ -1562,7 +1588,7 @@ namespace dd {
 					ResultEdge etemp;
 					for (int k = 0; k < x.p->e.size(); ++k) {
 						//e1 = x.p->e[k];
-						auto& e1 = *Slicing2(xCopy, xCopy.p->v, k);
+						auto e1 = Slicing2(xCopy, xCopy.p->v, k);
 						auto& e2 = yCopy;
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
 						if (e1.w != Complex::zero) {
@@ -1587,7 +1613,7 @@ namespace dd {
 					std::vector<ResultEdge> e;
 					for (int k = 0; k < x.p->e.size(); ++k) {
 						//e1 = x.p->e[k];
-						auto& e1 = *Slicing2(xCopy, xCopy.p->v, k);
+						auto e1 = Slicing2(xCopy, xCopy.p->v, k);
 						auto& e2 = yCopy;
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
 						if (e1.w != Complex::zero) {
@@ -1616,7 +1642,7 @@ namespace dd {
 					for (int k = 0; k < y.p->e.size(); ++k) {
 						auto& e1 = xCopy;
 						//e2 = y.p->e[k];
-						auto& e2 = *Slicing2(yCopy, yCopy.p->v, k);
+						auto e2 = Slicing2(yCopy, yCopy.p->v, k);
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
 						if (e2.w != Complex::zero) {
 							// cn.returnToCache(e2.w);
@@ -1641,7 +1667,7 @@ namespace dd {
 					for (int k = 0; k < y.p->e.size(); ++k) {
 						auto& e1 = xCopy;
 						//e2 = y.p->e[k];
-						auto& e2 = *Slicing2(yCopy, yCopy.p->v, k);
+						auto e2 = Slicing2(yCopy, yCopy.p->v, k);
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
 						if (e2.w != Complex::zero) {
 							// cn.returnToCache(e2.w);
@@ -1672,12 +1698,12 @@ namespace dd {
 					ResultEdge etemp;
 					for (int k = 0; k < x.p->e.size(); ++k) {
 						//e1 = x.p->e[k];
-						auto& e1 = *Slicing2(xCopy, xCopy.p->v, k);
+						auto e1 = Slicing2(xCopy, xCopy.p->v, k);
 						//e2 = y.p->e[k];
 						//std::cout << "1554, e1 " << e1.w << std::endl;
 						//std::cout << "e1.w in: " << (e1.w.i) << " " << e1.w.r << std::endl;
 						// the_maps::print_maps(e1.map);
-						auto& e2 = *Slicing2(yCopy, yCopy.p->v, k);
+						auto e2 = Slicing2(yCopy, yCopy.p->v, k);
 						//std::cout << "1556, e1 " << e1.w << std::endl;
 						//std::cout << "e1.w in: " << (e1.w.i) << " " << e1.w.r << std::endl;
 						//std::cout << "1558, e2 " << e2.w << std::endl;
@@ -1709,9 +1735,9 @@ namespace dd {
 					std::vector<ResultEdge> e;
 					for (int k = 0; k < x.p->e.size(); ++k) {
 						//e1 = x.p->e[k];
-						auto& e1 = *Slicing2(xCopy, xCopy.p->v, k);
+						auto e1 = Slicing2(xCopy, xCopy.p->v, k);
 						//e2 = y.p->e[k];
-						auto& e2 = *Slicing2(yCopy, yCopy.p->v, k);
+						auto e2 = Slicing2(yCopy, yCopy.p->v, k);
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
 						if (e1.w != Complex::zero) {
 							// cn.returnToCache(e1.w);

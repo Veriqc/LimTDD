@@ -25,7 +25,8 @@
 
 //auto dd = std::make_unique<dd::Package<>>(100);
 
-constexpr long double PI = 3.14159265358979323846264338327950288419716939937510L;
+// the precisions of long double in g++ and msvc are different.
+constexpr double PI = 3.14159265358979323846264338327950288419716939937510L;
 
 bool release = true;
 bool get_max_node = true;

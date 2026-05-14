@@ -1,8 +1,8 @@
 #ifndef DDTENSOR
 #define DDTENSOR
 
-#include <xtensor/xarray.hpp>
-#include <xtensor/xtensor.hpp>
+#include <xtensor/containers/xarray.hpp>
+#include <xtensor/containers/xtensor.hpp>
 #include <complex>
 #include "Tdd.hpp"
 #include "Package.hpp"

@@ -9,6 +9,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
+#include <stdexcept>
 
 namespace dd {
 struct ComplexNumbers {
@@ -62,10 +63,11 @@ struct ComplexNumbers {
   static void div(Complex& r, const Complex& a, const Complex& b) {
     assert(r != Complex::zero);
     assert(r != Complex::one);
-    if (a.approximatelyEquals(b)) {
-      r.r->value = 1.;
-      r.i->value = 0.;
-    } else if (b.approximatelyOne()) {
+    // if (a.approximatelyEquals(b)) {
+    //   r.r->value = 1.;
+    //   r.i->value = 0.;
+    // } else if (b.approximatelyOne()) {
+    if (b.approximatelyOne()) {
       r.setVal(a);
     } else {
       const auto ar = CTEntry::val(a.r);
@@ -74,6 +76,11 @@ struct ComplexNumbers {
       const auto bi = CTEntry::val(b.i);
 
       const auto cmag = br * br + bi * bi;
+      const auto tol = ComplexTable<>::tolerance();
+      if (cmag <= tol * tol) {
+        throw std::runtime_error(
+            "ComplexNumbers::div: division by near-zero complex denominator");
+      }
 
       r.r->value = (ar * br + ai * bi) / cmag;
       r.i->value = (ai * br - ar * bi) / cmag;
@@ -109,10 +116,16 @@ struct ComplexNumbers {
     return complexCache.isInCache(valr,vali);
   }
   bool inTable(const Complex& c) const {
+        // if (c == Complex::zero || c == Complex::one) {
+        //     return true;
+        // }
+        // return complexTable.exists(CTEntry::val(c.r)) && complexTable.exists(CTEntry::val(c.i));
         if (c == Complex::zero || c == Complex::one) {
             return true;
         }
-        return complexTable.exists(CTEntry::val(c.r)) && complexTable.exists(CTEntry::val(c.i));
+        const auto vr = CTEntry::val(c.r);
+        const auto vi = CTEntry::val(c.i);
+        return complexTable.exists(std::abs(vr)) && complexTable.exists(std::abs(vi));
   }
 
   inline Complex addCached(const Complex& a, const Complex& b) {

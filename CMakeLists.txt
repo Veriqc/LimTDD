@@ -5,23 +5,29 @@ project(Limtdd)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+set(MY_LOCAL_INSTALL_DIR "$ENV{HOME}/local")
+include_directories(
+    ${MY_LOCAL_INSTALL_DIR}/include
+)
+
+
 set(CORE_INCLUDE_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DDPackage/core")
 set(CORE_NAME ${PROJECT_NAME}_core)
 
-message(STATUS "add submodule")
-find_package(xtensor REQUIRED)
-if(NOT xtensor_FOUND)
-    message(FATAL_ERROR "xtensor not found. Please make sure xtensor is installed.")
-else()
-    message(STATUS "xtensor include directories: ${xtensor_INCLUDE_DIRS}")
-endif()
+message(STATUS "Using local xtensor and xtl from: ${MY_LOCAL_INSTALL_DIR}")
+# find_package(xtensor REQUIRED)
+# if(NOT xtensor_FOUND)
+#     message(FATAL_ERROR "xtensor not found.")
+# else()
+#     message(STATUS "xtensor include directories: ${xtensor_INCLUDE_DIRS}")
+# endif()
 
-find_package(xtl REQUIRED)
-if(NOT xtl_FOUND)
-    message(FATAL_ERROR "xtl not found. Please make sure xtl is installed.")
-else()
-    message(STATUS "xtl include directories: ${xtl_INCLUDE_DIRS}")
-endif()
+# find_package(xtl REQUIRED)
+# if(NOT xtl_FOUND)
+#     message(FATAL_ERROR "xtl not found.")
+# else()
+#     message(STATUS "xtl include directories: ${xtl_INCLUDE_DIRS}")
+# endif()
 
 include_directories(${PROJECT_SOURCE_DIR}/DDPackage)
 

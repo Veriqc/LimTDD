@@ -1,10 +1,11 @@
 # List your test source files here
 add_definitions(-DPROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+set(XTENSOR_INCLUDE_DIR "$ENV{HOME}/local/include")
 set(TEST_SOURCES
     # test_whole.cpp
     # test_tn.cpp
     # test_tdd.cpp
-    test_bv.cpp
+    # test_bv.cpp
     # test_qft.cpp
     # test_cl.cpp
     # test_io.cpp
@@ -21,4 +22,5 @@ foreach(TEST_SOURCE ${TEST_SOURCES})
     get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
     add_executable(${TEST_NAME} ${TEST_SOURCE})
     target_link_libraries(${TEST_NAME} PRIVATE ${PROJECT_NAME} ${CORE_NAME})
+    target_include_directories(${TEST_NAME} PRIVATE ${XTENSOR_INCLUDE_DIR})
 endforeach()

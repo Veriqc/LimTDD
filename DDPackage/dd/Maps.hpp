@@ -7,24 +7,48 @@
 #include <array>
 #include <cstddef>
 #include <utility>
+#include <unordered_map>
+#include <functional>
 
 namespace dd {
 
 	struct the_maps {
-		short level;
-		bool x;
+		const short level;
+		const bool x;
 		// Complex rotate;// rotate始终是一个complexTable里的元素，在中间计算过程，可以在temporary里面
 		// Complex extra_phase;// rotate始终是一个temporary里的元素
-		int rotate;// rotate始终是一个complexTable里的元素，在中间计算过程，可以在temporary里面
-		int extra_phase;// rotate始终是一个temporary里的元素
+		const int rotate;// rotate始终是一个complexTable里的元素，在中间计算过程，可以在temporary里面
+		const int extra_phase;// rotate始终是一个temporary里的元素
 
 
-		std::map<std::string, the_maps*> next;
-		the_maps* father;
+		struct MapKey {
+			short level;
+			bool x;
+			int rotate;
+			int extra_phase;
+			bool operator==(MapKey const& o) const noexcept {
+				return level == o.level && x == o.x && rotate == o.rotate && extra_phase == o.extra_phase;
+			}
+		};
+
+		struct MapKeyHash {
+			size_t operator()(MapKey const& k) const noexcept {
+				std::size_t h = std::hash<short>()(k.level);
+				h ^= std::hash<int>()(k.rotate) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+				h ^= std::hash<bool>()(k.x) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+				h ^= std::hash<int>()(k.extra_phase) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+				return h;
+			}
+		};
+
+		mutable std::unordered_map<MapKey, the_maps*, MapKeyHash> next;
+		the_maps* const father;
 
 		static the_maps the_maps_header_element;
 
 		static constexpr the_maps* the_maps_header() { return &the_maps_header_element; }
+
+		[[nodiscard]] static int normalize_phase(int phase);
 
 		//static the_maps* mapdiv(the_maps* self, the_maps* other);
 

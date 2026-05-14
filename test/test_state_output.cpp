@@ -96,48 +96,22 @@ std::vector<BasisStates> stringToBasisStates(const std::string& states) {
     }
     return basisStates;
 }
-int main(int argc, char *argv[]) {
-    // filename, initial state
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <number>\n";
-        return 1;
-    }
-    
-    
-    std::string filename = argv[1];
-	std::cout << filename << std::endl;
-    
-    std::ifstream fileStream(filename);
-    std::stringstream buffer;
-    buffer << fileStream.rdbuf();
-    std::string fileContent = buffer.str();
-    fileStream.close();
 
-    // Use the file content with QuantumComputation::fromQASM
-    const auto qc = qc::QuantumComputation::fromQASM(fileContent);
-    std::shared_ptr<qc::QuantumComputation> QC = std::make_shared<qc::QuantumComputation>(std::move(qc));
-    auto ddPack = std::make_shared<dd::Package<>>(3*QC->getNqubits());
-    // ddPack->to_test = true ;
-    // ddPack->to_test = true ;
-    auto tn = cir_2_tn(QC,ddPack);
-
-    bool simulate = false;
-    std::vector<BasisStates> initialStates;
-    if(argc > 2){
-        simulate = true;
-         try {
-            initialStates = stringToBasisStates(argv[2]);
-            std::cout << "Initial states vector size: " << initialStates.size() << std::endl;
-        } catch (const std::exception& e) {
-            std::cerr << "Error: " << e.what() << std::endl;
-            return 1;
+// Given a tdd representing a quantum state, output its statevector in the standard basis. This function is used for testing the correctness of the TDD.
+std::vector<std::pair<std::string, Complex>> tddToStateVector(const TDD& tdd, dd::Package<>* ddpackage) {
+    std::vector<std::pair<std::string, Complex>> stateVector;
+    std::map<std::string, Complex> stateMap;
+    std::function<void(const Edge<mNode>&, const std::string&)> dfs = [&](const Edge<mNode>& edge, const std::string& path) {
+        if (edge.p->v == -1) {
+            stateMap[path] = edge.w;
+            return;
         }
+        dfs(edge.p->e[0], path + "0");
+        dfs(edge.p->e[1], path + "1");
+    };
+    dfs(tdd.e, "");
+    for (const auto& [state, amplitude] : stateMap) {
+        stateVector.emplace_back(state, amplitude);
     }
-    std::cout <<"simulate:" << simulate << std::endl;
-
-	dd::TDD tdd = cont(&tn,ddPack.get(),QC->getNqubits(),simulate, initialStates);
-    // dd::export2Dot(tdd.e,"test",true,true);
-    
-    std::cout<<"final node: " << ddPack->size(tdd.e) <<std::endl;
-    return 0;
+    return stateVector;
 }

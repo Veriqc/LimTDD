@@ -4,8 +4,8 @@
 #include <functional>
 #include <ctime>
 #include <time.h>
-#include <xtensor/xio.hpp>
-#include <xtensor/xarray.hpp>
+#include <xtensor/io/xio.hpp>
+#include <xtensor/containers/xarray.hpp>
 #include "Cir_import.h"
 #include <algorithm>
 
