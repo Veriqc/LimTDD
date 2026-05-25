@@ -111,6 +111,30 @@ namespace dd {
 
 		//==========================================我写的========================================
 		bool to_test = false;
+		bool regressionDiagnosticsEnabled = false;
+
+		struct RegressionDiagnostics {
+			std::uint64_t normalizeCalls = 0;
+			std::uint64_t normalizeInputPhasefulChildren = 0;
+			std::uint64_t normalizeChildPhaseAdds = 0;
+			std::uint64_t normalizeRootPhasePromotions = 0;
+			std::uint64_t tAddCalls = 0;
+			std::uint64_t tAddSamePointerMapMismatch = 0;
+			std::uint64_t contCalls = 0;
+			std::uint64_t contLookupPhasefulKeys = 0;
+			std::uint64_t contLookupPhasefulMisses = 0;
+			std::uint64_t contLookupPhasefreeMisses = 0;
+			std::uint64_t contRemainPhaseNonZero = 0;
+			std::uint64_t contMap1Phaseful = 0;
+			std::uint64_t contMap2Phaseful = 0;
+			std::uint64_t contResultMapPhaseApplications = 0;
+			std::uint64_t findRemainCalls = 0;
+			std::uint64_t findRemainRemainPhaseful = 0;
+			std::uint64_t findRemainContMap1Phaseful = 0;
+			std::uint64_t findRemainContMap2Phaseful = 0;
+		};
+
+		RegressionDiagnostics regressionDiagnostics{};
 
 		int mode = 1;//设置提取的对角门的形式，mode=1,提取的只是Rz旋转门，mode=2,提取的是任意对角门；
 
@@ -126,6 +150,43 @@ namespace dd {
 		Package(const Package& package) = delete;
 
 		Package& operator=(const Package& package) = delete;
+		void resetRegressionDiagnostics() {
+			regressionDiagnostics = {};
+		}
+
+		void enableRegressionDiagnostics(bool enabled = true) {
+			regressionDiagnosticsEnabled = enabled;
+			if (enabled) {
+				resetRegressionDiagnostics();
+			}
+		}
+
+		void printRegressionDiagnostics(std::ostream& os = std::cout) const {
+			os << "REGRESSION_DIAGNOSTICS_BEGIN\n";
+			os << "normalize.calls=" << regressionDiagnostics.normalizeCalls << '\n';
+			os << "normalize.input_phaseful_children=" << regressionDiagnostics.normalizeInputPhasefulChildren << '\n';
+			os << "normalize.child_phase_adds=" << regressionDiagnostics.normalizeChildPhaseAdds << '\n';
+			os << "normalize.root_phase_promotions=" << regressionDiagnostics.normalizeRootPhasePromotions << '\n';
+			os << "tadd.calls=" << regressionDiagnostics.tAddCalls << '\n';
+			os << "tadd.same_pointer_map_mismatch=" << regressionDiagnostics.tAddSamePointerMapMismatch << '\n';
+			os << "cont.calls=" << regressionDiagnostics.contCalls << '\n';
+			os << "cont.lookup_phaseful_keys=" << regressionDiagnostics.contLookupPhasefulKeys << '\n';
+			os << "cont.lookup_phaseful_misses=" << regressionDiagnostics.contLookupPhasefulMisses << '\n';
+			os << "cont.lookup_phasefree_misses=" << regressionDiagnostics.contLookupPhasefreeMisses << '\n';
+			os << "cont.remain_phase_non_zero=" << regressionDiagnostics.contRemainPhaseNonZero << '\n';
+			os << "cont.map1_phaseful=" << regressionDiagnostics.contMap1Phaseful << '\n';
+			os << "cont.map2_phaseful=" << regressionDiagnostics.contMap2Phaseful << '\n';
+			os << "cont.result_map_phase_applications=" << regressionDiagnostics.contResultMapPhaseApplications << '\n';
+			os << "find_remain.calls=" << regressionDiagnostics.findRemainCalls << '\n';
+			os << "find_remain.remain_phaseful=" << regressionDiagnostics.findRemainRemainPhaseful << '\n';
+			os << "find_remain.cont_map1_phaseful=" << regressionDiagnostics.findRemainContMap1Phaseful << '\n';
+			os << "find_remain.cont_map2_phaseful=" << regressionDiagnostics.findRemainContMap2Phaseful << '\n';
+			os << "REGRESSION_DIAGNOSTICS_END\n";
+		}
+
+		[[nodiscard]] const RegressionDiagnostics& getRegressionDiagnostics() const {
+			return regressionDiagnostics;
+		}
 
 		// resize the package instance
 		void resize(std::size_t nq) {
@@ -253,6 +314,9 @@ namespace dd {
 		template <class Node> Edge<Node> normalize(const Edge<Node>& e, bool cached) {
 
 			auto maxArgIndex = -1;
+						if (regressionDiagnosticsEnabled) {
+							regressionDiagnostics.normalizeCalls++;
+						}
 			// v0 = e.p->e[0].p
 			// v1 = e.p->e[1].p
 			// w0 = e.p->e[0].w
@@ -266,10 +330,14 @@ namespace dd {
 			assert(nodeCount == 2);
 
 			std::vector<bool> isZero(nodeCount, false);
+			std::vector<int> promotedChildPhases(nodeCount, 0);
 
 			// Check if any values are approximately isZero
 			for (int k = 0; k < nodeCount; k++) {
 				isZero[k] = e.p->e[k].w.approximatelyZero();
+							if (regressionDiagnosticsEnabled && !isZero[k] && e.p->e[k].map != nullptr && e.p->e[k].map->extra_phase != 0) {
+								regressionDiagnostics.normalizeInputPhasefulChildren++;
+							}
 			}
 
 			// Release cached numbers approximately zero, but not exactly zero
@@ -402,10 +470,15 @@ namespace dd {
 					if (mode == 2) {
 						auto c = cn.getCached();
 						ComplexNumbers::div(c, res.p->e[i].w, max_value);
-						res.p->e[i].map = mapdiv(res.p->e[i].map, res.map);
+						auto map_div = mapdiv(res.p->e[i].map, res.map);
 						// cn.mul(res.p->e[i].map->extra_phase, res.p->e[i].map->extra_phase, c);
 						// cn.mul(res.p->e[i].map->extra_phase, res.p->e[i].map->extra_phase, c);
-						res.p->e[i].map = add_to_map_extra_phase(res.p->e[i].map, int(ComplexNumbers::arg(c)/rotate_angle));
+						const auto phase_delta = normalize_phase(int(ComplexNumbers::arg(c) / rotate_angle) + map_div.phase);
+						if (regressionDiagnosticsEnabled && phase_delta != 0) {
+							regressionDiagnostics.normalizeChildPhaseAdds++;
+						}
+						promotedChildPhases[i] = phase_delta;
+						res.p->e[i].map = map_div.map;
 						// cn.returnToCache(c);
 						res.p->e[i].w = Complex::one;
 
@@ -433,8 +506,13 @@ namespace dd {
 							res.p->e[i].w = cn.lookup(c);
 						}
 
-						res.p->e[i].map = mapdiv(res.p->e[i].map, res.map);
-						res.p->e[i].map = add_to_map_extra_phase(res.p->e[i].map, rot);
+						auto map_div = mapdiv(res.p->e[i].map, res.map);
+						const auto promoted_phase = normalize_phase(rot + map_div.phase);
+						if (regressionDiagnosticsEnabled && promoted_phase != 0) {
+							regressionDiagnostics.normalizeChildPhaseAdds++;
+						}
+						promotedChildPhases[i] = promoted_phase;
+						res.p->e[i].map = map_div.map;
 						
 						// cn.mul(res.p->e[i].map->extra_phase, res.p->e[i].map->extra_phase, cn.getTemporary(cos(angle), sin(angle)));
 						
@@ -443,7 +521,10 @@ namespace dd {
 				}
 			}
 
-			const int edge1Phase = isZero[1] ? 0 : res.p->e[1].map->extra_phase;
+			const int edge1Phase = isZero[1] ? 0 : promotedChildPhases[1];
+						if (regressionDiagnosticsEnabled && edge1Phase != 0) {
+							regressionDiagnostics.normalizeRootPhasePromotions++;
+						}
 			res.map = append_new_map(res.map, res.p->v, add_x, edge1Phase);
 			if (!isZero[1]) {
 				// cn.returnToCache(res.p->e[1].map->extra_phase);
@@ -667,7 +748,12 @@ namespace dd {
 				return self;
 			}
 
-			the_maps::MapKey key{level, x, rotate, extra_phase};
+			the_maps::MapKey key{level, x, rotate};
+
+			if (extra_phase != 0) {
+				mapStorage.emplace_back(std::make_unique<the_maps>(the_maps{ level, x, rotate, extra_phase, {}, self }));
+				return mapStorage.back().get();
+			}
 
 			auto it = self->next.find(key);
 
@@ -697,88 +783,99 @@ namespace dd {
 		}
 
 		struct DetachedMapPhase {
-			the_maps* map;
-			int phase;
+			the_maps* map = nullptr;
+			int phase = 0;
+
+			DetachedMapPhase() = default;
+			DetachedMapPhase(the_maps* mapPtr, int phaseValue): map(mapPtr), phase(phaseValue) {}
+			DetachedMapPhase(std::nullptr_t): map(nullptr), phase(0) {}
+
+			bool operator==(std::nullptr_t) const {
+				return map == nullptr;
+			}
+
+			DetachedMapPhase& operator=(std::nullptr_t) {
+				map = nullptr;
+				phase = 0;
+				return *this;
+			}
 		};
 
+		[[nodiscard]] the_maps* strip_map_extra_phase(the_maps* map) {
+			if (map == nullptr || map->level == -1) {
+				return the_maps::the_maps_header();
+			}
+
+			auto* father = strip_map_extra_phase(map->father);
+			return append_new_map(father, map->level, map->x, map->rotate);
+		}
+
 		[[nodiscard]] DetachedMapPhase detach_map_extra_phase(the_maps* map) {
-			return { with_map_extra_phase(map, 0), normalize_phase(map->extra_phase) };
+			return { strip_map_extra_phase(map), normalize_phase(map->extra_phase) };
 		}
 
 		template <class Node>
 		void apply_phase_to_weight(Edge<Node>& edge, int phase) {
+						if (regressionDiagnosticsEnabled && phase != 0) {
+							regressionDiagnostics.contResultMapPhaseApplications++;
+						}
 			edge.w = multiply_by_phase(edge.w, phase);
 		}
 
 
-		ComputeTable3 <the_maps*, the_maps*, the_maps*>  mapmulTable{};
+		ComputeTable3 <the_maps*, the_maps*, DetachedMapPhase>  mapmulTable{};
 
-		the_maps* mapmul(the_maps* self, the_maps* other) {
+		DetachedMapPhase mapmul_phasefree(the_maps* self, the_maps* other) {
 
 			if (self->level == -1) {
-				if (other == the_maps::the_maps_header()) {
-					return other;
-				}
-				return with_map_extra_phase(other, 0);
+				return { other, 0 };
 			}
 
 			if (other->level == -1) {
-				if (self == the_maps::the_maps_header()) {
-					return self;
-				}
-				return with_map_extra_phase(self, 0);
+				return { self, 0 };
 			}
 
 			auto r = mapmulTable.lookup(self, other);
 			if (r != nullptr) {
 				return r;
 			}
-			the_maps* res;
+			DetachedMapPhase res{};
 			if (self->level > other->level) {
-				auto r = mapmul(self->father, other);
-				res = append_new_map(r, self->level, self->x, self->rotate, r->extra_phase);
+				res = mapmul_phasefree(self->father, other);
+				res.map = append_new_map(res.map, self->level, self->x, self->rotate);
 			}
 			else if (self->level < other->level) {
-				auto r = mapmul(self, other->father);
-				res = append_new_map(r, other->level, other->x, other->rotate, r->extra_phase);
+				res = mapmul_phasefree(self, other->father);
+				res.map = append_new_map(res.map, other->level, other->x, other->rotate);
 			}
 			else {
-				auto r = mapmul(self->father, other->father);
-				//long int rotate = other->rotate + self->rotate * pow(-1, other->x);
-				auto rotate = 0;
-				if (other->x == 0) {
-					rotate=other->rotate+self->rotate;
-				}
-				else {
-					rotate=other->rotate-self->rotate;
-				}
-
-				res = append_new_map(r, self->level, (self->x + other->x) % 2, rotate%root_of_unit, r->extra_phase);
-				if (other->x) {
-					res = add_to_map_extra_phase(res, self->rotate);
-				}
+				res = mapmul_phasefree(self->father, other->father);
+				res.phase = normalize_phase(res.phase + self->rotate * static_cast<int>(other->x));
+				auto rotate = other->x ? other->rotate - self->rotate : other->rotate + self->rotate;
+				res.map = append_new_map(res.map, self->level, (self->x + other->x) % 2, rotate % root_of_unit);
 			}
 
-			//auto temp = res->extra_phase;
-			//res->extra_phase = cn.lookup(res->extra_phase);
 			mapmulTable.insert(self, other, res);
-			//res->extra_phase = temp;
-
 			return res;
 		}
 
-		ComputeTable3 <the_maps*, the_maps*, the_maps*>  mapdivTable{};
+		DetachedMapPhase mapmul(the_maps* self, the_maps* other) {
+			auto left = detach_map_extra_phase(self);
+			auto right = detach_map_extra_phase(other);
+			auto res = mapmul_phasefree(left.map, right.map);
+			res.phase = normalize_phase(res.phase + left.phase + right.phase);
+			return res;
+		}
 
-		the_maps* mapdiv(the_maps* self, the_maps* other) {
+		ComputeTable3 <the_maps*, the_maps*, DetachedMapPhase>  mapdivTable{};
+
+		DetachedMapPhase mapdiv_phasefree(the_maps* self, the_maps* other) {
 
 			if (other->level == -1) {
-				if (self == the_maps::the_maps_header()) {
-					return self;
-				}
-				return with_map_extra_phase(self, 0);
+				return { self, 0 };
 			}
 			if (self == other) {
-				return the_maps::the_maps_header();
+				return { the_maps::the_maps_header(), 0 };
 			}
 			
 			auto r = mapdivTable.lookup(self, other);
@@ -786,53 +883,34 @@ namespace dd {
 				return r;
 			}
 			
-			the_maps* res;
+			DetachedMapPhase res{};
 			if (self->level > other->level) {
-				auto r = mapdiv(self->father, other);
-				res = append_new_map(r, self->level, self->x, self->rotate, r->extra_phase);
+				res = mapdiv_phasefree(self->father, other);
+				res.map = append_new_map(res.map, self->level, self->x, self->rotate);
 			}
 			else if (self->level < other->level) {
-				auto r = mapdiv(self, other->father);
-
-				if (other->x == 0) {
-					if (mode == 2) {
-						// auto temp = cn.getTemporary();
-						// cn.div(temp, Complex::one, other->rotate);
-						// res = append_new_map(r, other->level, other->x, cn.lookup(temp));
-						res = append_new_map(r, other->level, other->x, (-other->rotate)%root_of_unit);
-					}
-					else {
-						res = append_new_map(r, other->level, other->x, (-other->rotate)%root_of_unit);
-					}
-					res = with_map_extra_phase(res, r->extra_phase);
-				}
-				else {
-					res = append_new_map(r, other->level, other->x, other->rotate, r->extra_phase);
-					res = add_to_map_extra_phase(res, -other->rotate);
-				}
+				res = mapdiv_phasefree(self, other->father);
+				res.phase = normalize_phase(res.phase - other->rotate * static_cast<int>(other->x));
+				auto rotate = other->x ? other->rotate : -other->rotate;
+				res.map = append_new_map(res.map, other->level, other->x, rotate % root_of_unit);
 			}
 			else {
-				auto r = mapdiv(self->father, other->father);
-
+				res = mapdiv_phasefree(self->father, other->father);
 				bool x = (self->x + other->x) % 2;
-
-				auto rotate = 0;
-
-				if (x==1) {
-					rotate = self->rotate + other->rotate;
-				}
-				else {
-					rotate = self->rotate-other->rotate;
-				}
-				res = append_new_map(r, self->level, x, rotate%root_of_unit, r->extra_phase);
-				if (x == 1) {
-					res = add_to_map_extra_phase(res, -other->rotate);
-				}
+				res.phase = normalize_phase(res.phase - other->rotate * static_cast<int>(x));
+				auto rotate = x ? self->rotate + other->rotate : self->rotate - other->rotate;
+				res.map = append_new_map(res.map, self->level, x, rotate % root_of_unit);
 			}
-			//auto temp = res->extra_phase;
-			//res->extra_phase = cn.lookup(res->extra_phase);
+
 			mapdivTable.insert(self, other, res);
-			//res->extra_phase = temp;
+			return res;
+		}
+
+		DetachedMapPhase mapdiv(the_maps* self, the_maps* other) {
+			auto left = detach_map_extra_phase(self);
+			auto right = detach_map_extra_phase(other);
+			auto res = mapdiv_phasefree(left.map, right.map);
+			res.phase = normalize_phase(res.phase + left.phase - right.phase);
 			return res;
 		}
 
@@ -1095,10 +1173,11 @@ namespace dd {
 					auto temp = e.p->e[c];
 					if (temp.w != Complex::zero) {
 						temp.w = cn.mulCached(temp.w, e.w);
-						temp.map = mapmul(e.map, temp.map);
+						auto temp_map = mapmul(e.map, temp.map);
+						temp.map = temp_map.map;
 
 						assert(temp.w != Complex::zero);
-						temp.w = multiply_by_phase(temp.w, temp.map->extra_phase);
+						temp.w = multiply_by_phase(temp.w, temp_map.phase);
 						// cn.returnToCache(temp.map->extra_phase);
 					}
 					//std::cout << "Slicing " << temp.w << std::endl;
@@ -1108,10 +1187,11 @@ namespace dd {
 					auto temp = e.p->e[c];
 					if (temp.w != Complex::zero) {
 						temp.w = cn.mulCached(temp.w, e.w);
-						temp.map = mapmul(e.map->father, temp.map);
+						auto temp_map = mapmul(e.map->father, temp.map);
+						temp.map = temp_map.map;
 
 						assert(temp.w != Complex::zero);
-						temp.w = multiply_by_phase(temp.w, temp.map->extra_phase);
+						temp.w = multiply_by_phase(temp.w, temp_map.phase);
 						// cn.returnToCache(temp.map->extra_phase);
 
 						if (c == 1) {
@@ -1127,10 +1207,11 @@ namespace dd {
 					auto temp = e.p->e[1 - c];
 					if (temp.w != Complex::zero) {
 						temp.w = cn.mulCached(temp.w, e.w);
-						temp.map = mapmul(e.map->father, temp.map);
+						auto temp_map = mapmul(e.map->father, temp.map);
+						temp.map = temp_map.map;
 
 						assert(temp.w != Complex::zero);
-						temp.w = multiply_by_phase(temp.w, temp.map->extra_phase);
+						temp.w = multiply_by_phase(temp.w, temp_map.phase);
 						if (c == 0) {
 
 							assert(temp.w != Complex::zero);
@@ -1195,8 +1276,10 @@ namespace dd {
 					// std::cout << "969 e.p->e[c]: " << & (e.p->e[c]) << std::endl;
 					// std::cout << "969 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
 					if (temp.w != Complex::zero) {
-						temp.map = mapmul(e.map, temp.map);
-						temp.w = multiply_by_phase(temp.w, temp.map->extra_phase);
+						temp.w = cn.mulCached(temp.w, e.w);
+						auto temp_map = mapmul(e.map, temp.map);
+						temp.map = temp_map.map;
+						temp.w = multiply_by_phase(temp.w, temp_map.phase);
 						
 						// cn.returnToCache(temp->map->extra_phase);
 						// std::cout << "1004 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
@@ -1213,13 +1296,15 @@ namespace dd {
 					// std::cout << "1012 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
 					// std::cout << "979: " <<  & (e.p->e[c]) << " "<<& (temp) << std::endl;
 					if (temp.w != Complex::zero) {
-						temp.map = mapmul(e.map->father, temp.map);
+						temp.w = cn.mulCached(temp.w, e.w);
+						auto temp_map = mapmul(e.map->father, temp.map);
+						temp.map = temp_map.map;
 						// if(temp->w == Complex::one) {
 						// 	temp->w = cn.getCached(1., 0.)
 						// }
 						// temp->w = cn.mulCached(temp->w, temp->map->extra_phase);
 						//std::cout << "Scling2 2 " << temp->w << std::endl;
-						temp.w = multiply_by_phase(temp.w, temp.map->extra_phase);
+						temp.w = multiply_by_phase(temp.w, temp_map.phase);
 						//std::cout << "1018 temp w: " << temp->w << " " << temp->w.i << " " << temp->w.r << std::endl;
 						// cn.returnToCache(temp->map->extra_phase);
 						//std::cout << "Scling2 2 " << temp->w << std::endl;
@@ -1241,8 +1326,10 @@ namespace dd {
 					// std::cout << "1026: " << & (temp->w) << std::endl;
 					// std::cout << "1029 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
 					if (temp.w != Complex::zero) {
-						temp.map = mapmul(e.map->father, temp.map);
-						temp.w = multiply_by_phase(temp.w, temp.map->extra_phase);
+						temp.w = cn.mulCached(temp.w, e.w);
+						auto temp_map = mapmul(e.map->father, temp.map);
+						temp.map = temp_map.map;
+						temp.w = multiply_by_phase(temp.w, temp_map.phase);
 						// cn.returnToCache(temp->map->extra_phase);
 						if (c == 0) {
 							assert(temp.w != Complex::zero);
@@ -1267,8 +1354,52 @@ namespace dd {
 
 
 
+		struct AddCommonMaps {
+			the_maps* common_map = the_maps::the_maps_header();
+			the_maps* left_map = the_maps::the_maps_header();
+			the_maps* right_map = the_maps::the_maps_header();
+		};
+
+		AddCommonMaps get_common_map(the_maps* map1, the_maps* map2) {
+			assert(map1 != nullptr);
+			assert(map2 != nullptr);
+			assert(map1->extra_phase == 0);
+			assert(map2->extra_phase == 0);
+
+			if (map1->level > map2->level) {
+				auto res = get_common_map(map1->father, map2);
+				res.left_map = append_new_map(res.left_map, map1->level, map1->x, map1->rotate);
+				return res;
+			}
+			if (map1->level < map2->level) {
+				auto res = get_common_map(map1, map2->father);
+				res.right_map = append_new_map(res.right_map, map2->level, map2->x, map2->rotate);
+				return res;
+			}
+			if (map1->level == -1) {
+				return {};
+			}
+			if (map1->x == map2->x) {
+				auto res = get_common_map(map1->father, map2->father);
+				res.common_map = append_new_map(res.common_map, map1->level, map1->x, map1->rotate);
+				res.right_map = append_new_map(res.right_map, map2->level, false, map2->rotate - map1->rotate);
+				return res;
+			}
+
+			auto res = get_common_map(map1->father, map2->father);
+			res.left_map = append_new_map(res.left_map, map1->level, map1->x, map1->rotate);
+			res.right_map = append_new_map(res.right_map, map2->level, map2->x, map2->rotate);
+			return res;
+		}
+
 		template <class Node>
 		Edge<Node> T_add2(const Edge<Node>& x, const Edge<Node>& y) {
+			if (regressionDiagnosticsEnabled) {
+				regressionDiagnostics.tAddCalls++;
+				if (x.p == y.p && x.map != y.map) {
+					regressionDiagnostics.tAddSamePointerMapMismatch++;
+				}
+			}
 
 			//std::cout <<"879 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v)<<" " << x.map << " " << y.map << std::endl;
 			//the_maps::print_maps(x.map);
@@ -1291,6 +1422,21 @@ namespace dd {
 				r.w = cn.getCached(CTEntry::val(x.w.r), CTEntry::val(x.w.i));
 				return r;
 			}
+
+			auto xDetached = detach_map_extra_phase(x.map);
+			auto yDetached = detach_map_extra_phase(y.map);
+			auto xNormalizedWeight = multiply_by_phase(x.w, xDetached.phase);
+			auto yNormalizedWeight = multiply_by_phase(y.w, yDetached.phase);
+
+			if (x.p == y.p && xDetached.map == yDetached.map) {
+				auto r = y;
+				r.w = cn.addCached(xNormalizedWeight, yNormalizedWeight);
+				if (r.w.approximatelyZero()) {
+					return Edge<Node>::zero;
+				}
+				r.map = xDetached.map;
+				return r;
+			}
 			if (x.p == y.p && x.map==y.map) {
 				//std::cout << "Case 0" << std::endl;
 				auto r = y;
@@ -1307,16 +1453,13 @@ namespace dd {
 
 			auto xCopy = x;
 			auto yCopy = y;
+			auto commonMaps = get_common_map(xDetached.map, yDetached.map);
 
 
 			xCopy.w = Complex::one;
-			xCopy.map = the_maps::the_maps_header();
-			yCopy.w = cn.divCached(y.w, x.w);
-			yCopy.map = mapdiv(y.map, x.map);
-			if (yCopy.w != Complex::zero) {
-				yCopy.w = multiply_by_phase(yCopy.w, yCopy.map->extra_phase);
-				
-			}
+			xCopy.map = commonMaps.left_map;
+			yCopy.w = cn.divCached(yNormalizedWeight, xNormalizedWeight);
+			yCopy.map = commonMaps.right_map;
 			// cn.returnToCache(yCopy.map->extra_phase);
 
 
@@ -1332,15 +1475,15 @@ namespace dd {
 				auto c = cn.getCached(r.w);
 
 				if (c != Complex::zero) {
-					cn.mul(c, c, x.w);
+					cn.mul(c, c, xNormalizedWeight);
 				}
 
-				auto temp_map = mapmul(x.map, r.map);
+				auto temp_map = mapmul(commonMaps.common_map, r.map);
 				if (c != Complex::zero) {
-					c = multiply_by_phase(c, temp_map->extra_phase);
+					c = multiply_by_phase(c, temp_map.phase);
 				}
 				// cn.returnToCache(temp_map->extra_phase);
-				return { r.p, c,temp_map };
+				return { r.p, c,temp_map.map };
 			}
 
 			const Qubit w = (x.isTerminal() || (!y.isTerminal() && y.p->v > x.p->v))
@@ -1416,11 +1559,12 @@ namespace dd {
 			//}
 			if (e.w != Complex::zero) {
 				assert(e.w != Complex::zero);
-				cn.mul(e.w, e.w, x.w);
-				e.map = mapmul(x.map, e.map);
+				cn.mul(e.w, e.w, xNormalizedWeight);
+				auto result_map = mapmul(commonMaps.common_map, e.map);
+				e.map = result_map.map;
 
 				assert(e.w != Complex::zero);
-				e.w = multiply_by_phase(e.w, e.map->extra_phase);
+				e.w = multiply_by_phase(e.w, result_map.phase);
 				// cn.returnToCache(e.map->extra_phase);
 			}
 
@@ -1431,6 +1575,24 @@ namespace dd {
 
 
 		comm_maps find_remain_map(the_maps* map1, the_maps* map2, key_2_new_key_node* key_2_new_key1, key_2_new_key_node* key_2_new_key2) {
+			if (regressionDiagnosticsEnabled) {
+				regressionDiagnostics.findRemainCalls++;
+			}
+
+			auto record_find_remain_result = [&](const comm_maps& maps) {
+				if (!regressionDiagnosticsEnabled) {
+					return;
+				}
+				if (maps.phase != 0) {
+					regressionDiagnostics.findRemainRemainPhaseful++;
+				}
+				if (maps.cont_map1 != nullptr && maps.cont_map1->extra_phase != 0) {
+					regressionDiagnostics.findRemainContMap1Phaseful++;
+				}
+				if (maps.cont_map2 != nullptr && maps.cont_map2->extra_phase != 0) {
+					regressionDiagnostics.findRemainContMap2Phaseful++;
+				}
+			};
 			assert(map1 != nullptr);
 			assert(map2 != nullptr);
 
@@ -1450,35 +1612,38 @@ namespace dd {
 
 			if (newk1 > newk2 && !ifContract(newk1)) {
 				auto res = find_remain_map(map1->father, map2, temp_key_2_new_key1, temp_key_2_new_key2);
-				auto temp_pahse = res.remain_map->extra_phase;
-				res.remain_map = append_new_map(res.remain_map, newk1, map1->x, map1->rotate, temp_pahse);
+				res.remain_map = append_new_map(res.remain_map, newk1, map1->x, map1->rotate);
+				record_find_remain_result(res);
 				return res;
 			}
 			if (newk1 < newk2 && !ifContract(newk2)) {
 				auto res = find_remain_map(map1, map2->father, temp_key_2_new_key1, temp_key_2_new_key2);
-				auto temp_pahse = res.remain_map->extra_phase;
-				res.remain_map = append_new_map(res.remain_map, newk2, map2->x, map2->rotate, temp_pahse);
+				res.remain_map = append_new_map(res.remain_map, newk2, map2->x, map2->rotate);
+				record_find_remain_result(res);
 				return res;
 			}
 			if (map1->level == -1 && map2->level == -1) {
-				return {};
+				comm_maps res{};
+				record_find_remain_result(res);
+				return res;
 			}
 			if (newk1 > newk2) {
 				auto res = find_remain_map(map1->father, map2, temp_key_2_new_key1, temp_key_2_new_key2);
 				res.cont_map1 = append_new_map(res.cont_map1, map1->level, map1->x, map1->rotate);
+				record_find_remain_result(res);
 				return res;
 			}
 			if (newk1 < newk2) {
 				auto res = find_remain_map(map1, map2->father, temp_key_2_new_key1, temp_key_2_new_key2);
 				res.cont_map2 = append_new_map(res.cont_map2, map2->level, map2->x, map2->rotate);
+				record_find_remain_result(res);
 				return res;
 			}
 			auto res = find_remain_map(map1->father, map2->father, temp_key_2_new_key1, temp_key_2_new_key2);
 
 			auto x = (map1->x + map2->x) % 2;
 			if (x == 1) {
-				// assert(res->remain_map->extra_phase != Complex::zero);
-				res.remain_map = add_to_map_extra_phase(res.remain_map, map2->rotate);
+				res.phase = normalize_phase(res.phase + map2->rotate);
 			}
 
 			auto rotate = 0;
@@ -1491,12 +1656,16 @@ namespace dd {
 			}
 
 			res.cont_map1 = append_new_map(res.cont_map1, map1->level, x, rotate%root_of_unit);
+			record_find_remain_result(res);
 
 			return res;
 		}
 
 		//template <class LeftOperandNode, class RightOperandNode>
 		Edge<mNode> cont2(const Edge<mNode>& x, const Edge<mNode>& y, key_2_new_key_node* key_2_new_key1, key_2_new_key_node* key_2_new_key2, const int var_num) {
+			if (regressionDiagnosticsEnabled) {
+				regressionDiagnostics.contCalls++;
+			}
 			auto& id = this->identity;
 			//std::cout <<"838 " << x.w << " " << y.w.r->value<<" "<<y.w.i->value<< std::endl;
 			//std::cout <<"838 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v) << std::endl;
@@ -1558,13 +1727,34 @@ namespace dd {
 
 			
 			auto r_maps = find_remain_map(x.map, y.map, key_2_new_key1, key_2_new_key2);
-			auto detachedRemainMap = detach_map_extra_phase(r_maps.remain_map);
+			if (regressionDiagnosticsEnabled) {
+				if (r_maps.phase != 0) {
+					regressionDiagnostics.contRemainPhaseNonZero++;
+				}
+				if (r_maps.cont_map1 != nullptr && r_maps.cont_map1->extra_phase != 0) {
+					regressionDiagnostics.contMap1Phaseful++;
+				}
+				if (r_maps.cont_map2 != nullptr && r_maps.cont_map2->extra_phase != 0) {
+					regressionDiagnostics.contMap2Phaseful++;
+				}
+			}
 
 			xCopy.map = r_maps.cont_map1;
 			yCopy.map = r_maps.cont_map2;
 			// yCopy.map->print_maps(yCopy.map);
+			const bool phasefulLookupKey = (xCopy.map != nullptr && xCopy.map->extra_phase != 0) || (yCopy.map != nullptr && yCopy.map->extra_phase != 0);
+			if (regressionDiagnosticsEnabled && phasefulLookupKey) {
+				regressionDiagnostics.contLookupPhasefulKeys++;
+			}
 
 			auto res = contTable.lookup(xCopy, yCopy, temp_key_2_new_key1, temp_key_2_new_key2);
+			if (regressionDiagnosticsEnabled && res.e.p == nullptr) {
+				if (phasefulLookupKey) {
+					regressionDiagnostics.contLookupPhasefulMisses++;
+				} else {
+					regressionDiagnostics.contLookupPhasefreeMisses++;
+				}
+			}
 			if (res.e.p != nullptr) {
 				if (res.e.w.approximatelyZero()) {
 					// cn.returnToCache(extra_phase);
@@ -1585,11 +1775,12 @@ namespace dd {
 					assert(e.w != Complex::zero);
 					e.w = multiply_by_power_of_two(e.w, var_num - res.cont_num);//对于一般形状的tensor,以2为底数可能有问题
 				}
-				e.map = mapmul(detachedRemainMap.map, e.map);
+				auto remain_map = mapmul(r_maps.remain_map, e.map);
+				e.map = remain_map.map;
 				assert(e.w != Complex::zero);
-				apply_phase_to_weight(e, e.map->extra_phase);
+				apply_phase_to_weight(e, remain_map.phase);
 				assert(e.w != Complex::zero);
-				apply_phase_to_weight(e, detachedRemainMap.phase);
+				apply_phase_to_weight(e, r_maps.phase);
 				return e;
 			}
 			// TODO: add if here
@@ -1885,11 +2076,12 @@ namespace dd {
 				return ResultEdge::zero;
 			}
 			else {
-				r.map = mapmul(detachedRemainMap.map, r.map);
+				auto remain_map = mapmul(r_maps.remain_map, r.map);
+				r.map = remain_map.map;
 				assert(r.w != Complex::zero);
-				apply_phase_to_weight(r, r.map->extra_phase);
+				apply_phase_to_weight(r, remain_map.phase);
 				assert(r.w != Complex::zero);
-				apply_phase_to_weight(r, detachedRemainMap.phase);
+				apply_phase_to_weight(r, r_maps.phase);
 			}
 
 			

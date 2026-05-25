@@ -25,9 +25,8 @@ namespace dd {
 			short level;
 			bool x;
 			int rotate;
-			int extra_phase;
 			bool operator==(MapKey const& o) const noexcept {
-				return level == o.level && x == o.x && rotate == o.rotate && extra_phase == o.extra_phase;
+				return level == o.level && x == o.x && rotate == o.rotate;
 			}
 		};
 
@@ -36,7 +35,6 @@ namespace dd {
 				std::size_t h = std::hash<short>()(k.level);
 				h ^= std::hash<int>()(k.rotate) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
 				h ^= std::hash<bool>()(k.x) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
-				h ^= std::hash<int>()(k.extra_phase) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
 				return h;
 			}
 		};
@@ -68,6 +66,7 @@ namespace dd {
 		the_maps* remain_map = the_maps::the_maps_header();
 		the_maps* cont_map1 = the_maps::the_maps_header();
 		the_maps* cont_map2 = the_maps::the_maps_header();
+		int phase = 0;
 
 	};
 
