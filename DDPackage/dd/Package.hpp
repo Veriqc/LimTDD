@@ -392,23 +392,6 @@ namespace dd {
 			}else{
 				add_x = false;
 			}
-			// else if(ComplexNumbers::mag2(res.p->e[0].w)-ComplexNumbers::mag2(res.p->e[1].w) > ComplexTable<>::tolerance()){
-			// 	add_x = false;
-			// }
-			// else if(res.p->e[0].p >  res.p->e[1].p){
-			// 	add_x = true ;
-			// }
-			// else if(res.p->e[0].p <  res.p->e[1].p){
-			// 	add_x = false;
-			// }
-			// else{
-			// 	add_x = mapCompare(res.p->e[0].map,res.p->e[1].map);
-			// }
-				// if( && ComplexNumbers::arg(res.p->e[0].w) >  ComplexNumbers::arg(res.p->e[1].w)){
-				// 	res.p->e = {res.p->e[1],res.p->e[0]};
-				// 	isZero = { isZero[1],isZero[0] };
-				// 	add_x = 1;
-				// }
 
 			if(add_x){
 				res.p->e = {res.p->e[1],res.p->e[0]};
