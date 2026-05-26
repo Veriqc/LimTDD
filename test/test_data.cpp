@@ -106,6 +106,61 @@ bool envFlagEnabled(const char* name) {
     return value != nullptr && std::string_view(value) == "1";
 }
 
+std::optional<std::size_t> envSizeValue(const char* name) {
+    const auto* value = std::getenv(name);
+    if (value == nullptr || *value == '\0') {
+        return std::nullopt;
+    }
+    return static_cast<std::size_t>(std::stoull(value));
+}
+
+std::string formatGateControls(const qc::Controls& controls) {
+    std::ostringstream stream;
+    bool first = true;
+    for (const auto& control : controls) {
+        if (!first) {
+            stream << ",";
+        }
+        first = false;
+        stream << (control.type == qc::Control::Type::Neg ? "!" : "") << control.qubit;
+    }
+    return stream.str();
+}
+
+std::string formatGateTargets(const qc::Targets& targets) {
+    std::ostringstream stream;
+    for (std::size_t i = 0; i < targets.size(); ++i) {
+        if (i != 0) {
+            stream << ",";
+        }
+        stream << targets[i];
+    }
+    return stream.str();
+}
+
+void printGateWindow(const qc::QuantumComputation& qc) {
+    const auto windowStart = envSizeValue("LIMTDD_GATE_WINDOW_START");
+    const auto windowLength = envSizeValue("LIMTDD_GATE_WINDOW_LEN");
+    if (!windowStart.has_value() && !windowLength.has_value()) {
+        return;
+    }
+
+    const auto start = std::min(windowStart.value_or(0), qc.getNops());
+    const auto length = windowLength.value_or(32);
+    const auto end = std::min(start + length, qc.getNops());
+
+    std::cout << "gate_window: [" << start << ", " << end << ")/" << qc.getNops() << std::endl;
+    for (std::size_t index = start; index < end; ++index) {
+        const auto& op = qc.at(index);
+        std::cout << "gate[" << index << "]:"
+                  << " name=" << op->getName()
+                  << " type=" << qc::toString(op->getType())
+                  << " controls=[" << formatGateControls(op->getControls()) << "]"
+                  << " targets=[" << formatGateTargets(op->getTargets()) << "]"
+                  << std::endl;
+    }
+}
+
 int runXarraySelftest() {
     dd::ComplexValue one = {1, 0};
     dd::ComplexValue zero = {0, 0};
@@ -188,9 +243,16 @@ int main(int argc, char *argv[]) {
     // Use the file content with QuantumComputation::fromQASM
     const auto qc = qc::QuantumComputation::fromQASM(fileContent);
     std::shared_ptr<qc::QuantumComputation> QC = std::make_shared<qc::QuantumComputation>(std::move(qc));
+    printGateWindow(*QC);
     auto ddPack = std::make_shared<dd::Package<>>(3*QC->getNqubits());
     ddPack->enableRegressionDiagnostics = envFlagEnabled("LIMTDD_REGRESSION_DIAG");
     auto tn = cir_2_tn(QC,ddPack);
+    if (const auto prefixLimit = envSizeValue("LIMTDD_TN_PREFIX"); prefixLimit.has_value()) {
+        const auto originalSize = tn.tensors.size();
+        const auto effectiveSize = std::min(prefixLimit.value(), originalSize);
+        tn.tensors.erase(tn.tensors.begin() + static_cast<std::ptrdiff_t>(effectiveSize), tn.tensors.end());
+        std::cout << "tensor_prefix: " << effectiveSize << "/" << originalSize << std::endl;
+    }
 
     bool simulate = false;
     std::vector<BasisStates> initialStates;
