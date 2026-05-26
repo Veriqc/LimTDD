@@ -790,6 +790,7 @@ namespace dd {
 			int m2 = tdd2.key_2_index.size();
 			int repeat_time = 1;
 			float last_cont_idx = -2;
+			const auto contracted_key_step = 1.0F / static_cast<float>(3 * nqubits);
 
 			while (k1 < m1 || k2 < m2) {
 
@@ -826,7 +827,7 @@ namespace dd {
 				}
 				else if (find(var_out_key.begin(), var_out_key.end(), tdd1.key_2_index[k1]) == var_out_key.end()) {
 					if (new_key - last_cont_idx <= 0.5) {
-						last_cont_idx = last_cont_idx + 1 / (3 * nqubits) * repeat_time;
+						last_cont_idx = last_cont_idx + contracted_key_step * repeat_time;
 						repeat_time += 1;
 						key_2_new_key1 = append_new_key(key_2_new_key1, last_cont_idx);
 						key_2_new_key2 = append_new_key(key_2_new_key2, last_cont_idx);
@@ -1041,26 +1042,25 @@ namespace dd {
 
 
 		template <class Node>
-		Edge<Node>* Slicing2(Edge<Node>& e, int x, int c) {
+		Edge<Node> Slicing2(Edge<Node>& e, int x, int c) {
 
 			assert(e.w != Complex::zero);
 		// used for contract
 			if (e.p->v == -1) {
-				return &e;
+				return e;
 			}
 			if (e.p->v < x) {
-				return &e;
+				return e;
 			}
-			// Edge<Node>* temp = new Edge<Node>;
 			if (e.p->v == x) {
 				if (e.p->v != e.map->level) {
-					Edge<Node>* temp = new Edge<Node>(e.p->e[c]);
+					Edge<Node> temp = e.p->e[c];
 					// std::cout << "969 e.p->e[c]: " << & (e.p->e[c]) << std::endl;
 					// std::cout << "969 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
-					if (temp->w != Complex::zero) {
-						temp->map = mapmul(e.map, temp->map);
+					if (temp.w != Complex::zero) {
+						temp.map = mapmul(e.map, temp.map);
 						// temp->w=cn.mulCached(temp->w, temp->map->extra_phase);
-						temp->w=cn.mulCached(temp->w, cn.getTemporary(cos(temp->map->extra_phase*rotate_angle),sin(temp->map->extra_phase*rotate_angle)));
+						temp.w = cn.mulCached(temp.w, cn.getTemporary(cos(temp.map->extra_phase * rotate_angle), sin(temp.map->extra_phase * rotate_angle)));
 						
 						// cn.returnToCache(temp->map->extra_phase);
 						// std::cout << "1004 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
@@ -1070,27 +1070,27 @@ namespace dd {
 					return temp;
 				}
 				else if (e.map->x == 0) {
-					Edge<Node>* temp = new Edge<Node>(e.p->e[c]);
-					temp->w = cn.lookup(e.p->e[c].w);
+					Edge<Node> temp = e.p->e[c];
+					temp.w = cn.lookup(e.p->e[c].w);
 					//std::cout << "1011 temp w: " << temp->w << " " << temp->w.i << " " << temp->w.r << " " << temp->p << std::endl;
 					//std::cout << "979 w: " << e.p->e[c].w.i << " " << e.p->e[c].w.r << " " << e.p->e[c].p << std::endl;
 					// std::cout << "1012 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
 					// std::cout << "979: " <<  & (e.p->e[c]) << " "<<& (temp) << std::endl;
-					if (temp->w != Complex::zero) {
-						temp->map = mapmul(e.map->father, temp->map);
+					if (temp.w != Complex::zero) {
+						temp.map = mapmul(e.map->father, temp.map);
 						// if(temp->w == Complex::one) {
 						// 	temp->w = cn.getCached(1., 0.)
 						// }
 						// temp->w = cn.mulCached(temp->w, temp->map->extra_phase);
 						//std::cout << "Scling2 2 " << temp->w << std::endl;
-						temp->w = cn.mulCached(temp->w, cn.getTemporary(cos(temp->map->extra_phase*rotate_angle),sin(temp->map->extra_phase*rotate_angle)));
+						temp.w = cn.mulCached(temp.w, cn.getTemporary(cos(temp.map->extra_phase * rotate_angle), sin(temp.map->extra_phase * rotate_angle)));
 						//std::cout << "1018 temp w: " << temp->w << " " << temp->w.i << " " << temp->w.r << std::endl;
 						// cn.returnToCache(temp->map->extra_phase);
 						//std::cout << "Scling2 2 " << temp->w << std::endl;
 						if (c == 1) {
-							assert(temp->w != Complex::zero);
+							assert(temp.w != Complex::zero);
 							// cn.mul(temp->w, temp->w, e.map->rotate);
-							cn.mul(temp->w, temp->w, cn.getTemporary(cos(e.map->rotate*rotate_angle),sin(e.map->rotate*rotate_angle)));
+							cn.mul(temp.w, temp.w, cn.getTemporary(cos(e.map->rotate * rotate_angle), sin(e.map->rotate * rotate_angle)));
 							//std::cout << "Scling2 2 " << temp->w << std::endl;
 							//std::cout<< e.map->rotate<<" "<< e.map->rotate * rotate_angle << " " << cos(e.map->rotate * rotate_angle) << " " << sin(e.map->rotate * rotate_angle) <<std::endl;
 						}
@@ -1102,18 +1102,18 @@ namespace dd {
 					return temp;
 				}
 				else {
-					Edge<Node>* temp = new Edge<Node>(e.p->e[1-c]);
+					Edge<Node> temp = e.p->e[1-c];
 					// std::cout << "1026: " << & (temp->w) << std::endl;
 					// std::cout << "1029 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
-					if (temp->w != Complex::zero) {
-						temp->map = mapmul(e.map->father, temp->map);
+					if (temp.w != Complex::zero) {
+						temp.map = mapmul(e.map->father, temp.map);
 						// temp->w = cn.mulCached(temp->w, temp->map->extra_phase);
-						temp->w = cn.mulCached(temp->w, cn.getTemporary(cos(temp->map->extra_phase*rotate_angle),sin(temp->map->extra_phase*rotate_angle)));
+						temp.w = cn.mulCached(temp.w, cn.getTemporary(cos(temp.map->extra_phase * rotate_angle), sin(temp.map->extra_phase * rotate_angle)));
 						// cn.returnToCache(temp->map->extra_phase);
 						if (c == 0) {
-							assert(temp->w != Complex::zero);
+							assert(temp.w != Complex::zero);
 							// cn.mul(temp->w, temp->w, e.map->rotate);
-							cn.mul(temp->w, temp->w, cn.getTemporary(cos(e.map->rotate*rotate_angle),sin(e.map->rotate*rotate_angle)));
+							cn.mul(temp.w, temp.w, cn.getTemporary(cos(e.map->rotate * rotate_angle), sin(e.map->rotate * rotate_angle)));
 
 						}
 						// std::cout << "1038 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
@@ -1127,7 +1127,7 @@ namespace dd {
 			}
 			else {
 				std::cout << "Slicing2 not support yet" << std::endl;
-				return &e;
+				return e;
 			}
 
 		}
@@ -1562,7 +1562,7 @@ namespace dd {
 					ResultEdge etemp;
 					for (int k = 0; k < x.p->e.size(); ++k) {
 						//e1 = x.p->e[k];
-						auto& e1 = *Slicing2(xCopy, xCopy.p->v, k);
+						auto e1 = Slicing2(xCopy, xCopy.p->v, k);
 						auto& e2 = yCopy;
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
 						if (e1.w != Complex::zero) {
@@ -1587,7 +1587,7 @@ namespace dd {
 					std::vector<ResultEdge> e;
 					for (int k = 0; k < x.p->e.size(); ++k) {
 						//e1 = x.p->e[k];
-						auto& e1 = *Slicing2(xCopy, xCopy.p->v, k);
+						auto e1 = Slicing2(xCopy, xCopy.p->v, k);
 						auto& e2 = yCopy;
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
 						if (e1.w != Complex::zero) {
@@ -1616,7 +1616,7 @@ namespace dd {
 					for (int k = 0; k < y.p->e.size(); ++k) {
 						auto& e1 = xCopy;
 						//e2 = y.p->e[k];
-						auto& e2 = *Slicing2(yCopy, yCopy.p->v, k);
+						auto e2 = Slicing2(yCopy, yCopy.p->v, k);
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
 						if (e2.w != Complex::zero) {
 							// cn.returnToCache(e2.w);
@@ -1641,7 +1641,7 @@ namespace dd {
 					for (int k = 0; k < y.p->e.size(); ++k) {
 						auto& e1 = xCopy;
 						//e2 = y.p->e[k];
-						auto& e2 = *Slicing2(yCopy, yCopy.p->v, k);
+						auto e2 = Slicing2(yCopy, yCopy.p->v, k);
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
 						if (e2.w != Complex::zero) {
 							// cn.returnToCache(e2.w);
@@ -1672,12 +1672,12 @@ namespace dd {
 					ResultEdge etemp;
 					for (int k = 0; k < x.p->e.size(); ++k) {
 						//e1 = x.p->e[k];
-						auto& e1 = *Slicing2(xCopy, xCopy.p->v, k);
+						auto e1 = Slicing2(xCopy, xCopy.p->v, k);
 						//e2 = y.p->e[k];
 						//std::cout << "1554, e1 " << e1.w << std::endl;
 						//std::cout << "e1.w in: " << (e1.w.i) << " " << e1.w.r << std::endl;
 						// the_maps::print_maps(e1.map);
-						auto& e2 = *Slicing2(yCopy, yCopy.p->v, k);
+						auto e2 = Slicing2(yCopy, yCopy.p->v, k);
 						//std::cout << "1556, e1 " << e1.w << std::endl;
 						//std::cout << "e1.w in: " << (e1.w.i) << " " << e1.w.r << std::endl;
 						//std::cout << "1558, e2 " << e2.w << std::endl;
@@ -1709,9 +1709,9 @@ namespace dd {
 					std::vector<ResultEdge> e;
 					for (int k = 0; k < x.p->e.size(); ++k) {
 						//e1 = x.p->e[k];
-						auto& e1 = *Slicing2(xCopy, xCopy.p->v, k);
+						auto e1 = Slicing2(xCopy, xCopy.p->v, k);
 						//e2 = y.p->e[k];
-						auto& e2 = *Slicing2(yCopy, yCopy.p->v, k);
+						auto e2 = Slicing2(yCopy, yCopy.p->v, k);
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
 						if (e1.w != Complex::zero) {
 							// cn.returnToCache(e1.w);
