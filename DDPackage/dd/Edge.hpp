@@ -19,8 +19,7 @@ namespace dd {
 		/// Comparing two DD edges with another involves comparing the respective
 		/// pointers and checking whether the corresponding weights are "close enough"
 		/// according to a given tolerance this notion of equivalence is chosen to
-		/// counter floating point inaccuracies. Map pointer identity is sufficient
-		/// because extra_phase is part of the canonical immutable map key.
+		/// counter floating point inaccuracies
 		constexpr bool operator==(const Edge& other) const {
 			return p == other.p && w.approximatelyEquals(other.w) && map==other.map;
 		}
@@ -83,8 +82,7 @@ namespace dd {
 		/// Comparing two DD edges with another involves comparing the respective
 		/// pointers and checking whether the corresponding weights are "close enough"
 		/// according to a given tolerance this notion of equivalence is chosen to
-		/// counter floating point inaccuracies. Map pointer identity is sufficient
-		/// because extra_phase is part of the canonical immutable map key.
+		/// counter floating point inaccuracies
 		bool operator==(const CachedEdge& other) const {
 			return p == other.p && w.approximatelyEquals(other.w) && map==other.map;
 		}

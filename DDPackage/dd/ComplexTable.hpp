@@ -154,26 +154,6 @@ public:
   [[nodiscard]] bool availableEmpty() const { return available == nullptr; };
 
   bool exists(const fp& val) const {
-        // if (Entry::approximatelyZero(val)) {
-        //     return true;
-        // }
-        // if (Entry::approximatelyOne(val)) {
-        //     return true;
-        // }
-        // if (Entry::approximatelyEquals(val, SQRT2_2)) {
-        //     return true;
-        // }
-
-        // const auto key = hash(val);
-        // Entry* curr = table[static_cast<std::size_t>(key)];
-
-        // while (curr != nullptr) {
-        //     if (Entry::approximatelyEquals(curr->value, val)) {
-        //         return true;
-        //     }
-        //     curr = curr->next;
-        // }
-        // return false;
         if (Entry::approximatelyZero(val)) {
             return true;
         }
@@ -184,44 +164,14 @@ public:
             return true;
         }
 
-        assert(val >= 0);
+        const auto key = hash(val);
+        Entry* curr = table[static_cast<std::size_t>(key)];
 
-        const auto lowerKey = hash(val - TOLERANCE);
-        const auto upperKey = hash(val + TOLERANCE);
-
-        // if both neighbors map to the same bucket, scan that bucket up to val+TOLERANCE
-        if (upperKey == lowerKey) {
-          const auto key = lowerKey;
-          Entry* curr = table[static_cast<std::size_t>(key)];
-          const fp valTol = val + TOLERANCE;
-          while (curr != nullptr && curr->value <= valTol) {
+        while (curr != nullptr) {
             if (Entry::approximatelyEquals(curr->value, val)) {
-              return true;
+                return true;
             }
             curr = curr->next;
-          }
-          return false;
-        }
-
-        // handle border cases: check last element of lower bucket and first of upper bucket
-        const auto key = hash(val);
-        Entry* pLower;
-        Entry* pUpper;
-        if (lowerKey != key) {
-          pLower = tailTable[static_cast<std::size_t>(lowerKey)];
-          pUpper = table[static_cast<std::size_t>(key)];
-        } else {
-          pLower = tailTable[static_cast<std::size_t>(key)];
-          pUpper = table[static_cast<std::size_t>(upperKey)];
-        }
-
-        bool lowerMatchFound =
-            (pLower != nullptr && Entry::approximatelyEquals(val, pLower->value));
-        bool upperMatchFound =
-            (pUpper != nullptr && Entry::approximatelyEquals(val, pUpper->value));
-
-        if (lowerMatchFound || upperMatchFound) {
-          return true;
         }
         return false;
   }

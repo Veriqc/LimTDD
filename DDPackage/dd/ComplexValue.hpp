@@ -55,32 +55,12 @@ struct ComplexValue {
   void fromString(const std::string& realStr, std::string imagStr) {
     const fp real = realStr.empty() ? 0. : std::stod(realStr);
 
-    // imagStr.erase(remove(imagStr.begin(), imagStr.end(), ' '), imagStr.end());
-    // imagStr.erase(remove(imagStr.begin(), imagStr.end(), 'i'), imagStr.end());
-    // if (imagStr == "+" || imagStr == "-") {
-    //   imagStr = imagStr + "1";
-    // }
-    // const fp imag = imagStr.empty() ? 0. : std::stod(imagStr);
-    // r = {real};
-    // i = {imag};
-    // remove spaces and detect presence of 'i'
     imagStr.erase(remove(imagStr.begin(), imagStr.end(), ' '), imagStr.end());
-    const bool hadI = imagStr.find('i') != std::string::npos;
     imagStr.erase(remove(imagStr.begin(), imagStr.end(), 'i'), imagStr.end());
-
-    // If result string is empty but original had 'i', it was a bare 'i' -> ±1
-    if (imagStr.empty()) {
-      if (hadI) {
-        imagStr = "1";
-      } else {
-        imagStr = "0";
-      }
-    }
-
     if (imagStr == "+" || imagStr == "-") {
       imagStr = imagStr + "1";
     }
-    const fp imag = std::stod(imagStr);
+    const fp imag = imagStr.empty() ? 0. : std::stod(imagStr);
     r = {real};
     i = {imag};
   }

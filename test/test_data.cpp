@@ -49,15 +49,6 @@ TDD cont(dd::TensorNetwork* tn,dd::Package<>* ddpackage, int n,bool simulate,con
     TDD res_dd = simulate ? makezero(n, ddpackage, states) : tn->tensors[0].to_tdd(ddpackage);
     ddpackage->incRef(res_dd.e);
     unsigned int MAX_NODE = ddpackage->size(res_dd.e);
-    const bool gateTraceEnabled = std::getenv("LIMTDD_GATE_TRACE") != nullptr;
-    if (gateTraceEnabled) {
-        const auto& diag = ddpackage->getRegressionDiagnostics();
-        std::cout << "GATE_TRACE gate=-1 nodes=" << MAX_NODE
-                  << " normalize_root=" << diag.normalizeRootPhasePromotions
-                  << " tadd_mismatch=" << diag.tAddSamePointerMapMismatch
-                  << " cont_remain_phase=" << diag.contRemainPhaseNonZero
-                  << std::endl;
-    }
 
     // The loop starts from 0 if simulating, 1 otherwise.
     for (size_t i = simulate ? 0 : 1; i < tn->tensors.size(); ++i) {
@@ -69,19 +60,7 @@ TDD cont(dd::TensorNetwork* tn,dd::Package<>* ddpackage, int n,bool simulate,con
                 ddpackage->garbageCollect();
             }
             res_dd = temp_dd;
-            const auto currentNodeCount = ddpackage->size(res_dd.e);
-            MAX_NODE = std::max(MAX_NODE, currentNodeCount);
-            if (gateTraceEnabled) {
-                const auto& diag = ddpackage->getRegressionDiagnostics();
-                std::cout << "GATE_TRACE gate=" << i
-                          << " nodes=" << currentNodeCount
-                          << " max_nodes=" << MAX_NODE
-                          << " normalize_root=" << diag.normalizeRootPhasePromotions
-                          << " normalize_child=" << diag.normalizeChildPhaseAdds
-                          << " tadd_mismatch=" << diag.tAddSamePointerMapMismatch
-                          << " cont_remain_phase=" << diag.contRemainPhaseNonZero
-                          << std::endl;
-            }
+            MAX_NODE = std::max(MAX_NODE, ddpackage->size(res_dd.e));
         } catch (...) {
             std::exception_ptr p = std::current_exception();
             // std::clog << (p ? p.__cxa_exception_type()->name() : "null ") << std::endl;
@@ -140,9 +119,6 @@ int main(int argc, char *argv[]) {
     const auto qc = qc::QuantumComputation::fromQASM(fileContent);
     std::shared_ptr<qc::QuantumComputation> QC = std::make_shared<qc::QuantumComputation>(std::move(qc));
     auto ddPack = std::make_shared<dd::Package<>>(3*QC->getNqubits());
-    if (std::getenv("LIMTDD_REGRESSION_DIAG") != nullptr) {
-        ddPack->enableRegressionDiagnostics();
-    }
     // ddPack->to_test = true ;
     // ddPack->to_test = true ;
     auto tn = cir_2_tn(QC,ddPack);
@@ -165,8 +141,5 @@ int main(int argc, char *argv[]) {
     // dd::export2Dot(tdd.e,"test",true,true);
     
     std::cout<<"final node: " << ddPack->size(tdd.e) <<std::endl;
-    if (std::getenv("LIMTDD_REGRESSION_DIAG") != nullptr) {
-        ddPack->printRegressionDiagnostics();
-    }
     return 0;
 }
