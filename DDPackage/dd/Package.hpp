@@ -96,6 +96,24 @@ namespace dd {
 	public:
 		ComplexNumbers cn{};
 
+		struct RegressionDiagnostics {
+			std::size_t normalizeZeroChildren = 0;
+			std::size_t normalizeChildPhaseAdds = 0;
+			std::size_t normalizeRootPhasePromotions = 0;
+			std::size_t taddSamePointerMapMismatch = 0;
+			std::size_t mapmulBaseResetSelf = 0;
+			std::size_t mapmulBaseResetOther = 0;
+			std::size_t mapmulLookupHits = 0;
+			std::size_t mapmulLookupPhaseful = 0;
+			std::size_t mapmulResultPhaseful = 0;
+			std::size_t mapdivBaseResetSelf = 0;
+			std::size_t mapdivHeaderReset = 0;
+			std::size_t mapdivLookupHits = 0;
+			std::size_t mapdivLookupPhaseful = 0;
+			std::size_t mapdivResultPhaseful = 0;
+			std::size_t findRemainPhaseCarries = 0;
+		};
+
 		///
 		/// Construction, destruction, information and reset
 		///
@@ -106,6 +124,8 @@ namespace dd {
 
 		//==========================================我写的========================================
 		bool to_test = false;
+		bool enableRegressionDiagnostics = false;
+		RegressionDiagnostics regressionDiagnostics{};
 
 		int mode = 1;//设置提取的对角门的形式，mode=1,提取的只是Rz旋转门，mode=2,提取的是任意对角门；
 
@@ -145,6 +165,29 @@ namespace dd {
 
 		// getter for qubits
 		[[nodiscard]] auto qubits() const { return nqubits; }
+
+		void resetRegressionDiagnostics() {
+			regressionDiagnostics = {};
+		}
+
+		std::ostream& printRegressionDiagnostics(std::ostream& os = std::cout) {
+			os << "regression.normalize.zero_children=" << regressionDiagnostics.normalizeZeroChildren << std::endl;
+			os << "regression.normalize.child_phase_adds=" << regressionDiagnostics.normalizeChildPhaseAdds << std::endl;
+			os << "regression.normalize.root_phase_promotions=" << regressionDiagnostics.normalizeRootPhasePromotions << std::endl;
+			os << "regression.tadd.same_pointer_map_mismatch=" << regressionDiagnostics.taddSamePointerMapMismatch << std::endl;
+			os << "regression.mapmul.base_reset_self=" << regressionDiagnostics.mapmulBaseResetSelf << std::endl;
+			os << "regression.mapmul.base_reset_other=" << regressionDiagnostics.mapmulBaseResetOther << std::endl;
+			os << "regression.mapmul.lookup_hits=" << regressionDiagnostics.mapmulLookupHits << std::endl;
+			os << "regression.mapmul.lookup_phaseful=" << regressionDiagnostics.mapmulLookupPhaseful << std::endl;
+			os << "regression.mapmul.result_phaseful=" << regressionDiagnostics.mapmulResultPhaseful << std::endl;
+			os << "regression.mapdiv.base_reset_self=" << regressionDiagnostics.mapdivBaseResetSelf << std::endl;
+			os << "regression.mapdiv.header_reset=" << regressionDiagnostics.mapdivHeaderReset << std::endl;
+			os << "regression.mapdiv.lookup_hits=" << regressionDiagnostics.mapdivLookupHits << std::endl;
+			os << "regression.mapdiv.lookup_phaseful=" << regressionDiagnostics.mapdivLookupPhaseful << std::endl;
+			os << "regression.mapdiv.result_phaseful=" << regressionDiagnostics.mapdivResultPhaseful << std::endl;
+			os << "regression.find_remain.phase_carries=" << regressionDiagnostics.findRemainPhaseCarries << std::endl;
+			return os;
+		}
 
 	private:
 		std::size_t nqubits;
@@ -360,6 +403,9 @@ namespace dd {
 						}
 						//r.p->e[i] = Edge<Node>::zero;
 						res.p->e[i] = { res.p->e[0].p,Complex::zero, the_maps::the_maps_header() };
+						if (enableRegressionDiagnostics) {
+							regressionDiagnostics.normalizeZeroChildren++;
+						}
 						res.p->e[i].map->extra_phase = 0;
 						continue;
 					}
@@ -377,6 +423,9 @@ namespace dd {
 						res.p->e[i].map = mapdiv(res.p->e[i].map, res.map);
 						// cn.mul(res.p->e[i].map->extra_phase, res.p->e[i].map->extra_phase, c);
 						// cn.mul(res.p->e[i].map->extra_phase, res.p->e[i].map->extra_phase, c);
+						if (enableRegressionDiagnostics) {
+							regressionDiagnostics.normalizeChildPhaseAdds++;
+						}
 						res.p->e[i].map->extra_phase=res.p->e[i].map->extra_phase+int(ComplexNumbers::arg(c)/rotate_angle);
 						// cn.returnToCache(c);
 						res.p->e[i].w = Complex::one;
@@ -406,6 +455,9 @@ namespace dd {
 						}
 
 						res.p->e[i].map = mapdiv(res.p->e[i].map, res.map);
+						if (enableRegressionDiagnostics) {
+							regressionDiagnostics.normalizeChildPhaseAdds++;
+						}
 						res.p->e[i].map->extra_phase = res.p->e[i].map->extra_phase + rot;
 						
 						// cn.mul(res.p->e[i].map->extra_phase, res.p->e[i].map->extra_phase, cn.getTemporary(cos(angle), sin(angle)));
@@ -415,6 +467,9 @@ namespace dd {
 				}
 			}
 
+			if (enableRegressionDiagnostics && res.p->e[1].map->extra_phase != 0) {
+				regressionDiagnostics.normalizeRootPhasePromotions++;
+			}
 			res.map = append_new_map(res.map, res.p->v, add_x, res.p->e[1].map->extra_phase);
 			if (!isZero[1]) {
 				// cn.returnToCache(res.p->e[1].map->extra_phase);
@@ -575,17 +630,29 @@ namespace dd {
 		the_maps* mapmul(the_maps* self, the_maps* other) {
 
 			if (self->level == -1) {
+				if (enableRegressionDiagnostics) {
+					regressionDiagnostics.mapmulBaseResetOther++;
+				}
 				other->extra_phase = 0;
 				return other;
 			}
 
 			if (other->level == -1) {
+				if (enableRegressionDiagnostics) {
+					regressionDiagnostics.mapmulBaseResetSelf++;
+				}
 				self->extra_phase = 0;
 				return self;
 			}
 
 			auto r = mapmulTable.lookup(self, other);
 			if (r != nullptr) {
+				if (enableRegressionDiagnostics) {
+					regressionDiagnostics.mapmulLookupHits++;
+					if (r->extra_phase != 0) {
+						regressionDiagnostics.mapmulLookupPhaseful++;
+					}
+				}
 				return r;
 			}
 			the_maps* res;
@@ -617,10 +684,10 @@ namespace dd {
 				}
 			}
 
-			//auto temp = res->extra_phase;
-			//res->extra_phase = cn.lookup(res->extra_phase);
 			mapmulTable.insert(self, other, res, res->extra_phase%root_of_unit);
-			//res->extra_phase = temp;
+			if (enableRegressionDiagnostics && res->extra_phase != 0) {
+				regressionDiagnostics.mapmulResultPhaseful++;
+			}
 
 			return res;
 		}
@@ -630,17 +697,29 @@ namespace dd {
 		the_maps* mapdiv(the_maps* self, the_maps* other) {
 
 			if (other->level == -1) {
+				if (enableRegressionDiagnostics) {
+					regressionDiagnostics.mapdivBaseResetSelf++;
+				}
 				self->extra_phase = 0;
 				return self;
 			}
 			if (self == other) {
 				auto the_maps_header = the_maps::the_maps_header();
+				if (enableRegressionDiagnostics) {
+					regressionDiagnostics.mapdivHeaderReset++;
+				}
 				the_maps_header->extra_phase = 0;
 				return the_maps_header;
 			}
 			
 			auto r = mapdivTable.lookup(self, other);
 			if (r != nullptr) {
+				if (enableRegressionDiagnostics) {
+					regressionDiagnostics.mapdivLookupHits++;
+					if (r->extra_phase != 0) {
+						regressionDiagnostics.mapdivLookupPhaseful++;
+					}
+				}
 				return r;
 			}
 			
@@ -691,10 +770,10 @@ namespace dd {
 					res->extra_phase = res->extra_phase - other->rotate;
 				}
 			}
-			//auto temp = res->extra_phase;
-			//res->extra_phase = cn.lookup(res->extra_phase);
 			mapdivTable.insert(self, other, res, res->extra_phase%root_of_unit);
-			//res->extra_phase = temp;
+			if (enableRegressionDiagnostics && res->extra_phase != 0) {
+				regressionDiagnostics.mapdivResultPhaseful++;
+			}
 			return res;
 		}
 
@@ -1172,6 +1251,9 @@ namespace dd {
 				
 				return r;
 			}
+			if (enableRegressionDiagnostics && x.p == y.p && x.map != y.map) {
+				regressionDiagnostics.taddSamePointerMapMismatch++;
+			}
 
 			auto xCopy = x;
 			auto yCopy = y;
@@ -1331,6 +1413,9 @@ namespace dd {
 				auto res = find_remain_map(map1->father, map2, temp_key_2_new_key1, temp_key_2_new_key2);
 				auto temp_pahse = res->remain_map->extra_phase;
 				res->remain_map = append_new_map(res->remain_map, newk1, map1->x, map1->rotate);
+				if (enableRegressionDiagnostics && temp_pahse != 0) {
+					regressionDiagnostics.findRemainPhaseCarries++;
+				}
 				res->remain_map->extra_phase = temp_pahse;
 				return res;
 			}
@@ -1338,6 +1423,9 @@ namespace dd {
 				auto res = find_remain_map(map1, map2->father, temp_key_2_new_key1, temp_key_2_new_key2);
 				auto temp_pahse = res->remain_map->extra_phase;
 				res->remain_map = append_new_map(res->remain_map, newk2, map2->x, map2->rotate);
+				if (enableRegressionDiagnostics && temp_pahse != 0) {
+					regressionDiagnostics.findRemainPhaseCarries++;
+				}
 				res->remain_map->extra_phase = temp_pahse;
 				return res;
 			}
@@ -1361,6 +1449,9 @@ namespace dd {
 			auto x = (map1->x + map2->x) % 2;
 			if (x == 1) {
 				// assert(res->remain_map->extra_phase != Complex::zero);
+				if (enableRegressionDiagnostics) {
+					regressionDiagnostics.findRemainPhaseCarries++;
+				}
 				res->remain_map->extra_phase =  res->remain_map->extra_phase+ map2->rotate;
 			}
 

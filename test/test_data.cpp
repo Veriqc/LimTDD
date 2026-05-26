@@ -1,11 +1,13 @@
 #include "QuantumComputation.hpp"
 #include "Cir_import.h"
 #include "dd/Export.hpp"
+#include "dd/Tensor.hpp"
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <optional>
 #include <string>
+#include <string_view>
 
 using namespace dd;
 xt::xarray<dd::ComplexValue> stateToArray(const BasisStates& state){
@@ -98,7 +100,75 @@ std::vector<BasisStates> stringToBasisStates(const std::string& states) {
     }
     return basisStates;
 }
+
+bool envFlagEnabled(const char* name) {
+    const auto* value = std::getenv(name);
+    return value != nullptr && std::string_view(value) == "1";
+}
+
+int runXarraySelftest() {
+    dd::ComplexValue one = {1, 0};
+    dd::ComplexValue zero = {0, 0};
+    dd::ComplexValue two = {2, 0};
+    dd::ComplexValue three = {3, 0};
+
+    auto ddPack = std::make_shared<dd::Package<>>(10);
+    ddPack->varOrder = {{"x0", 0}, {"y0", 1}, {"x1", 2}, {"y1", 3}};
+
+    xt::xarray<dd::ComplexValue> tensorCnot = {
+        {{{one, zero}, {zero, one}}, {{zero, zero}, {zero, zero}}},
+        {{{zero, zero}, {zero, zero}}, {{zero, one}, {one, zero}}},
+    };
+    xt::xarray<dd::ComplexValue> permutedTensorCnot = {
+        {{{zero, zero}, {zero, zero}}, {{zero, zero}, {zero, zero}}},
+        {{{zero, zero}, {zero, zero}}, {{zero, zero}, {zero, zero}}},
+    };
+    for (std::size_t a = 0; a < 2; ++a) {
+        for (std::size_t b = 0; b < 2; ++b) {
+            for (std::size_t c = 0; c < 2; ++c) {
+                for (std::size_t d = 0; d < 2; ++d) {
+                    permutedTensorCnot(a, b, c, d) = tensorCnot(c, d, a, b);
+                }
+            }
+        }
+    }
+
+    std::vector<dd::Index> tensorIndices = {{"x0", 0}, {"y0", 0}, {"x1", 0}, {"y1", 0}};
+    std::vector<dd::Index> permutedIndices = {{"x1", 0}, {"y1", 0}, {"x0", 0}, {"y0", 0}};
+
+    auto tensorTdd = dd::Tensor(tensorCnot, tensorIndices, "tensor_cnot").to_tdd(ddPack.get());
+    auto permutedTdd = dd::Tensor(permutedTensorCnot, permutedIndices, "permuted_tensor_cnot").to_tdd(ddPack.get());
+
+    const bool orderEqual = tensorTdd.e == permutedTdd.e;
+    std::cout << "xarray_selftest.equal: " << orderEqual << std::endl;
+    std::cout << "xarray_selftest.tensor_nodes: " << ddPack->size(tensorTdd.e) << std::endl;
+    std::cout << "xarray_selftest.permuted_nodes: " << ddPack->size(permutedTdd.e) << std::endl;
+
+    auto hyperPack = std::make_shared<dd::Package<>>(10);
+    hyperPack->varOrder = {{"x0", 0}, {"x1", 2}, {"y1", 3}};
+    xt::xarray<dd::ComplexValue> repeatedIndexTensor = tensorCnot;
+    xt::xarray<dd::ComplexValue> offDiagonalPerturbed = tensorCnot;
+    offDiagonalPerturbed(0, 1, 0, 0) = two;
+    offDiagonalPerturbed(0, 1, 1, 1) = three;
+    offDiagonalPerturbed(1, 0, 0, 1) = three;
+    offDiagonalPerturbed(1, 0, 1, 0) = two;
+
+    std::vector<dd::Index> repeatedIndices = {{"x0", 0}, {"x0", 1}, {"x1", 0}, {"y1", 0}};
+    auto repeatedTdd = dd::Tensor(repeatedIndexTensor, repeatedIndices, "repeated_index_base").to_tdd(hyperPack.get());
+    auto perturbedTdd = dd::Tensor(offDiagonalPerturbed, repeatedIndices, "repeated_index_perturbed").to_tdd(hyperPack.get());
+    const bool repeatedIndexEqual = repeatedTdd.e == perturbedTdd.e;
+    std::cout << "xarray_selftest.repeated_index_equal: " << repeatedIndexEqual << std::endl;
+    std::cout << "xarray_selftest.repeated_index_nodes: " << hyperPack->size(repeatedTdd.e) << std::endl;
+    std::cout << "xarray_selftest.repeated_index_perturbed_nodes: " << hyperPack->size(perturbedTdd.e) << std::endl;
+
+    return (orderEqual && repeatedIndexEqual) ? 0 : 2;
+}
+
 int main(int argc, char *argv[]) {
+    if (envFlagEnabled("LIMTDD_XARRAY_SELFTEST")) {
+        return runXarraySelftest();
+    }
+
     // filename, initial state
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <number>\n";
@@ -119,8 +189,7 @@ int main(int argc, char *argv[]) {
     const auto qc = qc::QuantumComputation::fromQASM(fileContent);
     std::shared_ptr<qc::QuantumComputation> QC = std::make_shared<qc::QuantumComputation>(std::move(qc));
     auto ddPack = std::make_shared<dd::Package<>>(3*QC->getNqubits());
-    // ddPack->to_test = true ;
-    // ddPack->to_test = true ;
+    ddPack->enableRegressionDiagnostics = envFlagEnabled("LIMTDD_REGRESSION_DIAG");
     auto tn = cir_2_tn(QC,ddPack);
 
     bool simulate = false;
@@ -141,5 +210,8 @@ int main(int argc, char *argv[]) {
     // dd::export2Dot(tdd.e,"test",true,true);
     
     std::cout<<"final node: " << ddPack->size(tdd.e) <<std::endl;
+    if (ddPack->enableRegressionDiagnostics) {
+        ddPack->printRegressionDiagnostics();
+    }
     return 0;
 }
