@@ -126,6 +126,13 @@ namespace dd {
 		bool to_test = false;
 		bool enableRegressionDiagnostics = false;
 		RegressionDiagnostics regressionDiagnostics{};
+		bool enableContStageTrace = false;
+		std::size_t contStageTraceStep = 0;
+		std::size_t contStageTraceDepth = 0;
+		std::size_t contStageTaddDepth = 0;
+		std::size_t contStageMakeNodeDepth = 0;
+		RegressionDiagnostics contStageTaddTotals{};
+		RegressionDiagnostics contStageMakeNodeTotals{};
 
 		int mode = 1;//设置提取的对角门的形式，mode=1,提取的只是Rz旋转门，mode=2,提取的是任意对角门；
 
@@ -168,6 +175,36 @@ namespace dd {
 
 		void resetRegressionDiagnostics() {
 			regressionDiagnostics = {};
+		}
+
+		void setContStageTrace(const bool enabled, const std::size_t step = 0) {
+			enableContStageTrace = enabled;
+			contStageTraceStep = step;
+			contStageTaddTotals = {};
+			contStageMakeNodeTotals = {};
+			contStageTaddDepth = 0;
+			contStageMakeNodeDepth = 0;
+			if (!enabled) {
+				contStageTraceDepth = 0;
+			}
+		}
+
+		static void accumulateRegressionDelta(RegressionDiagnostics& total, const RegressionDiagnostics& before, const RegressionDiagnostics& after) {
+			total.normalizeZeroChildren += after.normalizeZeroChildren - before.normalizeZeroChildren;
+			total.normalizeChildPhaseAdds += after.normalizeChildPhaseAdds - before.normalizeChildPhaseAdds;
+			total.normalizeRootPhasePromotions += after.normalizeRootPhasePromotions - before.normalizeRootPhasePromotions;
+			total.taddSamePointerMapMismatch += after.taddSamePointerMapMismatch - before.taddSamePointerMapMismatch;
+			total.mapmulBaseResetSelf += after.mapmulBaseResetSelf - before.mapmulBaseResetSelf;
+			total.mapmulBaseResetOther += after.mapmulBaseResetOther - before.mapmulBaseResetOther;
+			total.mapmulLookupHits += after.mapmulLookupHits - before.mapmulLookupHits;
+			total.mapmulLookupPhaseful += after.mapmulLookupPhaseful - before.mapmulLookupPhaseful;
+			total.mapmulResultPhaseful += after.mapmulResultPhaseful - before.mapmulResultPhaseful;
+			total.mapdivBaseResetSelf += after.mapdivBaseResetSelf - before.mapdivBaseResetSelf;
+			total.mapdivHeaderReset += after.mapdivHeaderReset - before.mapdivHeaderReset;
+			total.mapdivLookupHits += after.mapdivLookupHits - before.mapdivLookupHits;
+			total.mapdivLookupPhaseful += after.mapdivLookupPhaseful - before.mapdivLookupPhaseful;
+			total.mapdivResultPhaseful += after.mapdivResultPhaseful - before.mapdivResultPhaseful;
+			total.findRemainPhaseCarries += after.findRemainPhaseCarries - before.findRemainPhaseCarries;
 		}
 
 		std::ostream& printRegressionDiagnostics(std::ostream& os = std::cout) {
@@ -541,6 +578,25 @@ namespace dd {
 			Qubit var,
 			const std::vector<Edge<Node>>& edges,
 			bool cached = false) {
+			const auto traceMakeNode = enableContStageTrace && contStageTraceDepth > 0;
+			const auto traceBefore = traceMakeNode ? regressionDiagnostics : RegressionDiagnostics{};
+			if (traceMakeNode) {
+				contStageMakeNodeDepth++;
+			}
+			struct MakeNodeTraceGuard {
+				Package* pkg;
+				bool active;
+				RegressionDiagnostics before;
+				~MakeNodeTraceGuard() {
+					if (!active) {
+						return;
+					}
+					if (pkg->contStageMakeNodeDepth == 1) {
+						Package::accumulateRegressionDelta(pkg->contStageMakeNodeTotals, before, pkg->regressionDiagnostics);
+					}
+					pkg->contStageMakeNodeDepth--;
+				}
+			} makeNodeTraceGuard{this, traceMakeNode, traceBefore};
 				if(to_test){
 					std::cout << "var: " << var << std::endl;
 					std::cout << "edge.node.key: " << std::endl;
@@ -1216,6 +1272,25 @@ namespace dd {
 
 		template <class Node>
 		Edge<Node> T_add2(const Edge<Node>& x, const Edge<Node>& y) {
+			const auto traceTadd = enableContStageTrace && contStageTraceDepth > 0;
+			const auto traceBefore = traceTadd ? regressionDiagnostics : RegressionDiagnostics{};
+			if (traceTadd) {
+				contStageTaddDepth++;
+			}
+			struct TAddTraceGuard {
+				Package* pkg;
+				bool active;
+				RegressionDiagnostics before;
+				~TAddTraceGuard() {
+					if (!active) {
+						return;
+					}
+					if (pkg->contStageTaddDepth == 1) {
+						Package::accumulateRegressionDelta(pkg->contStageTaddTotals, before, pkg->regressionDiagnostics);
+					}
+					pkg->contStageTaddDepth--;
+				}
+			} taddTraceGuard{this, traceTadd, traceBefore};
 
 			//std::cout <<"879 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v)<<" " << x.map << " " << y.map << std::endl;
 			//the_maps::print_maps(x.map);
@@ -1472,6 +1547,74 @@ namespace dd {
 		//template <class LeftOperandNode, class RightOperandNode>
 		Edge<mNode> cont2(const Edge<mNode>& x, const Edge<mNode>& y, key_2_new_key_node* key_2_new_key1, key_2_new_key_node* key_2_new_key2, const int var_num) {
 			auto& id = this->identity;
+			if (enableContStageTrace) {
+				contStageTraceDepth++;
+			}
+			const auto traceRootCall = enableContStageTrace && contStageTraceDepth == 1;
+			const auto traceStep = contStageTraceStep;
+			const auto traceEdgeNodesBefore = traceRootCall ? size(x) : 0U;
+			const auto traceStart = traceRootCall ? regressionDiagnostics : RegressionDiagnostics{};
+			struct ContStageTraceGuard {
+				Package* pkg;
+				~ContStageTraceGuard() {
+					if (pkg->enableContStageTrace && pkg->contStageTraceDepth > 0) {
+						pkg->contStageTraceDepth--;
+					}
+				}
+			} traceGuard{this};
+			auto printContStageDelta = [&](const char* stage,
+									  const RegressionDiagnostics& before,
+									  const RegressionDiagnostics& after,
+									  const unsigned int nodesBefore,
+									  const unsigned int nodesAfter) {
+				if (!traceRootCall) {
+					return;
+				}
+				auto appendDelta = [](std::ostream& os, const char* label, const std::size_t lhs, const std::size_t rhs) {
+					if (rhs != lhs) {
+						os << " " << label << "+=" << (rhs - lhs);
+					}
+				};
+				std::ostringstream output;
+				output << "cont_stage[" << traceStep << "]:" << stage << " nodes=" << nodesBefore << "->" << nodesAfter;
+				appendDelta(output, "normalize.zero_children", before.normalizeZeroChildren, after.normalizeZeroChildren);
+				appendDelta(output, "normalize.child_phase_adds", before.normalizeChildPhaseAdds, after.normalizeChildPhaseAdds);
+				appendDelta(output, "normalize.root_phase_promotions", before.normalizeRootPhasePromotions, after.normalizeRootPhasePromotions);
+				appendDelta(output, "tadd.same_pointer_map_mismatch", before.taddSamePointerMapMismatch, after.taddSamePointerMapMismatch);
+				appendDelta(output, "mapmul.lookup_phaseful", before.mapmulLookupPhaseful, after.mapmulLookupPhaseful);
+				appendDelta(output, "mapmul.result_phaseful", before.mapmulResultPhaseful, after.mapmulResultPhaseful);
+				appendDelta(output, "mapdiv.lookup_phaseful", before.mapdivLookupPhaseful, after.mapdivLookupPhaseful);
+				appendDelta(output, "mapdiv.result_phaseful", before.mapdivResultPhaseful, after.mapdivResultPhaseful);
+				appendDelta(output, "find_remain.phase_carries", before.findRemainPhaseCarries, after.findRemainPhaseCarries);
+				std::cout << output.str() << std::endl;
+			};
+			auto printContCounterDelta = [&](const char* stage,
+									 const RegressionDiagnostics& before,
+									 const RegressionDiagnostics& after) {
+				if (!traceRootCall) {
+					return;
+				}
+				auto appendDelta = [](std::ostream& os, const char* label, const std::size_t lhs, const std::size_t rhs) {
+					if (rhs != lhs) {
+						os << " " << label << "+=" << (rhs - lhs);
+					}
+				};
+				std::ostringstream output;
+				output << "cont_stage[" << traceStep << "]:" << stage;
+				appendDelta(output, "normalize.zero_children", before.normalizeZeroChildren, after.normalizeZeroChildren);
+				appendDelta(output, "normalize.child_phase_adds", before.normalizeChildPhaseAdds, after.normalizeChildPhaseAdds);
+				appendDelta(output, "normalize.root_phase_promotions", before.normalizeRootPhasePromotions, after.normalizeRootPhasePromotions);
+				appendDelta(output, "tadd.same_pointer_map_mismatch", before.taddSamePointerMapMismatch, after.taddSamePointerMapMismatch);
+				appendDelta(output, "mapmul.lookup_phaseful", before.mapmulLookupPhaseful, after.mapmulLookupPhaseful);
+				appendDelta(output, "mapmul.result_phaseful", before.mapmulResultPhaseful, after.mapmulResultPhaseful);
+				appendDelta(output, "mapdiv.lookup_phaseful", before.mapdivLookupPhaseful, after.mapdivLookupPhaseful);
+				appendDelta(output, "mapdiv.result_phaseful", before.mapdivResultPhaseful, after.mapdivResultPhaseful);
+				appendDelta(output, "find_remain.phase_carries", before.findRemainPhaseCarries, after.findRemainPhaseCarries);
+				std::cout << output.str() << std::endl;
+			};
+			bool traceSawRootMakeNode = false;
+			auto traceBeforeRootMakeNode = RegressionDiagnostics{};
+			auto traceAfterRootMakeNode = RegressionDiagnostics{};
 			//std::cout <<"838 " << x.w << " " << y.w.r->value<<" "<<y.w.i->value<< std::endl;
 			//std::cout <<"838 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v) << std::endl;
 			//the_maps::print_maps(x.map);
@@ -1532,6 +1675,10 @@ namespace dd {
 
 			
 			auto r_maps = find_remain_map(x.map, y.map, key_2_new_key1, key_2_new_key2);
+			const auto traceAfterFindRemain = traceRootCall ? regressionDiagnostics : RegressionDiagnostics{};
+			if (traceRootCall) {
+				printContStageDelta("find_remain", traceStart, traceAfterFindRemain, traceEdgeNodesBefore, traceEdgeNodesBefore);
+			}
 
 			xCopy.map = r_maps->cont_map1;
 			yCopy.map = r_maps->cont_map2;
@@ -1698,7 +1845,14 @@ namespace dd {
 					std::cout << std::endl;
 
 				}
+					if (traceRootCall) {
+						traceBeforeRootMakeNode = regressionDiagnostics;
+					}
 					r = makeDDNode(Qubit(newk1), e, true);
+					if (traceRootCall) {
+						traceSawRootMakeNode = true;
+						traceAfterRootMakeNode = regressionDiagnostics;
+					}
 				}
 			}
 			else if (newk1 < newk2) {
@@ -1750,7 +1904,14 @@ namespace dd {
 					std::cout << std::endl;
 
 				}
+					if (traceRootCall) {
+						traceBeforeRootMakeNode = regressionDiagnostics;
+					}
 					r = makeDDNode(Qubit(newk2), e, true);
+					if (traceRootCall) {
+						traceSawRootMakeNode = true;
+						traceAfterRootMakeNode = regressionDiagnostics;
+					}
 				}
 
 			}
@@ -1824,7 +1985,14 @@ namespace dd {
 						std::cout << std::endl;
 
 					}
+					if (traceRootCall) {
+						traceBeforeRootMakeNode = regressionDiagnostics;
+					}
 					r = makeDDNode(Qubit(newk1), e, true);
+					if (traceRootCall) {
+						traceSawRootMakeNode = true;
+						traceAfterRootMakeNode = regressionDiagnostics;
+					}
 				}
 			}
 			// if(test_1314){
@@ -1875,6 +2043,20 @@ namespace dd {
 				// cn.mul(r.w, r.w, extra_phase);
 				cn.mul(r.w, r.w, cn.getTemporary(cos(extra_phase*rotate_angle),sin(extra_phase*rotate_angle)));
 				// cn.returnToCache(extra_phase);
+			}
+			const auto traceAfterFinalize = traceRootCall ? regressionDiagnostics : RegressionDiagnostics{};
+			if (traceRootCall) {
+				if (traceSawRootMakeNode) {
+					printContCounterDelta("recursive", traceAfterFindRemain, traceBeforeRootMakeNode);
+					printContCounterDelta("tadd_total", RegressionDiagnostics{}, contStageTaddTotals);
+					printContCounterDelta("make_node_total", RegressionDiagnostics{}, contStageMakeNodeTotals);
+					printContCounterDelta("root_make_node", traceBeforeRootMakeNode, traceAfterRootMakeNode);
+					printContStageDelta("finalize", traceAfterRootMakeNode, traceAfterFinalize, traceEdgeNodesBefore, size(r));
+				} else {
+					printContCounterDelta("tadd_total", RegressionDiagnostics{}, contStageTaddTotals);
+					printContCounterDelta("make_node_total", RegressionDiagnostics{}, contStageMakeNodeTotals);
+					printContStageDelta("build", traceAfterFindRemain, traceAfterFinalize, traceEdgeNodesBefore, size(r));
+				}
 			}
 
 			

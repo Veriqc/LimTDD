@@ -38,6 +38,17 @@ TDD makezero(int n, dd::Package<>* ddpackage, std::vector<BasisStates> states) {
     }
     return tn.cont(ddpackage);
 }
+
+bool stepTraceEnabled();
+bool stepInTraceWindow(std::size_t step);
+void printRegressionDeltaStep(
+    const char* phase,
+    std::size_t step,
+    std::size_t nodesBefore,
+    std::size_t nodesAfter,
+    const dd::Package<>::RegressionDiagnostics& before,
+    const dd::Package<>::RegressionDiagnostics& after);
+
 TDD cont(dd::TensorNetwork* tn,dd::Package<>* ddpackage, int n,bool simulate,const std::vector<BasisStates>& states,bool release = true) {
     if (!ddpackage) {
         throw std::runtime_error("ddpackage is null");
@@ -55,7 +66,18 @@ TDD cont(dd::TensorNetwork* tn,dd::Package<>* ddpackage, int n,bool simulate,con
     // The loop starts from 0 if simulating, 1 otherwise.
     for (size_t i = simulate ? 0 : 1; i < tn->tensors.size(); ++i) {
         try {
-            TDD temp_dd = ddpackage->cont(res_dd, tn->tensors[i].to_tdd(ddpackage));
+            const auto traceThisStep = ddpackage->enableRegressionDiagnostics && stepTraceEnabled() && stepInTraceWindow(i);
+            const auto stateNodesBefore = traceThisStep ? ddpackage->size(res_dd.e) : 0U;
+            const auto diagnosticsBeforeTensor = traceThisStep ? ddpackage->regressionDiagnostics : dd::Package<>::RegressionDiagnostics{};
+            TDD current_dd = tn->tensors[i].to_tdd(ddpackage);
+            const auto diagnosticsAfterTensor = traceThisStep ? ddpackage->regressionDiagnostics : dd::Package<>::RegressionDiagnostics{};
+            ddpackage->setContStageTrace(traceThisStep, i);
+            TDD temp_dd = ddpackage->cont(res_dd, current_dd);
+            ddpackage->setContStageTrace(false);
+            if (traceThisStep) {
+                printRegressionDeltaStep("tensor", i, 0U, ddpackage->size(current_dd.e), diagnosticsBeforeTensor, diagnosticsAfterTensor);
+                printRegressionDeltaStep("cont", i, stateNodesBefore, ddpackage->size(temp_dd.e), diagnosticsAfterTensor, ddpackage->regressionDiagnostics);
+            }
             if (release) {
                 ddpackage->incRef(temp_dd.e);
                 ddpackage->decRef(res_dd.e);
@@ -138,6 +160,51 @@ std::string formatGateTargets(const qc::Targets& targets) {
     return stream.str();
 }
 
+bool stepTraceEnabled() {
+    return envSizeValue("LIMTDD_STEP_TRACE_START").has_value() ||
+           envSizeValue("LIMTDD_STEP_TRACE_LEN").has_value();
+}
+
+bool stepInTraceWindow(const std::size_t step) {
+    const auto start = envSizeValue("LIMTDD_STEP_TRACE_START").value_or(0);
+    const auto length = envSizeValue("LIMTDD_STEP_TRACE_LEN").value_or(16);
+    return step >= start && step < start + length;
+}
+
+void appendRegressionDelta(std::ostream& output, const char* label, const std::size_t before, const std::size_t after) {
+    if (after != before) {
+        output << " " << label << "+=" << (after - before);
+    }
+}
+
+void printRegressionDeltaStep(
+    const char* phase,
+    const std::size_t step,
+    const std::size_t nodesBefore,
+    const std::size_t nodesAfter,
+    const dd::Package<>::RegressionDiagnostics& before,
+    const dd::Package<>::RegressionDiagnostics& after) {
+    std::ostringstream output;
+    output << "step_" << phase << "[" << step << "]:"
+           << " nodes=" << nodesBefore << "->" << nodesAfter;
+    appendRegressionDelta(output, "normalize.zero_children", before.normalizeZeroChildren, after.normalizeZeroChildren);
+    appendRegressionDelta(output, "normalize.child_phase_adds", before.normalizeChildPhaseAdds, after.normalizeChildPhaseAdds);
+    appendRegressionDelta(output, "normalize.root_phase_promotions", before.normalizeRootPhasePromotions, after.normalizeRootPhasePromotions);
+    appendRegressionDelta(output, "tadd.same_pointer_map_mismatch", before.taddSamePointerMapMismatch, after.taddSamePointerMapMismatch);
+    appendRegressionDelta(output, "mapmul.base_reset_self", before.mapmulBaseResetSelf, after.mapmulBaseResetSelf);
+    appendRegressionDelta(output, "mapmul.base_reset_other", before.mapmulBaseResetOther, after.mapmulBaseResetOther);
+    appendRegressionDelta(output, "mapmul.lookup_hits", before.mapmulLookupHits, after.mapmulLookupHits);
+    appendRegressionDelta(output, "mapmul.lookup_phaseful", before.mapmulLookupPhaseful, after.mapmulLookupPhaseful);
+    appendRegressionDelta(output, "mapmul.result_phaseful", before.mapmulResultPhaseful, after.mapmulResultPhaseful);
+    appendRegressionDelta(output, "mapdiv.base_reset_self", before.mapdivBaseResetSelf, after.mapdivBaseResetSelf);
+    appendRegressionDelta(output, "mapdiv.header_reset", before.mapdivHeaderReset, after.mapdivHeaderReset);
+    appendRegressionDelta(output, "mapdiv.lookup_hits", before.mapdivLookupHits, after.mapdivLookupHits);
+    appendRegressionDelta(output, "mapdiv.lookup_phaseful", before.mapdivLookupPhaseful, after.mapdivLookupPhaseful);
+    appendRegressionDelta(output, "mapdiv.result_phaseful", before.mapdivResultPhaseful, after.mapdivResultPhaseful);
+    appendRegressionDelta(output, "find_remain.phase_carries", before.findRemainPhaseCarries, after.findRemainPhaseCarries);
+    std::cout << output.str() << std::endl;
+}
+
 void printGateWindow(const qc::QuantumComputation& qc) {
     const auto windowStart = envSizeValue("LIMTDD_GATE_WINDOW_START");
     const auto windowLength = envSizeValue("LIMTDD_GATE_WINDOW_LEN");
@@ -169,7 +236,6 @@ int runXarraySelftest() {
 
     auto ddPack = std::make_shared<dd::Package<>>(10);
     ddPack->varOrder = {{"x0", 0}, {"y0", 1}, {"x1", 2}, {"y1", 3}};
-
     xt::xarray<dd::ComplexValue> tensorCnot = {
         {{{one, zero}, {zero, one}}, {{zero, zero}, {zero, zero}}},
         {{{zero, zero}, {zero, zero}}, {{zero, one}, {one, zero}}},
