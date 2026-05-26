@@ -59,7 +59,8 @@ namespace dd {
 		while (map1->level >= 0 || map2->level >= 0) {
 			if (map1->level > map2->level) {
 				// if (-std::pow(-1, map1->x)*ComplexNumbers::arg(map1->rotate) > maxArg) return true;
-				if ( int(-std::pow(-1, int(map1->x))*map1->rotate)%root_of_unit > int(root_of_unit/2)) return true;
+				const int signedRotate = map1->x ? map1->rotate : -map1->rotate;
+				if (signedRotate % root_of_unit > int(root_of_unit / 2)) return true;
 				
 				map1 = (map1->level >= 0) ? map1->father : map1;
 			} else if (map2->level > map1->level) {
@@ -71,7 +72,7 @@ namespace dd {
 				// fp theta2 = ComplexNumbers::arg(map2->rotate);
 				// fp phaseDiff = theta2 - theta1 * std::pow(-1, map1->x ^ map2->x);
 				// if (phaseDiff > maxArg) return true;
-				int phaseDiff = int(map2->rotate - map1->rotate * std::pow(-1, map1->x ^ map2->x)) %root_of_unit;
+				const int phaseDiff = ((map1->x ^ map2->x) ? (map2->rotate + map1->rotate) : (map2->rotate - map1->rotate)) % root_of_unit;
                 if (phaseDiff > root_of_unit/2) return true;
 				map1 = (map1->level >= 0) ? map1->father : map1;
 				map2 = (map2->level >= 0) ? map2->father : map2;
