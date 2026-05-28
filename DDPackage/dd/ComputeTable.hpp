@@ -47,6 +47,22 @@ namespace dd {
 		// access functions
 		[[nodiscard]] const auto& getTable() const { return table; }
 
+		[[nodiscard]] const Entry* findEntry(const LeftOperandType& leftOperand,
+			const RightOperandType& rightOperand) const {
+			const auto key = hash(leftOperand, rightOperand);
+			const auto& entry = table[key];
+			if (entry.result.p == nullptr) {
+				return nullptr;
+			}
+			if (entry.leftOperand != leftOperand) {
+				return nullptr;
+			}
+			if (entry.rightOperand != rightOperand) {
+				return nullptr;
+			}
+			return &entry;
+		}
+
 		void insert(const LeftOperandType& leftOperand,
 			const RightOperandType& rightOperand, const ResultType& result) {
 			const auto key = hash(leftOperand, rightOperand);
@@ -226,6 +242,22 @@ namespace dd {
 
 			// access functions
 			[[nodiscard]] const auto& getTable() const { return table; }
+
+			[[nodiscard]] const Entry* findEntry(const LeftOperandType& leftOperand,
+				const RightOperandType& rightOperand) const {
+				const auto key = hash(leftOperand, rightOperand);
+				const auto& entry = table[key];
+				if (entry.result == nullptr) {
+					return nullptr;
+				}
+				if (entry.leftOperand != leftOperand) {
+					return nullptr;
+				}
+				if (entry.rightOperand != rightOperand) {
+					return nullptr;
+				}
+				return &entry;
+			}
 
 			void insert(const LeftOperandType& leftOperand,
 				const RightOperandType& rightOperand, const ResultType& result,const int c) {

@@ -100,7 +100,57 @@ namespace dd {
 			std::size_t normalizeZeroChildren = 0;
 			std::size_t normalizeChildPhaseAdds = 0;
 			std::size_t normalizeRootPhasePromotions = 0;
+			std::size_t normalizeChild0FromInput0 = 0;
+			std::size_t normalizeChild0FromInput1 = 0;
+			std::size_t normalizeChild1FromInput0 = 0;
+			std::size_t normalizeChild1FromInput1 = 0;
+			std::size_t normalizeChild1Zeroed = 0;
+			std::size_t normalizeChild1SameWeightDifferentMap = 0;
+			std::size_t normalizeChild1SameMapDifferentWeight = 0;
+			std::size_t normalizeChild1DifferentMapAndWeight = 0;
+			std::size_t normalizeChild1DiffMapAndWeightSameNode = 0;
+			std::size_t normalizeChild1DiffMapAndWeightDifferentNode = 0;
+			std::size_t normalizeChild1DiffMapAndWeightAngleSnapped = 0;
+			std::size_t normalizeChild1DiffMapAndWeightResidualWeight = 0;
+			std::size_t normalizeChild1DiffMapAndWeightRotNonZero = 0;
+			std::size_t normalizeChild1DiffMapAndWeightNearSnapBoundary = 0;
+			std::size_t normalizeChild1DiffMapAndWeightSnapInterior = 0;
+			std::size_t normalizeChild1DiffMapAndWeightSnapBoundaryInside = 0;
+			std::size_t normalizeChild1DiffMapAndWeightResidualBoundaryOutside = 0;
+			std::size_t normalizeChild1DiffMapAndWeightResidualFarOutside = 0;
+			std::size_t normalizeChild1DiffMapAndWeightRotPositive = 0;
+			std::size_t normalizeChild1DiffMapAndWeightRotNegative = 0;
+			std::size_t normalizeChild1DiffMapAndWeightRotZero = 0;
+			std::size_t normalizeChild1LegacyAbsSnapDisagreement = 0;
+			std::size_t normalizeChild1PhasefulAfterMapdiv = 0;
+			std::size_t normalizeRootPhasePromotionsFromInput0 = 0;
+			std::size_t normalizeRootPhasePromotionsFromInput1 = 0;
+			std::size_t uniqueSemanticAlternatives = 0;
+			std::size_t uniqueSemanticAlternativeMisses = 0;
+			std::size_t uniqueSemanticGlobalAlternatives = 0;
+			std::size_t uniqueSemanticGlobalAlternativeMisses = 0;
+			std::size_t uniqueStructuralAlternatives = 0;
+			std::size_t uniqueStructuralAlternativeMisses = 0;
+			std::size_t uniqueStructuralSameWeightDifferentMap = 0;
+			std::size_t uniqueStructuralSameMapDifferentWeight = 0;
+			std::size_t uniqueStructuralDifferentMapAndWeight = 0;
+			std::size_t uniquePreNormalizeStructuralAlternatives = 0;
+			std::size_t uniquePreNormalizeSameWeightDifferentMap = 0;
+			std::size_t uniquePreNormalizeSameMapDifferentWeight = 0;
+			std::size_t uniquePreNormalizeDifferentMapAndWeight = 0;
+			std::size_t uniqueNormalizeTransitionDiffBothToMapOnly = 0;
+			std::size_t uniqueNormalizeTransitionDiffBothToWeightOnly = 0;
+			std::size_t uniqueNormalizeTransitionDiffBothToDiffBoth = 0;
 			std::size_t taddSamePointerMapMismatch = 0;
+			std::size_t taddMismatchResidualHeader = 0;
+			std::size_t taddMismatchResidualNonHeader = 0;
+			std::size_t taddMismatchResidualPhaseful = 0;
+			std::size_t taddMismatchAddHits = 0;
+			std::size_t taddMismatchAddMisses = 0;
+			std::size_t taddMismatchAddMissEmpty = 0;
+			std::size_t taddMismatchAddMissMapOnly = 0;
+			std::size_t taddMismatchAddMissWeightOnly = 0;
+			std::size_t taddMismatchAddMissMapAndWeight = 0;
 			std::size_t mapmulBaseResetSelf = 0;
 			std::size_t mapmulBaseResetOther = 0;
 			std::size_t mapmulLookupHits = 0;
@@ -110,6 +160,8 @@ namespace dd {
 			std::size_t mapdivHeaderReset = 0;
 			std::size_t mapdivLookupHits = 0;
 			std::size_t mapdivLookupPhaseful = 0;
+			std::size_t mapdivLookupPhaseOverwrite = 0;
+			std::size_t mapdivLookupPhaseOverwriteNonHeader = 0;
 			std::size_t mapdivResultPhaseful = 0;
 			std::size_t findRemainPhaseCarries = 0;
 		};
@@ -125,6 +177,8 @@ namespace dd {
 		//==========================================我写的========================================
 		bool to_test = false;
 		bool enableRegressionDiagnostics = false;
+		bool disableMapdivLookupWriteback = false;
+		bool enableUniqueSemanticProbe = false;
 		RegressionDiagnostics regressionDiagnostics{};
 		bool enableContStageTrace = false;
 		std::size_t contStageTraceStep = 0;
@@ -193,7 +247,57 @@ namespace dd {
 			total.normalizeZeroChildren += after.normalizeZeroChildren - before.normalizeZeroChildren;
 			total.normalizeChildPhaseAdds += after.normalizeChildPhaseAdds - before.normalizeChildPhaseAdds;
 			total.normalizeRootPhasePromotions += after.normalizeRootPhasePromotions - before.normalizeRootPhasePromotions;
+			total.normalizeChild0FromInput0 += after.normalizeChild0FromInput0 - before.normalizeChild0FromInput0;
+			total.normalizeChild0FromInput1 += after.normalizeChild0FromInput1 - before.normalizeChild0FromInput1;
+			total.normalizeChild1FromInput0 += after.normalizeChild1FromInput0 - before.normalizeChild1FromInput0;
+			total.normalizeChild1FromInput1 += after.normalizeChild1FromInput1 - before.normalizeChild1FromInput1;
+			total.normalizeChild1Zeroed += after.normalizeChild1Zeroed - before.normalizeChild1Zeroed;
+			total.normalizeChild1SameWeightDifferentMap += after.normalizeChild1SameWeightDifferentMap - before.normalizeChild1SameWeightDifferentMap;
+			total.normalizeChild1SameMapDifferentWeight += after.normalizeChild1SameMapDifferentWeight - before.normalizeChild1SameMapDifferentWeight;
+			total.normalizeChild1DifferentMapAndWeight += after.normalizeChild1DifferentMapAndWeight - before.normalizeChild1DifferentMapAndWeight;
+			total.normalizeChild1DiffMapAndWeightSameNode += after.normalizeChild1DiffMapAndWeightSameNode - before.normalizeChild1DiffMapAndWeightSameNode;
+			total.normalizeChild1DiffMapAndWeightDifferentNode += after.normalizeChild1DiffMapAndWeightDifferentNode - before.normalizeChild1DiffMapAndWeightDifferentNode;
+			total.normalizeChild1DiffMapAndWeightAngleSnapped += after.normalizeChild1DiffMapAndWeightAngleSnapped - before.normalizeChild1DiffMapAndWeightAngleSnapped;
+			total.normalizeChild1DiffMapAndWeightResidualWeight += after.normalizeChild1DiffMapAndWeightResidualWeight - before.normalizeChild1DiffMapAndWeightResidualWeight;
+			total.normalizeChild1DiffMapAndWeightRotNonZero += after.normalizeChild1DiffMapAndWeightRotNonZero - before.normalizeChild1DiffMapAndWeightRotNonZero;
+			total.normalizeChild1DiffMapAndWeightNearSnapBoundary += after.normalizeChild1DiffMapAndWeightNearSnapBoundary - before.normalizeChild1DiffMapAndWeightNearSnapBoundary;
+			total.normalizeChild1DiffMapAndWeightSnapInterior += after.normalizeChild1DiffMapAndWeightSnapInterior - before.normalizeChild1DiffMapAndWeightSnapInterior;
+			total.normalizeChild1DiffMapAndWeightSnapBoundaryInside += after.normalizeChild1DiffMapAndWeightSnapBoundaryInside - before.normalizeChild1DiffMapAndWeightSnapBoundaryInside;
+			total.normalizeChild1DiffMapAndWeightResidualBoundaryOutside += after.normalizeChild1DiffMapAndWeightResidualBoundaryOutside - before.normalizeChild1DiffMapAndWeightResidualBoundaryOutside;
+			total.normalizeChild1DiffMapAndWeightResidualFarOutside += after.normalizeChild1DiffMapAndWeightResidualFarOutside - before.normalizeChild1DiffMapAndWeightResidualFarOutside;
+			total.normalizeChild1DiffMapAndWeightRotPositive += after.normalizeChild1DiffMapAndWeightRotPositive - before.normalizeChild1DiffMapAndWeightRotPositive;
+			total.normalizeChild1DiffMapAndWeightRotNegative += after.normalizeChild1DiffMapAndWeightRotNegative - before.normalizeChild1DiffMapAndWeightRotNegative;
+			total.normalizeChild1DiffMapAndWeightRotZero += after.normalizeChild1DiffMapAndWeightRotZero - before.normalizeChild1DiffMapAndWeightRotZero;
+			total.normalizeChild1LegacyAbsSnapDisagreement += after.normalizeChild1LegacyAbsSnapDisagreement - before.normalizeChild1LegacyAbsSnapDisagreement;
+			total.normalizeChild1PhasefulAfterMapdiv += after.normalizeChild1PhasefulAfterMapdiv - before.normalizeChild1PhasefulAfterMapdiv;
+			total.normalizeRootPhasePromotionsFromInput0 += after.normalizeRootPhasePromotionsFromInput0 - before.normalizeRootPhasePromotionsFromInput0;
+			total.normalizeRootPhasePromotionsFromInput1 += after.normalizeRootPhasePromotionsFromInput1 - before.normalizeRootPhasePromotionsFromInput1;
+			total.uniqueSemanticAlternatives += after.uniqueSemanticAlternatives - before.uniqueSemanticAlternatives;
+			total.uniqueSemanticAlternativeMisses += after.uniqueSemanticAlternativeMisses - before.uniqueSemanticAlternativeMisses;
+			total.uniqueSemanticGlobalAlternatives += after.uniqueSemanticGlobalAlternatives - before.uniqueSemanticGlobalAlternatives;
+			total.uniqueSemanticGlobalAlternativeMisses += after.uniqueSemanticGlobalAlternativeMisses - before.uniqueSemanticGlobalAlternativeMisses;
+			total.uniqueStructuralAlternatives += after.uniqueStructuralAlternatives - before.uniqueStructuralAlternatives;
+			total.uniqueStructuralAlternativeMisses += after.uniqueStructuralAlternativeMisses - before.uniqueStructuralAlternativeMisses;
+			total.uniqueStructuralSameWeightDifferentMap += after.uniqueStructuralSameWeightDifferentMap - before.uniqueStructuralSameWeightDifferentMap;
+			total.uniqueStructuralSameMapDifferentWeight += after.uniqueStructuralSameMapDifferentWeight - before.uniqueStructuralSameMapDifferentWeight;
+			total.uniqueStructuralDifferentMapAndWeight += after.uniqueStructuralDifferentMapAndWeight - before.uniqueStructuralDifferentMapAndWeight;
+			total.uniquePreNormalizeStructuralAlternatives += after.uniquePreNormalizeStructuralAlternatives - before.uniquePreNormalizeStructuralAlternatives;
+			total.uniquePreNormalizeSameWeightDifferentMap += after.uniquePreNormalizeSameWeightDifferentMap - before.uniquePreNormalizeSameWeightDifferentMap;
+			total.uniquePreNormalizeSameMapDifferentWeight += after.uniquePreNormalizeSameMapDifferentWeight - before.uniquePreNormalizeSameMapDifferentWeight;
+			total.uniquePreNormalizeDifferentMapAndWeight += after.uniquePreNormalizeDifferentMapAndWeight - before.uniquePreNormalizeDifferentMapAndWeight;
+			total.uniqueNormalizeTransitionDiffBothToMapOnly += after.uniqueNormalizeTransitionDiffBothToMapOnly - before.uniqueNormalizeTransitionDiffBothToMapOnly;
+			total.uniqueNormalizeTransitionDiffBothToWeightOnly += after.uniqueNormalizeTransitionDiffBothToWeightOnly - before.uniqueNormalizeTransitionDiffBothToWeightOnly;
+			total.uniqueNormalizeTransitionDiffBothToDiffBoth += after.uniqueNormalizeTransitionDiffBothToDiffBoth - before.uniqueNormalizeTransitionDiffBothToDiffBoth;
 			total.taddSamePointerMapMismatch += after.taddSamePointerMapMismatch - before.taddSamePointerMapMismatch;
+			total.taddMismatchResidualHeader += after.taddMismatchResidualHeader - before.taddMismatchResidualHeader;
+			total.taddMismatchResidualNonHeader += after.taddMismatchResidualNonHeader - before.taddMismatchResidualNonHeader;
+			total.taddMismatchResidualPhaseful += after.taddMismatchResidualPhaseful - before.taddMismatchResidualPhaseful;
+			total.taddMismatchAddHits += after.taddMismatchAddHits - before.taddMismatchAddHits;
+			total.taddMismatchAddMisses += after.taddMismatchAddMisses - before.taddMismatchAddMisses;
+			total.taddMismatchAddMissEmpty += after.taddMismatchAddMissEmpty - before.taddMismatchAddMissEmpty;
+			total.taddMismatchAddMissMapOnly += after.taddMismatchAddMissMapOnly - before.taddMismatchAddMissMapOnly;
+			total.taddMismatchAddMissWeightOnly += after.taddMismatchAddMissWeightOnly - before.taddMismatchAddMissWeightOnly;
+			total.taddMismatchAddMissMapAndWeight += after.taddMismatchAddMissMapAndWeight - before.taddMismatchAddMissMapAndWeight;
 			total.mapmulBaseResetSelf += after.mapmulBaseResetSelf - before.mapmulBaseResetSelf;
 			total.mapmulBaseResetOther += after.mapmulBaseResetOther - before.mapmulBaseResetOther;
 			total.mapmulLookupHits += after.mapmulLookupHits - before.mapmulLookupHits;
@@ -203,6 +307,8 @@ namespace dd {
 			total.mapdivHeaderReset += after.mapdivHeaderReset - before.mapdivHeaderReset;
 			total.mapdivLookupHits += after.mapdivLookupHits - before.mapdivLookupHits;
 			total.mapdivLookupPhaseful += after.mapdivLookupPhaseful - before.mapdivLookupPhaseful;
+			total.mapdivLookupPhaseOverwrite += after.mapdivLookupPhaseOverwrite - before.mapdivLookupPhaseOverwrite;
+			total.mapdivLookupPhaseOverwriteNonHeader += after.mapdivLookupPhaseOverwriteNonHeader - before.mapdivLookupPhaseOverwriteNonHeader;
 			total.mapdivResultPhaseful += after.mapdivResultPhaseful - before.mapdivResultPhaseful;
 			total.findRemainPhaseCarries += after.findRemainPhaseCarries - before.findRemainPhaseCarries;
 		}
@@ -211,7 +317,57 @@ namespace dd {
 			os << "regression.normalize.zero_children=" << regressionDiagnostics.normalizeZeroChildren << std::endl;
 			os << "regression.normalize.child_phase_adds=" << regressionDiagnostics.normalizeChildPhaseAdds << std::endl;
 			os << "regression.normalize.root_phase_promotions=" << regressionDiagnostics.normalizeRootPhasePromotions << std::endl;
+			os << "regression.normalize.child0_from_input0=" << regressionDiagnostics.normalizeChild0FromInput0 << std::endl;
+			os << "regression.normalize.child0_from_input1=" << regressionDiagnostics.normalizeChild0FromInput1 << std::endl;
+			os << "regression.normalize.child1_from_input0=" << regressionDiagnostics.normalizeChild1FromInput0 << std::endl;
+			os << "regression.normalize.child1_from_input1=" << regressionDiagnostics.normalizeChild1FromInput1 << std::endl;
+			os << "regression.normalize.child1_zeroed=" << regressionDiagnostics.normalizeChild1Zeroed << std::endl;
+			os << "regression.normalize.child1_same_weight_diff_map=" << regressionDiagnostics.normalizeChild1SameWeightDifferentMap << std::endl;
+			os << "regression.normalize.child1_same_map_diff_weight=" << regressionDiagnostics.normalizeChild1SameMapDifferentWeight << std::endl;
+			os << "regression.normalize.child1_diff_map_and_weight=" << regressionDiagnostics.normalizeChild1DifferentMapAndWeight << std::endl;
+			os << "regression.normalize.child1_diff_map_and_weight_same_node=" << regressionDiagnostics.normalizeChild1DiffMapAndWeightSameNode << std::endl;
+			os << "regression.normalize.child1_diff_map_and_weight_different_node=" << regressionDiagnostics.normalizeChild1DiffMapAndWeightDifferentNode << std::endl;
+			os << "regression.normalize.child1_diff_map_and_weight_angle_snapped=" << regressionDiagnostics.normalizeChild1DiffMapAndWeightAngleSnapped << std::endl;
+			os << "regression.normalize.child1_diff_map_and_weight_residual_weight=" << regressionDiagnostics.normalizeChild1DiffMapAndWeightResidualWeight << std::endl;
+			os << "regression.normalize.child1_diff_map_and_weight_rot_nonzero=" << regressionDiagnostics.normalizeChild1DiffMapAndWeightRotNonZero << std::endl;
+			os << "regression.normalize.child1_diff_map_and_weight_near_snap_boundary=" << regressionDiagnostics.normalizeChild1DiffMapAndWeightNearSnapBoundary << std::endl;
+			os << "regression.normalize.child1_diff_map_and_weight_snap_interior=" << regressionDiagnostics.normalizeChild1DiffMapAndWeightSnapInterior << std::endl;
+			os << "regression.normalize.child1_diff_map_and_weight_snap_boundary_inside=" << regressionDiagnostics.normalizeChild1DiffMapAndWeightSnapBoundaryInside << std::endl;
+			os << "regression.normalize.child1_diff_map_and_weight_residual_boundary_outside=" << regressionDiagnostics.normalizeChild1DiffMapAndWeightResidualBoundaryOutside << std::endl;
+			os << "regression.normalize.child1_diff_map_and_weight_residual_far_outside=" << regressionDiagnostics.normalizeChild1DiffMapAndWeightResidualFarOutside << std::endl;
+			os << "regression.normalize.child1_diff_map_and_weight_rot_positive=" << regressionDiagnostics.normalizeChild1DiffMapAndWeightRotPositive << std::endl;
+			os << "regression.normalize.child1_diff_map_and_weight_rot_negative=" << regressionDiagnostics.normalizeChild1DiffMapAndWeightRotNegative << std::endl;
+			os << "regression.normalize.child1_diff_map_and_weight_rot_zero=" << regressionDiagnostics.normalizeChild1DiffMapAndWeightRotZero << std::endl;
+			os << "regression.normalize.child1_legacy_abs_snap_disagreement=" << regressionDiagnostics.normalizeChild1LegacyAbsSnapDisagreement << std::endl;
+			os << "regression.normalize.child1_phaseful_after_mapdiv=" << regressionDiagnostics.normalizeChild1PhasefulAfterMapdiv << std::endl;
+			os << "regression.normalize.root_phase_promotions_from_input0=" << regressionDiagnostics.normalizeRootPhasePromotionsFromInput0 << std::endl;
+			os << "regression.normalize.root_phase_promotions_from_input1=" << regressionDiagnostics.normalizeRootPhasePromotionsFromInput1 << std::endl;
+			os << "regression.unique.semantic_alternatives=" << regressionDiagnostics.uniqueSemanticAlternatives << std::endl;
+			os << "regression.unique.semantic_alternative_misses=" << regressionDiagnostics.uniqueSemanticAlternativeMisses << std::endl;
+			os << "regression.unique.semantic_global_alternatives=" << regressionDiagnostics.uniqueSemanticGlobalAlternatives << std::endl;
+			os << "regression.unique.semantic_global_alternative_misses=" << regressionDiagnostics.uniqueSemanticGlobalAlternativeMisses << std::endl;
+			os << "regression.unique.structural_alternatives=" << regressionDiagnostics.uniqueStructuralAlternatives << std::endl;
+			os << "regression.unique.structural_alternative_misses=" << regressionDiagnostics.uniqueStructuralAlternativeMisses << std::endl;
+			os << "regression.unique.structural_same_weight_diff_map=" << regressionDiagnostics.uniqueStructuralSameWeightDifferentMap << std::endl;
+			os << "regression.unique.structural_same_map_diff_weight=" << regressionDiagnostics.uniqueStructuralSameMapDifferentWeight << std::endl;
+			os << "regression.unique.structural_diff_map_and_weight=" << regressionDiagnostics.uniqueStructuralDifferentMapAndWeight << std::endl;
+			os << "regression.unique.pre_normalize_structural_alternatives=" << regressionDiagnostics.uniquePreNormalizeStructuralAlternatives << std::endl;
+			os << "regression.unique.pre_normalize_same_weight_diff_map=" << regressionDiagnostics.uniquePreNormalizeSameWeightDifferentMap << std::endl;
+			os << "regression.unique.pre_normalize_same_map_diff_weight=" << regressionDiagnostics.uniquePreNormalizeSameMapDifferentWeight << std::endl;
+			os << "regression.unique.pre_normalize_diff_map_and_weight=" << regressionDiagnostics.uniquePreNormalizeDifferentMapAndWeight << std::endl;
+			os << "regression.unique.normalize_transition_diff_both_to_map_only=" << regressionDiagnostics.uniqueNormalizeTransitionDiffBothToMapOnly << std::endl;
+			os << "regression.unique.normalize_transition_diff_both_to_weight_only=" << regressionDiagnostics.uniqueNormalizeTransitionDiffBothToWeightOnly << std::endl;
+			os << "regression.unique.normalize_transition_diff_both_to_diff_both=" << regressionDiagnostics.uniqueNormalizeTransitionDiffBothToDiffBoth << std::endl;
 			os << "regression.tadd.same_pointer_map_mismatch=" << regressionDiagnostics.taddSamePointerMapMismatch << std::endl;
+			os << "regression.tadd.mismatch_residual_header=" << regressionDiagnostics.taddMismatchResidualHeader << std::endl;
+			os << "regression.tadd.mismatch_residual_non_header=" << regressionDiagnostics.taddMismatchResidualNonHeader << std::endl;
+			os << "regression.tadd.mismatch_residual_phaseful=" << regressionDiagnostics.taddMismatchResidualPhaseful << std::endl;
+			os << "regression.tadd.mismatch_add_hits=" << regressionDiagnostics.taddMismatchAddHits << std::endl;
+			os << "regression.tadd.mismatch_add_misses=" << regressionDiagnostics.taddMismatchAddMisses << std::endl;
+			os << "regression.tadd.mismatch_add_miss_empty=" << regressionDiagnostics.taddMismatchAddMissEmpty << std::endl;
+			os << "regression.tadd.mismatch_add_miss_map_only=" << regressionDiagnostics.taddMismatchAddMissMapOnly << std::endl;
+			os << "regression.tadd.mismatch_add_miss_weight_only=" << regressionDiagnostics.taddMismatchAddMissWeightOnly << std::endl;
+			os << "regression.tadd.mismatch_add_miss_map_and_weight=" << regressionDiagnostics.taddMismatchAddMissMapAndWeight << std::endl;
 			os << "regression.mapmul.base_reset_self=" << regressionDiagnostics.mapmulBaseResetSelf << std::endl;
 			os << "regression.mapmul.base_reset_other=" << regressionDiagnostics.mapmulBaseResetOther << std::endl;
 			os << "regression.mapmul.lookup_hits=" << regressionDiagnostics.mapmulLookupHits << std::endl;
@@ -221,6 +377,8 @@ namespace dd {
 			os << "regression.mapdiv.header_reset=" << regressionDiagnostics.mapdivHeaderReset << std::endl;
 			os << "regression.mapdiv.lookup_hits=" << regressionDiagnostics.mapdivLookupHits << std::endl;
 			os << "regression.mapdiv.lookup_phaseful=" << regressionDiagnostics.mapdivLookupPhaseful << std::endl;
+			os << "regression.mapdiv.lookup_phase_overwrite=" << regressionDiagnostics.mapdivLookupPhaseOverwrite << std::endl;
+			os << "regression.mapdiv.lookup_phase_overwrite_non_header=" << regressionDiagnostics.mapdivLookupPhaseOverwriteNonHeader << std::endl;
 			os << "regression.mapdiv.result_phaseful=" << regressionDiagnostics.mapdivResultPhaseful << std::endl;
 			os << "regression.find_remain.phase_carries=" << regressionDiagnostics.findRemainPhaseCarries << std::endl;
 			return os;
@@ -302,6 +460,7 @@ namespace dd {
 		/// Matrix nodes, edges and quantum gates
 		///
 		template <class Node> Edge<Node> normalize(const Edge<Node>& e, bool cached) {
+			const auto originalEdges = e.p->e;
 
 			auto maxArgIndex = -1;
 			// v0 = e.p->e[0].p
@@ -397,6 +556,29 @@ namespace dd {
 				res.p->e = {res.p->e[1],res.p->e[0]};
 				isZero = { isZero[1],isZero[0] };
 			}
+			const auto child0SourceIndex = add_x ? 1U : 0U;
+			const auto child1SourceIndex = add_x ? 0U : 1U;
+			const auto& child1SourceEdge = originalEdges[child1SourceIndex];
+			const auto child1SourceWasZero = child1SourceEdge.w.approximatelyZero();
+			bool child1AngleSnapped = false;
+			bool child1ResidualWeight = false;
+			bool child1RotNonZero = false;
+			bool child1NearSnapBoundary = false;
+			bool child1SnapInterior = false;
+			bool child1SnapBoundaryInside = false;
+			bool child1ResidualBoundaryOutside = false;
+			bool child1ResidualFarOutside = false;
+			int child1RotSign = 0;
+			bool child1LegacyAbsSnapDisagreement = false;
+			if (enableRegressionDiagnostics) {
+				if (child0SourceIndex == 0U) {
+					regressionDiagnostics.normalizeChild0FromInput0++;
+					regressionDiagnostics.normalizeChild1FromInput1++;
+				} else {
+					regressionDiagnostics.normalizeChild0FromInput1++;
+					regressionDiagnostics.normalizeChild1FromInput0++;
+				}
+			}
 			maxArgIndex = 0;
 
 			//std::cout << "aaa" << std::endl;
@@ -442,6 +624,7 @@ namespace dd {
 						res.p->e[i] = { res.p->e[0].p,Complex::zero, the_maps::the_maps_header() };
 						if (enableRegressionDiagnostics) {
 							regressionDiagnostics.normalizeZeroChildren++;
+							regressionDiagnostics.normalizeChild1Zeroed++;
 						}
 						res.p->e[i].map->extra_phase = 0;
 						continue;
@@ -474,13 +657,34 @@ namespace dd {
 						auto angle = ComplexNumbers::arg(c);
 						int rot = round(angle / rotate_angle);
 						double detla_angle = angle - rot * rotate_angle;
-						if (abs(detla_angle) < ComplexTable<>::tolerance()* rotate_angle) {
+						if (i == 1U) {
+							child1RotNonZero = (rot != 0);
+							const auto snapThreshold = ComplexTable<>::tolerance() * rotate_angle;
+							const auto absDeltaAngle = std::abs(detla_angle);
+							const auto boundaryDistance = std::abs(absDeltaAngle - snapThreshold);
+							child1NearSnapBoundary = boundaryDistance <= snapThreshold;
+							child1SnapInterior = absDeltaAngle <= snapThreshold * 0.5;
+							child1SnapBoundaryInside = absDeltaAngle > snapThreshold * 0.5 && absDeltaAngle < snapThreshold;
+							child1ResidualBoundaryOutside = absDeltaAngle >= snapThreshold && absDeltaAngle <= snapThreshold * 1.5;
+							child1ResidualFarOutside = absDeltaAngle > snapThreshold * 1.5;
+							child1RotSign = (rot > 0) ? 1 : ((rot < 0) ? -1 : 0);
+							const auto legacyAbsSnapped = abs(detla_angle) < ComplexTable<>::tolerance() * rotate_angle;
+							const auto explicitAbsSnapped = absDeltaAngle < snapThreshold;
+							child1LegacyAbsSnapDisagreement = legacyAbsSnapped != explicitAbsSnapped;
+						}
+						if (std::abs(detla_angle) < ComplexTable<>::tolerance()* rotate_angle) {
+							if (i == 1U) {
+								child1AngleSnapped = true;
+							}
 							c.r->value = sqrt(ComplexNumbers::mag2(c));
 							c.i->value = 0;
 							//std::cout << c << " a " << ComplexNumbers::mag2(c) << std::endl;
 							res.p->e[i].w = cn.lookup(c);
 						}
 						else {
+							if (i == 1U) {
+								child1ResidualWeight = true;
+							}
 							//c.r->value = sqrt(ComplexNumbers::mag2(c))*cos(angle- rot * rotate_angle);
 							//c.i->value = sqrt(ComplexNumbers::mag2(c))*sin(angle - rot * rotate_angle);
 							double mags = sqrt(ComplexNumbers::mag2(c));
@@ -504,8 +708,67 @@ namespace dd {
 				}
 			}
 
+			if (enableRegressionDiagnostics && !child1SourceWasZero && !res.p->e[1].w.approximatelyZero()) {
+				const auto sameWeight = res.p->e[1].w.approximatelyEquals(child1SourceEdge.w);
+				const auto sameMap = res.p->e[1].map == child1SourceEdge.map;
+				if (sameWeight && !sameMap) {
+					regressionDiagnostics.normalizeChild1SameWeightDifferentMap++;
+				} else if (!sameWeight && sameMap) {
+					regressionDiagnostics.normalizeChild1SameMapDifferentWeight++;
+				} else if (!sameWeight && !sameMap) {
+					regressionDiagnostics.normalizeChild1DifferentMapAndWeight++;
+					if (res.p->e[1].p == child1SourceEdge.p) {
+						regressionDiagnostics.normalizeChild1DiffMapAndWeightSameNode++;
+					} else {
+						regressionDiagnostics.normalizeChild1DiffMapAndWeightDifferentNode++;
+					}
+					if (child1AngleSnapped) {
+						regressionDiagnostics.normalizeChild1DiffMapAndWeightAngleSnapped++;
+					}
+					if (child1ResidualWeight) {
+						regressionDiagnostics.normalizeChild1DiffMapAndWeightResidualWeight++;
+					}
+					if (child1RotNonZero) {
+						regressionDiagnostics.normalizeChild1DiffMapAndWeightRotNonZero++;
+					}
+					if (child1NearSnapBoundary) {
+						regressionDiagnostics.normalizeChild1DiffMapAndWeightNearSnapBoundary++;
+					}
+					if (child1SnapInterior) {
+						regressionDiagnostics.normalizeChild1DiffMapAndWeightSnapInterior++;
+					}
+					if (child1SnapBoundaryInside) {
+						regressionDiagnostics.normalizeChild1DiffMapAndWeightSnapBoundaryInside++;
+					}
+					if (child1ResidualBoundaryOutside) {
+						regressionDiagnostics.normalizeChild1DiffMapAndWeightResidualBoundaryOutside++;
+					}
+					if (child1ResidualFarOutside) {
+						regressionDiagnostics.normalizeChild1DiffMapAndWeightResidualFarOutside++;
+					}
+					if (child1RotSign > 0) {
+						regressionDiagnostics.normalizeChild1DiffMapAndWeightRotPositive++;
+					} else if (child1RotSign < 0) {
+						regressionDiagnostics.normalizeChild1DiffMapAndWeightRotNegative++;
+					} else {
+						regressionDiagnostics.normalizeChild1DiffMapAndWeightRotZero++;
+					}
+					if (child1LegacyAbsSnapDisagreement) {
+						regressionDiagnostics.normalizeChild1LegacyAbsSnapDisagreement++;
+					}
+				}
+				if (res.p->e[1].map->extra_phase != 0) {
+					regressionDiagnostics.normalizeChild1PhasefulAfterMapdiv++;
+				}
+			}
+
 			if (enableRegressionDiagnostics && res.p->e[1].map->extra_phase != 0) {
 				regressionDiagnostics.normalizeRootPhasePromotions++;
+				if (child1SourceIndex == 0U) {
+					regressionDiagnostics.normalizeRootPhasePromotionsFromInput0++;
+				} else {
+					regressionDiagnostics.normalizeRootPhasePromotionsFromInput1++;
+				}
 			}
 			res.map = append_new_map(res.map, res.p->v, add_x, res.p->e[1].map->extra_phase);
 			if (!isZero[1]) {
@@ -632,12 +895,76 @@ namespace dd {
 			//std::cout << 486 << "   " << edges[0].w << std::endl;
 			//std::cout << 486 << "   " << edges[1].w << std::endl;
 
+			const auto preNormalizeStructuralProfile = enableUniqueSemanticProbe
+				? uniqueTable.profileStructuralAlternatives(e)
+				: decltype(uniqueTable.profileStructuralAlternatives(e)){};
+			if (enableRegressionDiagnostics && preNormalizeStructuralProfile.found) {
+				regressionDiagnostics.uniquePreNormalizeStructuralAlternatives++;
+			}
+			if (enableRegressionDiagnostics && preNormalizeStructuralProfile.sameWeightDifferentMap) {
+				regressionDiagnostics.uniquePreNormalizeSameWeightDifferentMap++;
+			}
+			if (enableRegressionDiagnostics && preNormalizeStructuralProfile.sameMapDifferentWeight) {
+				regressionDiagnostics.uniquePreNormalizeSameMapDifferentWeight++;
+			}
+			if (enableRegressionDiagnostics && preNormalizeStructuralProfile.differentMapAndWeight) {
+				regressionDiagnostics.uniquePreNormalizeDifferentMapAndWeight++;
+			}
+
 			e = normalize(e, cached);
 
 			assert(e.p->v == var || e.isTerminal());
 
 			// look it up in the unique tables
+			const auto semanticAlternative = enableUniqueSemanticProbe && uniqueTable.hasSemanticAlternative(e);
+			const auto semanticGlobalAlternativeBucket = enableUniqueSemanticProbe && !semanticAlternative
+				? uniqueTable.findSemanticAlternativeBucket(e)
+				: decltype(uniqueTable.findSemanticAlternativeBucket(e)){uniqueTable.getTables().front().size()};
+			const auto structuralAlternativeBucket = enableUniqueSemanticProbe
+				? uniqueTable.findStructuralAlternativeBucket(e)
+				: decltype(uniqueTable.findStructuralAlternativeBucket(e)){uniqueTable.getTables().front().size()};
+			const auto structuralAlternativeProfile = enableUniqueSemanticProbe
+				? uniqueTable.profileStructuralAlternatives(e)
+				: decltype(uniqueTable.profileStructuralAlternatives(e)){};
+			if (enableRegressionDiagnostics && semanticAlternative) {
+				regressionDiagnostics.uniqueSemanticAlternatives++;
+			}
+			if (enableRegressionDiagnostics && semanticGlobalAlternativeBucket != uniqueTable.getTables().front().size()) {
+				regressionDiagnostics.uniqueSemanticGlobalAlternatives++;
+			}
+			if (enableRegressionDiagnostics && structuralAlternativeBucket != uniqueTable.getTables().front().size()) {
+				regressionDiagnostics.uniqueStructuralAlternatives++;
+			}
+			if (enableRegressionDiagnostics && structuralAlternativeProfile.sameWeightDifferentMap) {
+				regressionDiagnostics.uniqueStructuralSameWeightDifferentMap++;
+			}
+			if (enableRegressionDiagnostics && structuralAlternativeProfile.sameMapDifferentWeight) {
+				regressionDiagnostics.uniqueStructuralSameMapDifferentWeight++;
+			}
+			if (enableRegressionDiagnostics && structuralAlternativeProfile.differentMapAndWeight) {
+				regressionDiagnostics.uniqueStructuralDifferentMapAndWeight++;
+			}
+			if (enableRegressionDiagnostics && preNormalizeStructuralProfile.differentMapAndWeight) {
+				if (structuralAlternativeProfile.sameWeightDifferentMap) {
+					regressionDiagnostics.uniqueNormalizeTransitionDiffBothToMapOnly++;
+				}
+				if (structuralAlternativeProfile.sameMapDifferentWeight) {
+					regressionDiagnostics.uniqueNormalizeTransitionDiffBothToWeightOnly++;
+				}
+				if (structuralAlternativeProfile.differentMapAndWeight) {
+					regressionDiagnostics.uniqueNormalizeTransitionDiffBothToDiffBoth++;
+				}
+			}
 			auto l = uniqueTable.lookup(e, false);
+			if (enableRegressionDiagnostics && semanticAlternative && l.p == e.p) {
+				regressionDiagnostics.uniqueSemanticAlternativeMisses++;
+			}
+			if (enableRegressionDiagnostics && semanticGlobalAlternativeBucket != uniqueTable.getTables().front().size() && l.p == e.p) {
+				regressionDiagnostics.uniqueSemanticGlobalAlternativeMisses++;
+			}
+			if (enableRegressionDiagnostics && structuralAlternativeBucket != uniqueTable.getTables().front().size() && l.p == e.p) {
+				regressionDiagnostics.uniqueStructuralAlternativeMisses++;
+			}
 
 			assert(l.p->v == var || l.isTerminal());
 			//std::cout << 486 << "   " << l.w << std::endl;
@@ -768,15 +1095,23 @@ namespace dd {
 				return the_maps_header;
 			}
 			
-			auto r = mapdivTable.lookup(self, other);
-			if (r != nullptr) {
+			if (const auto* entry = mapdivTable.findEntry(self, other); entry != nullptr) {
 				if (enableRegressionDiagnostics) {
 					regressionDiagnostics.mapdivLookupHits++;
-					if (r->extra_phase != 0) {
+					if (entry->extra_phase != 0) {
 						regressionDiagnostics.mapdivLookupPhaseful++;
 					}
+					if (entry->extra_phase != entry->result->extra_phase) {
+						regressionDiagnostics.mapdivLookupPhaseOverwrite++;
+						if (entry->result != the_maps::the_maps_header()) {
+							regressionDiagnostics.mapdivLookupPhaseOverwriteNonHeader++;
+						}
+					}
 				}
-				return r;
+				if (!disableMapdivLookupWriteback) {
+					entry->result->extra_phase = entry->extra_phase;
+				}
+				return entry->result;
 			}
 			
 			the_maps* res;
@@ -1326,7 +1661,8 @@ namespace dd {
 				
 				return r;
 			}
-			if (enableRegressionDiagnostics && x.p == y.p && x.map != y.map) {
+			const auto samePointerMapMismatch = x.p == y.p && x.map != y.map;
+			if (enableRegressionDiagnostics && samePointerMapMismatch) {
 				regressionDiagnostics.taddSamePointerMapMismatch++;
 			}
 
@@ -1338,6 +1674,16 @@ namespace dd {
 			xCopy.map = the_maps::the_maps_header();
 			yCopy.w = cn.divCached(y.w, x.w);
 			yCopy.map = mapdiv(y.map, x.map);
+			if (enableRegressionDiagnostics && samePointerMapMismatch) {
+				if (yCopy.map == the_maps::the_maps_header()) {
+					regressionDiagnostics.taddMismatchResidualHeader++;
+				} else {
+					regressionDiagnostics.taddMismatchResidualNonHeader++;
+				}
+				if (yCopy.map->extra_phase != 0) {
+					regressionDiagnostics.taddMismatchResidualPhaseful++;
+				}
+			}
 			if (yCopy.w != Complex::zero) {
 				// cn.mul(yCopy.w, yCopy.w, yCopy.map->extra_phase);
 				cn.mul(yCopy.w, yCopy.w, cn.getTemporary(cos(yCopy.map->extra_phase*rotate_angle),sin(yCopy.map->extra_phase*rotate_angle)));
@@ -1346,7 +1692,29 @@ namespace dd {
 			// cn.returnToCache(yCopy.map->extra_phase);
 
 
-			auto r = addTable.lookup({ xCopy.p, xCopy.w,xCopy.map }, { yCopy.p, yCopy.w,yCopy.map });
+			const auto leftLookup = CachedEdge<Node>{ xCopy.p, xCopy.w, xCopy.map };
+			const auto rightLookup = CachedEdge<Node>{ yCopy.p, yCopy.w, yCopy.map };
+			auto r = addTable.lookup(leftLookup, rightLookup);
+			if (enableRegressionDiagnostics && samePointerMapMismatch) {
+				if (r.p != nullptr) {
+					regressionDiagnostics.taddMismatchAddHits++;
+				} else {
+					regressionDiagnostics.taddMismatchAddMisses++;
+					if (const auto* entry = addTable.findEntry(leftLookup, rightLookup); entry == nullptr) {
+						regressionDiagnostics.taddMismatchAddMissEmpty++;
+					} else {
+						const auto sameMap = entry->leftOperand.map == leftLookup.map && entry->rightOperand.map == rightLookup.map;
+						const auto sameWeight = entry->leftOperand.w.approximatelyEquals(leftLookup.w) && entry->rightOperand.w.approximatelyEquals(rightLookup.w);
+						if (!sameMap && sameWeight) {
+							regressionDiagnostics.taddMismatchAddMissMapOnly++;
+						} else if (sameMap && !sameWeight) {
+							regressionDiagnostics.taddMismatchAddMissWeightOnly++;
+						} else {
+							regressionDiagnostics.taddMismatchAddMissMapAndWeight++;
+						}
+					}
+				}
+			}
 
 			if (r.p != nullptr) {
 				//std::cout << "Case 1" << std::endl;
@@ -1581,9 +1949,20 @@ namespace dd {
 				appendDelta(output, "normalize.child_phase_adds", before.normalizeChildPhaseAdds, after.normalizeChildPhaseAdds);
 				appendDelta(output, "normalize.root_phase_promotions", before.normalizeRootPhasePromotions, after.normalizeRootPhasePromotions);
 				appendDelta(output, "tadd.same_pointer_map_mismatch", before.taddSamePointerMapMismatch, after.taddSamePointerMapMismatch);
+				appendDelta(output, "tadd.mismatch_residual_header", before.taddMismatchResidualHeader, after.taddMismatchResidualHeader);
+				appendDelta(output, "tadd.mismatch_residual_non_header", before.taddMismatchResidualNonHeader, after.taddMismatchResidualNonHeader);
+				appendDelta(output, "tadd.mismatch_residual_phaseful", before.taddMismatchResidualPhaseful, after.taddMismatchResidualPhaseful);
+				appendDelta(output, "tadd.mismatch_add_hits", before.taddMismatchAddHits, after.taddMismatchAddHits);
+				appendDelta(output, "tadd.mismatch_add_misses", before.taddMismatchAddMisses, after.taddMismatchAddMisses);
+				appendDelta(output, "tadd.mismatch_add_miss_empty", before.taddMismatchAddMissEmpty, after.taddMismatchAddMissEmpty);
+				appendDelta(output, "tadd.mismatch_add_miss_map_only", before.taddMismatchAddMissMapOnly, after.taddMismatchAddMissMapOnly);
+				appendDelta(output, "tadd.mismatch_add_miss_weight_only", before.taddMismatchAddMissWeightOnly, after.taddMismatchAddMissWeightOnly);
+				appendDelta(output, "tadd.mismatch_add_miss_map_and_weight", before.taddMismatchAddMissMapAndWeight, after.taddMismatchAddMissMapAndWeight);
 				appendDelta(output, "mapmul.lookup_phaseful", before.mapmulLookupPhaseful, after.mapmulLookupPhaseful);
 				appendDelta(output, "mapmul.result_phaseful", before.mapmulResultPhaseful, after.mapmulResultPhaseful);
 				appendDelta(output, "mapdiv.lookup_phaseful", before.mapdivLookupPhaseful, after.mapdivLookupPhaseful);
+				appendDelta(output, "mapdiv.lookup_phase_overwrite", before.mapdivLookupPhaseOverwrite, after.mapdivLookupPhaseOverwrite);
+				appendDelta(output, "mapdiv.lookup_phase_overwrite_non_header", before.mapdivLookupPhaseOverwriteNonHeader, after.mapdivLookupPhaseOverwriteNonHeader);
 				appendDelta(output, "mapdiv.result_phaseful", before.mapdivResultPhaseful, after.mapdivResultPhaseful);
 				appendDelta(output, "find_remain.phase_carries", before.findRemainPhaseCarries, after.findRemainPhaseCarries);
 				std::cout << output.str() << std::endl;
@@ -1605,9 +1984,20 @@ namespace dd {
 				appendDelta(output, "normalize.child_phase_adds", before.normalizeChildPhaseAdds, after.normalizeChildPhaseAdds);
 				appendDelta(output, "normalize.root_phase_promotions", before.normalizeRootPhasePromotions, after.normalizeRootPhasePromotions);
 				appendDelta(output, "tadd.same_pointer_map_mismatch", before.taddSamePointerMapMismatch, after.taddSamePointerMapMismatch);
+				appendDelta(output, "tadd.mismatch_residual_header", before.taddMismatchResidualHeader, after.taddMismatchResidualHeader);
+				appendDelta(output, "tadd.mismatch_residual_non_header", before.taddMismatchResidualNonHeader, after.taddMismatchResidualNonHeader);
+				appendDelta(output, "tadd.mismatch_residual_phaseful", before.taddMismatchResidualPhaseful, after.taddMismatchResidualPhaseful);
+				appendDelta(output, "tadd.mismatch_add_hits", before.taddMismatchAddHits, after.taddMismatchAddHits);
+				appendDelta(output, "tadd.mismatch_add_misses", before.taddMismatchAddMisses, after.taddMismatchAddMisses);
+				appendDelta(output, "tadd.mismatch_add_miss_empty", before.taddMismatchAddMissEmpty, after.taddMismatchAddMissEmpty);
+				appendDelta(output, "tadd.mismatch_add_miss_map_only", before.taddMismatchAddMissMapOnly, after.taddMismatchAddMissMapOnly);
+				appendDelta(output, "tadd.mismatch_add_miss_weight_only", before.taddMismatchAddMissWeightOnly, after.taddMismatchAddMissWeightOnly);
+				appendDelta(output, "tadd.mismatch_add_miss_map_and_weight", before.taddMismatchAddMissMapAndWeight, after.taddMismatchAddMissMapAndWeight);
 				appendDelta(output, "mapmul.lookup_phaseful", before.mapmulLookupPhaseful, after.mapmulLookupPhaseful);
 				appendDelta(output, "mapmul.result_phaseful", before.mapmulResultPhaseful, after.mapmulResultPhaseful);
 				appendDelta(output, "mapdiv.lookup_phaseful", before.mapdivLookupPhaseful, after.mapdivLookupPhaseful);
+				appendDelta(output, "mapdiv.lookup_phase_overwrite", before.mapdivLookupPhaseOverwrite, after.mapdivLookupPhaseOverwrite);
+				appendDelta(output, "mapdiv.lookup_phase_overwrite_non_header", before.mapdivLookupPhaseOverwriteNonHeader, after.mapdivLookupPhaseOverwriteNonHeader);
 				appendDelta(output, "mapdiv.result_phaseful", before.mapdivResultPhaseful, after.mapdivResultPhaseful);
 				appendDelta(output, "find_remain.phase_carries", before.findRemainPhaseCarries, after.findRemainPhaseCarries);
 				std::cout << output.str() << std::endl;

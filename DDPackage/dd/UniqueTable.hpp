@@ -81,6 +81,154 @@ namespace dd {
 
 		}
 
+		static bool mapsAreSemanticallyEqual(const the_maps* lhs, const the_maps* rhs) {
+			if (lhs == rhs) {
+				return true;
+			}
+			if (lhs == nullptr || rhs == nullptr) {
+				return lhs == rhs;
+			}
+			if (lhs->level != rhs->level || lhs->x != rhs->x || lhs->rotate != rhs->rotate) {
+				return false;
+			}
+			return mapsAreSemanticallyEqual(lhs->father, rhs->father);
+		}
+
+		static bool edgesAreSemanticallyEqual(const Edge<Node>& lhs, const Edge<Node>& rhs) {
+			return lhs.p == rhs.p && lhs.w.approximatelyEquals(rhs.w) && mapsAreSemanticallyEqual(lhs.map, rhs.map);
+		}
+
+		static bool nodesAreSemanticallyEqual(const Node* p, const Node* q) {
+			if (p->e.size() != q->e.size()) {
+				return false;
+			}
+			for (std::size_t i = 0; i < p->e.size(); ++i) {
+				if (!edgesAreSemanticallyEqual(p->e[i], q->e[i])) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		static bool edgesShareStructure(const Edge<Node>& lhs, const Edge<Node>& rhs) {
+			return lhs.p == rhs.p;
+		}
+
+		static bool nodesShareStructure(const Node* p, const Node* q) {
+			if (p->e.size() != q->e.size()) {
+				return false;
+			}
+			for (std::size_t i = 0; i < p->e.size(); ++i) {
+				if (!edgesShareStructure(p->e[i], q->e[i])) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		struct StructuralAlternativeProfile {
+			bool found = false;
+			bool sameWeightDifferentMap = false;
+			bool sameMapDifferentWeight = false;
+			bool differentMapAndWeight = false;
+		};
+
+		static bool edgesHaveSameWeight(const Edge<Node>& lhs, const Edge<Node>& rhs) {
+			return lhs.w.approximatelyEquals(rhs.w);
+		}
+
+		static bool edgesHaveSameMap(const Edge<Node>& lhs, const Edge<Node>& rhs) {
+			return mapsAreSemanticallyEqual(lhs.map, rhs.map);
+		}
+
+		static StructuralAlternativeProfile classifyStructuralAlternative(const Node* probe, const Node* candidate) {
+			StructuralAlternativeProfile profile{};
+			if (!nodesShareStructure(probe, candidate) || nodesAreEqual(probe, candidate)) {
+				return profile;
+			}
+			profile.found = true;
+			bool allWeightsSame = true;
+			bool allMapsSame = true;
+			for (std::size_t i = 0; i < probe->e.size(); ++i) {
+				allWeightsSame = allWeightsSame && edgesHaveSameWeight(probe->e[i], candidate->e[i]);
+				allMapsSame = allMapsSame && edgesHaveSameMap(probe->e[i], candidate->e[i]);
+			}
+			profile.sameWeightDifferentMap = allWeightsSame && !allMapsSame;
+			profile.sameMapDifferentWeight = allMapsSame && !allWeightsSame;
+			profile.differentMapAndWeight = !allWeightsSame && !allMapsSame;
+			return profile;
+		}
+
+		[[nodiscard]] bool hasSemanticAlternative(const Edge<Node>& e) const {
+			if (e.isTerminal()) {
+				return false;
+			}
+			const auto key = hash(e.p);
+			const auto v = e.p->v;
+			Node* p = tables[static_cast<std::size_t>(v)][key];
+			while (p != nullptr) {
+				if (!nodesAreEqual(e.p, p) && nodesAreSemanticallyEqual(e.p, p)) {
+					return true;
+				}
+				p = p->next;
+			}
+			return false;
+		}
+
+		[[nodiscard]] std::size_t findSemanticAlternativeBucket(const Edge<Node>& e) const {
+			if (e.isTerminal()) {
+				return NBUCKET;
+			}
+			const auto v = e.p->v;
+			for (std::size_t bucketIndex = 0; bucketIndex < NBUCKET; ++bucketIndex) {
+				Node* p = tables[static_cast<std::size_t>(v)][bucketIndex];
+				while (p != nullptr) {
+					if (!nodesAreEqual(e.p, p) && nodesAreSemanticallyEqual(e.p, p)) {
+						return bucketIndex;
+					}
+					p = p->next;
+				}
+			}
+			return NBUCKET;
+		}
+
+		[[nodiscard]] std::size_t findStructuralAlternativeBucket(const Edge<Node>& e) const {
+			if (e.isTerminal()) {
+				return NBUCKET;
+			}
+			const auto v = e.p->v;
+			for (std::size_t bucketIndex = 0; bucketIndex < NBUCKET; ++bucketIndex) {
+				Node* p = tables[static_cast<std::size_t>(v)][bucketIndex];
+				while (p != nullptr) {
+					if (!nodesAreEqual(e.p, p) && nodesShareStructure(e.p, p)) {
+						return bucketIndex;
+					}
+					p = p->next;
+				}
+			}
+			return NBUCKET;
+		}
+
+		[[nodiscard]] StructuralAlternativeProfile profileStructuralAlternatives(const Edge<Node>& e) const {
+			StructuralAlternativeProfile summary{};
+			if (e.isTerminal()) {
+				return summary;
+			}
+			const auto v = e.p->v;
+			for (std::size_t bucketIndex = 0; bucketIndex < NBUCKET; ++bucketIndex) {
+				Node* p = tables[static_cast<std::size_t>(v)][bucketIndex];
+				while (p != nullptr) {
+					const auto profile = classifyStructuralAlternative(e.p, p);
+					summary.found = summary.found || profile.found;
+					summary.sameWeightDifferentMap = summary.sameWeightDifferentMap || profile.sameWeightDifferentMap;
+					summary.sameMapDifferentWeight = summary.sameMapDifferentWeight || profile.sameMapDifferentWeight;
+					summary.differentMapAndWeight = summary.differentMapAndWeight || profile.differentMapAndWeight;
+					p = p->next;
+				}
+			}
+			return summary;
+		}
+
 		// lookup a node in the unique table for the appropriate variable; insert it,
 		// if it has not been found NOTE: reference counting is to be adjusted by
 		// function invoking the table lookup and only normalized nodes shall be
