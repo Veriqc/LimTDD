@@ -1,9 +1,14 @@
 #include "QuantumComputation.hpp"
 #include "Cir_import.h"
 #include "dd/Export.hpp"
+#include <iomanip>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <map>
+#include <sstream>
 #include <string>
+#include <vector>
 
 using namespace dd;
 xt::xarray<dd::ComplexValue> stateToArray(const BasisStates& state){
@@ -21,6 +26,7 @@ xt::xarray<dd::ComplexValue> stateToArray(const BasisStates& state){
                     case BasisStates::left:
                         return {complex_SQRT2_2,complex_miSQRT2_2};
     }
+    throw std::invalid_argument("Unsupported basis state");
 }
 TDD makezero(int n, dd::Package<>* ddpackage, std::vector<BasisStates> states) {
     TensorNetwork tn;
@@ -97,21 +103,116 @@ std::vector<BasisStates> stringToBasisStates(const std::string& states) {
     return basisStates;
 }
 
-// Given a tdd representing a quantum state, output its statevector in the standard basis. This function is used for testing the correctness of the TDD.
-std::vector<std::pair<std::string, Complex>> tddToStateVector(const TDD& tdd, dd::Package<>* ddpackage) {
-    std::vector<std::pair<std::string, Complex>> stateVector;
-    std::map<std::string, Complex> stateMap;
-    std::function<void(const Edge<mNode>&, const std::string&)> dfs = [&](const Edge<mNode>& edge, const std::string& path) {
-        if (edge.p->v == -1) {
-            stateMap[path] = edge.w;
-            return;
+Edge<mNode> sliceStateEdge(const Edge<mNode>& e, const int x, const int c, dd::Package<>* ddpackage) {
+    assert(e.w != Complex::zero);
+    if (e.p->v == -1 || e.p->v < x) {
+        return e;
+    }
+    if (e.p->v != x) {
+        throw std::runtime_error("sliceStateEdge only supports direct slicing on the current variable");
+    }
+
+    if (e.p->v != e.map->level) {
+        auto temp = e.p->e[c];
+        if (temp.w != Complex::zero) {
+            temp.w = ddpackage->cn.mulCached(temp.w, e.w);
+            temp.map = ddpackage->mapmul(e.map, temp.map);
+            ddpackage->cn.mul(temp.w, temp.w, ddpackage->cn.getTemporary(cos(temp.map->extra_phase * rotate_angle), sin(temp.map->extra_phase * rotate_angle)));
         }
-        dfs(edge.p->e[0], path + "0");
-        dfs(edge.p->e[1], path + "1");
-    };
-    dfs(tdd.e, "");
-    for (const auto& [state, amplitude] : stateMap) {
-        stateVector.emplace_back(state, amplitude);
+        return temp;
+    }
+
+    if (e.map->x == 0) {
+        auto temp = e.p->e[c];
+        if (temp.w != Complex::zero) {
+            temp.w = ddpackage->cn.mulCached(temp.w, e.w);
+            temp.map = ddpackage->mapmul(e.map->father, temp.map);
+            ddpackage->cn.mul(temp.w, temp.w, ddpackage->cn.getTemporary(cos(temp.map->extra_phase * rotate_angle), sin(temp.map->extra_phase * rotate_angle)));
+            if (c == 1) {
+                ddpackage->cn.mul(temp.w, temp.w, ddpackage->cn.getTemporary(cos(e.map->rotate * rotate_angle), sin(e.map->rotate * rotate_angle)));
+            }
+        }
+        return temp;
+    }
+
+    auto temp = e.p->e[1 - c];
+    if (temp.w != Complex::zero) {
+        temp.w = ddpackage->cn.mulCached(temp.w, e.w);
+        temp.map = ddpackage->mapmul(e.map->father, temp.map);
+        ddpackage->cn.mul(temp.w, temp.w, ddpackage->cn.getTemporary(cos(temp.map->extra_phase * rotate_angle), sin(temp.map->extra_phase * rotate_angle)));
+        if (c == 0) {
+            ddpackage->cn.mul(temp.w, temp.w, ddpackage->cn.getTemporary(cos(e.map->rotate * rotate_angle), sin(e.map->rotate * rotate_angle)));
+        }
+    }
+    return temp;
+}
+
+Complex amplitudeForBitstring(const TDD& tdd, const std::string& basisState, dd::Package<>* ddpackage) {
+    auto edge = tdd.e;
+    for (const auto bitChar : basisState) {
+        if (edge.p->v == -1) {
+            break;
+        }
+        const auto bit = bitChar == '1' ? 1 : 0;
+        edge = sliceStateEdge(edge, edge.p->v, bit, ddpackage);
+    }
+    return edge.w;
+}
+
+std::vector<std::pair<std::string, Complex>> tddToStateVector(const TDD& tdd, dd::Package<>* ddpackage, const std::size_t qubitCount) {
+    std::vector<std::pair<std::string, Complex>> stateVector;
+    const auto basisCount = static_cast<std::size_t>(1ULL << qubitCount);
+    stateVector.reserve(basisCount);
+    for (std::size_t basisIndex = 0; basisIndex < basisCount; ++basisIndex) {
+        auto basisState = std::bitset<64>(basisIndex).to_string();
+        basisState = basisState.substr(64 - qubitCount);
+        stateVector.emplace_back(basisState, amplitudeForBitstring(tdd, basisState, ddpackage));
     }
     return stateVector;
+}
+
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <qasm-file> [initial-state]" << std::endl;
+        return 1;
+    }
+
+    const std::string filename = argv[1];
+    std::ifstream fileStream(filename);
+    if (!fileStream.is_open()) {
+        std::cerr << "Unable to open QASM file: " << filename << std::endl;
+        return 2;
+    }
+    std::stringstream buffer;
+    buffer << fileStream.rdbuf();
+    const auto qc = qc::QuantumComputation::fromQASM(buffer.str());
+    auto QC = std::make_shared<qc::QuantumComputation>(std::move(qc));
+    auto ddPack = std::make_shared<dd::Package<>>(3 * QC->getNqubits());
+    auto tn = cir_2_tn(QC, ddPack);
+
+    bool simulate = false;
+    std::vector<BasisStates> initialStates;
+    if (argc > 2) {
+        simulate = true;
+        try {
+            initialStates = stringToBasisStates(argv[2]);
+        } catch (const std::exception& e) {
+            std::cerr << "Invalid initial state: " << e.what() << std::endl;
+            return 3;
+        }
+    }
+
+    auto tdd = cont(&tn, ddPack.get(), QC->getNqubits(), simulate, initialStates, true);
+    const auto stateVector = tddToStateVector(tdd, ddPack.get(), QC->getNqubits());
+
+    std::cout << "CPP_LIMTDD_STATE_BEGIN" << std::endl;
+    std::cout << "qubits\t" << QC->getNqubits() << std::endl;
+    std::cout << std::setprecision(17);
+    for (const auto& [basisState, amplitude] : stateVector) {
+        std::cout << "STATE\t" << basisState << "\t"
+                  << CTEntry::val(amplitude.r) << "\t"
+                  << CTEntry::val(amplitude.i) << std::endl;
+    }
+    std::cout << "CPP_LIMTDD_STATE_END" << std::endl;
+    return 0;
 }
