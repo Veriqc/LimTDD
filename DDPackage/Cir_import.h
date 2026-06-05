@@ -1108,6 +1108,10 @@ std::vector<dd::Index> getOpIndex(const std::unique_ptr<qc::Operation>& op,std::
 	return indexSet;
 }
 
+std::string getCanonicalGateName(const std::unique_ptr<qc::Operation>& op) {
+	return qc::toString(op->getType());
+}
+
 xt::xarray<dd::ComplexValue> getOpData(const std::unique_ptr<qc::Operation>& op) {
     static const std::map<std::string, xt::xarray<dd::ComplexValue>> supportGate = {
         {"x", dd::Xmat}, {"y", dd::Ymat}, {"z", dd::Zmat}, {"h", dd::Hmat},
@@ -1115,7 +1119,7 @@ xt::xarray<dd::ComplexValue> getOpData(const std::unique_ptr<qc::Operation>& op)
         {"swap", dd::SWAPmat},
     };
 
-    const std::string& gateName = op->getName(); // Use reference to avoid copying
+	const std::string gateName = getCanonicalGateName(op);
     const auto& parameters = op->getParameter(); // Avoid multiple calls
     size_t Npara = parameters.size();
 
@@ -1201,7 +1205,7 @@ dd::TensorNetwork cir_2_tn(std::shared_ptr<qc::QuantumComputation>& QC, std::sha
 		auto data = getOpData(op);
 
 		std::string prefix(op->getControls().size(), 'c');
-		std::string gateName = prefix + op->getName();
+		std::string gateName = prefix + getCanonicalGateName(op);
 		tn.add_ts(dd::Tensor(data,indexSet,gateName));
 	}
 	return tn;
