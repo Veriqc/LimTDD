@@ -173,7 +173,7 @@ std::vector<std::pair<std::string, Complex>> tddToStateVector(const TDD& tdd, dd
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <qasm-file> [initial-state]" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <qasm-file> [initial-state] [basis-state]" << std::endl;
         return 1;
     }
 
@@ -192,6 +192,7 @@ int main(int argc, char *argv[]) {
 
     bool simulate = false;
     std::vector<BasisStates> initialStates;
+    std::string basisStateQuery;
     if (argc > 2) {
         simulate = true;
         try {
@@ -201,8 +202,35 @@ int main(int argc, char *argv[]) {
             return 3;
         }
     }
+    if (argc > 3) {
+        basisStateQuery = argv[3];
+        if (basisStateQuery.size() != QC->getNqubits()) {
+            std::cerr << "Invalid basis-state length: expected " << QC->getNqubits()
+                      << ", got " << basisStateQuery.size() << std::endl;
+            return 4;
+        }
+        for (const auto bit : basisStateQuery) {
+            if (bit != '0' && bit != '1') {
+                std::cerr << "Invalid basis-state bit: " << bit << std::endl;
+                return 5;
+            }
+        }
+    }
 
     auto tdd = cont(&tn, ddPack.get(), QC->getNqubits(), simulate, initialStates, true);
+
+    if (!basisStateQuery.empty()) {
+        const auto amplitude = amplitudeForBitstring(tdd, basisStateQuery, ddPack.get());
+        std::cout << "CPP_LIMTDD_STATE_BEGIN" << std::endl;
+        std::cout << "qubits\t" << QC->getNqubits() << std::endl;
+        std::cout << std::setprecision(17);
+        std::cout << "STATE\t" << basisStateQuery << "\t"
+                  << CTEntry::val(amplitude.r) << "\t"
+                  << CTEntry::val(amplitude.i) << std::endl;
+        std::cout << "CPP_LIMTDD_STATE_END" << std::endl;
+        return 0;
+    }
+
     const auto stateVector = tddToStateVector(tdd, ddPack.get(), QC->getNqubits());
 
     std::cout << "CPP_LIMTDD_STATE_BEGIN" << std::endl;

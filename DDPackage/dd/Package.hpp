@@ -461,6 +461,49 @@ namespace dd {
 		///
 		template <class Node> Edge<Node> normalize(const Edge<Node>& e, bool cached) {
 			const auto originalEdges = e.p->e;
+			const auto traceNanProbe = enableContStageTrace && contStageTraceDepth > 0;
+			auto formatComplex = [](const Complex& value) {
+				std::ostringstream output;
+				output << "(" << CTEntry::val(value.r) << ", " << CTEntry::val(value.i) << ")";
+				return output.str();
+			};
+			auto throwOnNonFinite = [&](const char* stage,
+										 const std::size_t edgeIndex,
+										 const Complex& current,
+										 const Complex& currentMaxValue,
+										 const fp angle,
+										 const fp deltaAngle,
+										 const fp magnitude,
+										 const int rot,
+										 const the_maps* currentMap,
+										 const the_maps* currentResMap) {
+				if (!traceNanProbe) {
+					return;
+				}
+				const auto real = CTEntry::val(current.r);
+				const auto imag = CTEntry::val(current.i);
+				const auto maxReal = CTEntry::val(currentMaxValue.r);
+				const auto maxImag = CTEntry::val(currentMaxValue.i);
+				if (std::isfinite(real) && std::isfinite(imag) && std::isfinite(maxReal) && std::isfinite(maxImag) &&
+					std::isfinite(angle) && std::isfinite(deltaAngle) && std::isfinite(magnitude)) {
+					return;
+				}
+				std::ostringstream message;
+				message << "normalize non-finite"
+					<< " step=" << contStageTraceStep
+					<< " stage=" << stage
+					<< " var=" << static_cast<int>(e.p->v)
+					<< " edge_index=" << edgeIndex
+					<< " current=" << formatComplex(current)
+					<< " max_value=" << formatComplex(currentMaxValue)
+					<< " angle=" << angle
+					<< " delta_angle=" << deltaAngle
+					<< " magnitude=" << magnitude
+					<< " rot=" << rot
+					<< " edge_map_extra_phase=" << (currentMap ? currentMap->extra_phase : -999999)
+					<< " res_map_extra_phase=" << (currentResMap ? currentResMap->extra_phase : -999999);
+				throw std::runtime_error(message.str());
+			};
 
 			auto maxArgIndex = -1;
 			// v0 = e.p->e[0].p
@@ -503,10 +546,12 @@ namespace dd {
 				if (maxArgIndex == -1) {
 					maxArgIndex = static_cast<decltype(maxArgIndex)>(i);
 					max_mag2 = ComplexNumbers::mag2(e.p->e[i].w);
+					throwOnNonFinite("max_init", i, e.p->e[i].w, e.p->e[i].w, 0.0, 0.0, max_mag2, 0, e.p->e[i].map, e.map);
 					max_value = e.p->e[i].w;
 				}
 				else {
 					auto mag = ComplexNumbers::mag2(e.p->e[i].w);
+					throwOnNonFinite("max_compare", i, e.p->e[i].w, max_value, 0.0, 0.0, mag, 0, e.p->e[i].map, e.map);
 					if (mag - max_mag2 > ComplexTable<>::tolerance()/2) {
 						maxArgIndex = static_cast<decltype(maxArgIndex)>(i);
 						max_mag2 = mag;
@@ -657,6 +702,7 @@ namespace dd {
 						auto angle = ComplexNumbers::arg(c);
 						int rot = round(angle / rotate_angle);
 						double detla_angle = angle - rot * rotate_angle;
+						throwOnNonFinite("post_div", i, c, max_value, angle, detla_angle, ComplexNumbers::mag2(c), rot, res.p->e[i].map, res.map);
 						if (i == 1U) {
 							child1RotNonZero = (rot != 0);
 							const auto snapThreshold = ComplexTable<>::tolerance() * rotate_angle;
@@ -678,6 +724,7 @@ namespace dd {
 							}
 							c.r->value = sqrt(ComplexNumbers::mag2(c));
 							c.i->value = 0;
+							throwOnNonFinite("snap_lookup", i, c, max_value, angle, detla_angle, ComplexNumbers::mag2(c), rot, res.p->e[i].map, res.map);
 							//std::cout << c << " a " << ComplexNumbers::mag2(c) << std::endl;
 							res.p->e[i].w = cn.lookup(c);
 						}
@@ -690,6 +737,7 @@ namespace dd {
 							double mags = sqrt(ComplexNumbers::mag2(c));
 							c.r->value = mags * cos(detla_angle);
 							c.i->value = mags * sin(detla_angle);
+							throwOnNonFinite("residual_lookup", i, c, max_value, angle, detla_angle, mags, rot, res.p->e[i].map, res.map);
 							//std::cout << mags * cos(angle - rot * rotate_angle) * mags * cos(angle - rot * rotate_angle) + mags * sin(angle - rot * rotate_angle) * mags * sin(angle - rot * rotate_angle) << std::endl;
 							//std::cout << c.r->value * c.r->value + c.i->value * c.i->value << std::endl;
 							res.p->e[i].w = cn.lookup(c);
@@ -877,6 +925,24 @@ namespace dd {
 			e.p->e = edges;
 
 			assert(e.p->ref == 0);
+			if (traceMakeNode) {
+				for (std::size_t edgeIndex = 0; edgeIndex < edges.size(); ++edgeIndex) {
+					const auto real = CTEntry::val(edges[edgeIndex].w.r);
+					const auto imag = CTEntry::val(edges[edgeIndex].w.i);
+					if (std::isfinite(real) && std::isfinite(imag)) {
+						continue;
+					}
+					std::ostringstream message;
+					message << "makeDDNode non-finite input"
+						<< " step=" << contStageTraceStep
+						<< " var=" << static_cast<int>(var)
+						<< " edge_index=" << edgeIndex
+						<< " weight=(" << real << ", " << imag << ")"
+						<< " child_var=" << static_cast<int>(edges[edgeIndex].p->v)
+						<< " map_extra_phase=" << (edges[edgeIndex].map ? edges[edgeIndex].map->extra_phase : -999999);
+					throw std::runtime_error(message.str());
+				}
+			}
 
 
 			//if (edges[0].p == edges[1].p && e.p->e[0].w.approximatelyEquals(e.p->e[1].w)) {
@@ -1412,8 +1478,31 @@ namespace dd {
 
 		template <class Node>
 		Edge<Node> Slicing(const Edge<Node>& e, int x, int c) {
+			auto throwOnNonFiniteSlicing = [&](const char* stage, const Edge<Node>& edge) {
+				if (!(enableContStageTrace && contStageTraceDepth > 0)) {
+					return;
+				}
+				const auto real = CTEntry::val(edge.w.r);
+				const auto imag = CTEntry::val(edge.w.i);
+				if (std::isfinite(real) && std::isfinite(imag)) {
+					return;
+				}
+				std::ostringstream message;
+				message << "Slicing non-finite edge"
+					<< " step=" << contStageTraceStep
+					<< " stage=" << stage
+					<< " slice_var=" << x
+					<< " branch=" << c
+					<< " edge_var=" << static_cast<int>(edge.p->v)
+					<< " weight=(" << real << ", " << imag << ")"
+					<< " map_extra_phase=" << (edge.map ? edge.map->extra_phase : -999999)
+					<< " input_var=" << static_cast<int>(e.p->v)
+					<< " input_map_extra_phase=" << (e.map ? e.map->extra_phase : -999999);
+				throw std::runtime_error(message.str());
+			};
 			// used for add
 			assert(e.w != Complex::zero);
+			throwOnNonFiniteSlicing("entry", e);
 			if (e.p->v == -1) {
 				return e;
 			}
@@ -1423,6 +1512,7 @@ namespace dd {
 			if (e.p->v == x) {
 				if (e.p->v != e.map->level) {
 					auto temp = e.p->e[c];
+					throwOnNonFiniteSlicing("child_raw_direct", temp);
 					if (temp.w != Complex::zero) {
 						temp.w = cn.mulCached(temp.w, e.w);
 						temp.map = mapmul(e.map, temp.map);
@@ -1430,6 +1520,7 @@ namespace dd {
 						assert(temp.w != Complex::zero);
 						// cn.mul(temp.w, temp.w, temp.map->extra_phase);
 						cn.mul(temp.w, temp.w, cn.getTemporary(cos(temp.map->extra_phase*rotate_angle),sin(temp.map->extra_phase*rotate_angle)));
+						throwOnNonFiniteSlicing("child_after_direct", temp);
 						// cn.returnToCache(temp.map->extra_phase);
 					}
 					//std::cout << "Slicing " << temp.w << std::endl;
@@ -1437,6 +1528,7 @@ namespace dd {
 				}
 				else if (e.map->x == 0) {
 					auto temp = e.p->e[c];
+					throwOnNonFiniteSlicing("child_raw_x0", temp);
 					if (temp.w != Complex::zero) {
 						temp.w = cn.mulCached(temp.w, e.w);
 						temp.map = mapmul(e.map->father, temp.map);
@@ -1451,6 +1543,7 @@ namespace dd {
 								// cn.mul(temp.w, temp.w, e.map->rotate);
 								cn.mul(temp.w, temp.w, cn.getTemporary(cos(e.map->rotate*rotate_angle),sin(e.map->rotate*rotate_angle)));
 						}
+						throwOnNonFiniteSlicing("child_after_x0", temp);
 
 					}
 					//std::cout << "Slicing " << temp.w << std::endl;
@@ -1458,6 +1551,7 @@ namespace dd {
 				}
 				else {
 					auto temp = e.p->e[1 - c];
+					throwOnNonFiniteSlicing("child_raw_x1", temp);
 					if (temp.w != Complex::zero) {
 						temp.w = cn.mulCached(temp.w, e.w);
 						temp.map = mapmul(e.map->father, temp.map);
@@ -1471,6 +1565,7 @@ namespace dd {
 							// cn.mul(temp.w, temp.w, e.map->rotate);
                             cn.mul(temp.w, temp.w, cn.getTemporary(cos(e.map->rotate*rotate_angle),sin(e.map->rotate*rotate_angle)));
 						}
+						throwOnNonFiniteSlicing("child_after_x1", temp);
 					}
 					//std::cout << "Slicing " << temp.w << std::endl;
 					return temp;
@@ -1609,6 +1704,82 @@ namespace dd {
 		Edge<Node> T_add2(const Edge<Node>& x, const Edge<Node>& y) {
 			const auto traceTadd = enableContStageTrace && contStageTraceDepth > 0;
 			const auto traceBefore = traceTadd ? regressionDiagnostics : RegressionDiagnostics{};
+			auto throwOnNonFiniteEdge = [&](const char* stage, const Edge<Node>& edge) {
+				if (!traceTadd) {
+					return;
+				}
+				const auto real = CTEntry::val(edge.w.r);
+				const auto imag = CTEntry::val(edge.w.i);
+				if (std::isfinite(real) && std::isfinite(imag)) {
+					return;
+				}
+				std::ostringstream message;
+				message << "T_add2 non-finite edge"
+					<< " step=" << contStageTraceStep
+					<< " stage=" << stage
+					<< " var=" << static_cast<int>(edge.p->v)
+					<< " weight=(" << real << ", " << imag << ")"
+					<< " map_extra_phase=" << (edge.map ? edge.map->extra_phase : -999999);
+				throw std::runtime_error(message.str());
+			};
+			auto throwOnNonFiniteNamedEdge = [&](const char* stage,
+											const Edge<Node>& edge,
+											const char* source,
+											const std::size_t childIndex,
+											const Edge<Node>& lhs,
+											const Edge<Node>& rhs) {
+				if (!traceTadd) {
+					return;
+				}
+				const auto real = CTEntry::val(edge.w.r);
+				const auto imag = CTEntry::val(edge.w.i);
+				if (std::isfinite(real) && std::isfinite(imag)) {
+					return;
+				}
+				std::ostringstream message;
+				message << "T_add2 non-finite edge"
+					<< " step=" << contStageTraceStep
+					<< " stage=" << stage
+					<< " source=" << source
+					<< " child_index=" << childIndex
+					<< " edge_var=" << static_cast<int>(edge.p->v)
+					<< " weight=(" << real << ", " << imag << ")"
+					<< " map_extra_phase=" << (edge.map ? edge.map->extra_phase : -999999)
+					<< " lhs_var=" << static_cast<int>(lhs.p->v)
+					<< " rhs_var=" << static_cast<int>(rhs.p->v);
+				throw std::runtime_error(message.str());
+			};
+			auto throwOnBadDivInputs = [&](const Complex& numerator,
+									   const Complex& denominator,
+									   const Edge<Node>& lhs,
+									   const Edge<Node>& rhs) {
+				if (!traceTadd) {
+					return;
+				}
+				const auto nr = CTEntry::val(numerator.r);
+				const auto ni = CTEntry::val(numerator.i);
+				const auto dr = CTEntry::val(denominator.r);
+				const auto di = CTEntry::val(denominator.i);
+				const auto denomMag2 = dr * dr + di * di;
+				const auto numerFinite = std::isfinite(nr) && std::isfinite(ni);
+				const auto denomFinite = std::isfinite(dr) && std::isfinite(di) && std::isfinite(denomMag2);
+				const auto denomApproxZero = std::abs(denomMag2) < ComplexTable<>::tolerance();
+				if (numerFinite && denomFinite) {
+					return;
+				}
+				std::ostringstream message;
+				message << "T_add2 bad div inputs"
+					<< " step=" << contStageTraceStep
+					<< " numerator=(" << nr << ", " << ni << ")"
+					<< " denominator=(" << dr << ", " << di << ")"
+					<< " denominator_mag2=" << denomMag2
+					<< " denominator_approx_zero=" << denomApproxZero
+					<< " lhs_var=" << static_cast<int>(lhs.p->v)
+					<< " rhs_var=" << static_cast<int>(rhs.p->v)
+					<< " lhs_map_extra_phase=" << (lhs.map ? lhs.map->extra_phase : -999999)
+					<< " rhs_map_extra_phase=" << (rhs.map ? rhs.map->extra_phase : -999999);
+				throw std::runtime_error(message.str());
+			};
 			if (traceTadd) {
 				contStageTaddDepth++;
 			}
@@ -1672,8 +1843,65 @@ namespace dd {
 
 			xCopy.w = Complex::one;
 			xCopy.map = the_maps::the_maps_header();
-			yCopy.w = cn.divCached(y.w, x.w);
+			throwOnBadDivInputs(y.w, x.w, x, y);
+			auto divResult = cn.getCached();
+			if (traceTadd) {
+				const auto aliasesYR = divResult.r == y.w.r;
+				const auto aliasesYI = divResult.i == y.w.i;
+				const auto aliasesXR = divResult.r == x.w.r;
+				const auto aliasesXI = divResult.i == x.w.i;
+				if (aliasesYR || aliasesYI || aliasesXR || aliasesXI) {
+					std::ostringstream message;
+					message << "T_add2 div cache alias"
+						<< " step=" << contStageTraceStep
+						<< " result_r=" << divResult.r
+						<< " result_i=" << divResult.i
+						<< " y_r=" << y.w.r
+						<< " y_i=" << y.w.i
+						<< " x_r=" << x.w.r
+						<< " x_i=" << x.w.i;
+					throw std::runtime_error(message.str());
+				}
+			}
+			const auto manualNr = CTEntry::val(y.w.r);
+			const auto manualNi = CTEntry::val(y.w.i);
+			const auto manualDr = CTEntry::val(x.w.r);
+			const auto manualDi = CTEntry::val(x.w.i);
+			const auto manualCmag = manualDr * manualDr + manualDi * manualDi;
+			const auto manualReal = (manualNr * manualDr + manualNi * manualDi) / manualCmag;
+			const auto manualImag = (manualNi * manualDr - manualNr * manualDi) / manualCmag;
+			ComplexNumbers::div(divResult, y.w, x.w);
+			if (traceTadd) {
+				const auto actualReal = CTEntry::val(divResult.r);
+				const auto actualImag = CTEntry::val(divResult.i);
+				if (!std::isfinite(actualReal) || !std::isfinite(actualImag)) {
+					std::ostringstream message;
+					message << "T_add2 div result non-finite"
+						<< " step=" << contStageTraceStep
+						<< " numerator=(" << manualNr << ", " << manualNi << ")"
+						<< " denominator=(" << manualDr << ", " << manualDi << ")"
+						<< " numerator_exact_zero=" << y.w.exactlyZero()
+						<< " numerator_approx_zero=" << y.w.approximatelyZero()
+						<< " denominator_exact_zero=" << x.w.exactlyZero()
+						<< " denominator_approx_zero=" << x.w.approximatelyZero()
+						<< " manual_cmag=" << manualCmag
+						<< " manual_real=" << manualReal
+						<< " manual_imag=" << manualImag
+						<< " actual_real=" << actualReal
+						<< " actual_imag=" << actualImag
+						<< " result_r_ptr=" << divResult.r
+						<< " result_i_ptr=" << divResult.i
+						<< " numerator_r_ptr=" << y.w.r
+						<< " numerator_i_ptr=" << y.w.i
+						<< " denominator_r_ptr=" << x.w.r
+						<< " denominator_i_ptr=" << x.w.i;
+					throw std::runtime_error(message.str());
+				}
+			}
+			yCopy.w = divResult;
+			throwOnNonFiniteNamedEdge("ycopy_after_div_only", yCopy, "yCopy", 0, x, y);
 			yCopy.map = mapdiv(y.map, x.map);
+			throwOnNonFiniteNamedEdge("ycopy_after_div", yCopy, "yCopy", 0, x, y);
 			if (enableRegressionDiagnostics && samePointerMapMismatch) {
 				if (yCopy.map == the_maps::the_maps_header()) {
 					regressionDiagnostics.taddMismatchResidualHeader++;
@@ -1689,6 +1917,7 @@ namespace dd {
 				cn.mul(yCopy.w, yCopy.w, cn.getTemporary(cos(yCopy.map->extra_phase*rotate_angle),sin(yCopy.map->extra_phase*rotate_angle)));
 				
 			}
+			throwOnNonFiniteNamedEdge("ycopy_after_phase", yCopy, "yCopy", 0, x, y);
 			// cn.returnToCache(yCopy.map->extra_phase);
 
 
@@ -1735,7 +1964,9 @@ namespace dd {
 					cn.mul(c, c, cn.getTemporary(cos(temp_map->extra_phase*rotate_angle),sin(temp_map->extra_phase*rotate_angle)));
 				}
 				// cn.returnToCache(temp_map->extra_phase);
-				return { r.p, c,temp_map };
+				auto result = Edge<Node>{ r.p, c,temp_map };
+				throwOnNonFiniteEdge("lookup_return", result);
+				return result;
 			}
 
 			const Qubit w = (x.isTerminal() || (!y.isTerminal() && y.p->v > x.p->v))
@@ -1767,16 +1998,19 @@ namespace dd {
 					//	e2.w = cn.mulCached(e2.w, yCopy.w);
 					//}
 					e2 = Slicing(yCopy, yCopy.p->v, i);
+					throwOnNonFiniteNamedEdge("rhs_after_slicing", e2, "Slicing(yCopy)", i, e1, yCopy);
 				}
 				else {
 					e2 = yCopy;
 					if (x.p->e[i].p == nullptr) {
 						e2 = { nullptr, Complex::zero };
 					}
+					throwOnNonFiniteNamedEdge("rhs_passthrough", e2, "yCopy", i, e1, yCopy);
 				}
-
-
+				throwOnNonFiniteEdge("child_input_lhs", e1);
+				throwOnNonFiniteEdge("child_input_rhs", e2);
 				edge[i] = T_add2(e1, e2);
+				throwOnNonFiniteEdge("child_sum", edge[i]);
 
 
 				if (!x.isTerminal() && x.p->v == w && e1.w != Complex::zero) {
@@ -1819,6 +2053,7 @@ namespace dd {
 				cn.mul(e.w, e.w, cn.getTemporary(cos(e.map->extra_phase*rotate_angle),sin(e.map->extra_phase*rotate_angle)));
 				// cn.returnToCache(e.map->extra_phase);
 			}
+			throwOnNonFiniteEdge("final_return", e);
 
 			// cn.returnToCache(yCopy.w);
 			//std::cout << "Case 2" << std::endl;
@@ -1918,6 +2153,7 @@ namespace dd {
 			if (enableContStageTrace) {
 				contStageTraceDepth++;
 			}
+			using ResultEdge = Edge<mNode>;
 			const auto traceRootCall = enableContStageTrace && contStageTraceDepth == 1;
 			const auto traceStep = contStageTraceStep;
 			const auto traceEdgeNodesBefore = traceRootCall ? size(x) : 0U;
@@ -2002,6 +2238,26 @@ namespace dd {
 				appendDelta(output, "find_remain.phase_carries", before.findRemainPhaseCarries, after.findRemainPhaseCarries);
 				std::cout << output.str() << std::endl;
 			};
+			auto throwOnNonFiniteResult = [&](const char* stage, const ResultEdge& edge) {
+				if (!enableContStageTrace || contStageTraceDepth == 0) {
+					return;
+				}
+				const auto real = CTEntry::val(edge.w.r);
+				const auto imag = CTEntry::val(edge.w.i);
+				if (std::isfinite(real) && std::isfinite(imag)) {
+					return;
+				}
+				std::ostringstream message;
+				message << "cont2 non-finite result"
+					<< " step=" << traceStep
+					<< " depth=" << contStageTraceDepth
+					<< " stage=" << stage
+					<< " var_num=" << var_num
+					<< " node_var=" << static_cast<int>(edge.p->v)
+					<< " weight=(" << real << ", " << imag << ")"
+					<< " map_extra_phase=" << (edge.map ? edge.map->extra_phase : -999999);
+				throw std::runtime_error(message.str());
+			};
 			bool traceSawRootMakeNode = false;
 			auto traceBeforeRootMakeNode = RegressionDiagnostics{};
 			auto traceAfterRootMakeNode = RegressionDiagnostics{};
@@ -2009,8 +2265,6 @@ namespace dd {
 			//std::cout <<"838 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v) << std::endl;
 			//the_maps::print_maps(x.map);
 			//the_maps::print_maps(y.map);
-
-			using ResultEdge = Edge<mNode>;
 
 			if (x.p == nullptr) {
 				return { nullptr, Complex::zero };
@@ -2194,6 +2448,7 @@ namespace dd {
 						auto e1 = Slicing2(xCopy, xCopy.p->v, k);
 						auto& e2 = yCopy;
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
+						throwOnNonFiniteResult("recurse_gt", etemp);
 						if (e1.w != Complex::zero) {
 							// cn.returnToCache(e1.w);
 						}
@@ -2219,6 +2474,7 @@ namespace dd {
 						auto e1 = Slicing2(xCopy, xCopy.p->v, k);
 						auto& e2 = yCopy;
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
+						throwOnNonFiniteResult("vector_gt", e.back());
 						if (e1.w != Complex::zero) {
 							// cn.returnToCache(e1.w);
 						}
@@ -2254,6 +2510,7 @@ namespace dd {
 						//e2 = y.p->e[k];
 						auto e2 = Slicing2(yCopy, yCopy.p->v, k);
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
+						throwOnNonFiniteResult("recurse_lt", etemp);
 						if (e2.w != Complex::zero) {
 							// cn.returnToCache(e2.w);
 						}
@@ -2279,6 +2536,7 @@ namespace dd {
 						//e2 = y.p->e[k];
 						auto e2 = Slicing2(yCopy, yCopy.p->v, k);
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
+						throwOnNonFiniteResult("vector_lt", e.back());
 						if (e2.w != Complex::zero) {
 							// cn.returnToCache(e2.w);
 						}
@@ -2327,6 +2585,7 @@ namespace dd {
 						//std::cout << "e2.w in: " << (e2.w.i) << " " << e2.w.r << std::endl;
 						//the_maps::print_maps(e1.map);
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
+						throwOnNonFiniteResult("recurse_eq", etemp);
 						if (e1.w != Complex::zero) {
 							// cn.returnToCache(e1.w);
 						}
@@ -2356,6 +2615,7 @@ namespace dd {
 						//e2 = y.p->e[k];
 						auto e2 = Slicing2(yCopy, yCopy.p->v, k);
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
+						throwOnNonFiniteResult("vector_eq", e.back());
 						if (e1.w != Complex::zero) {
 							// cn.returnToCache(e1.w);
 						}

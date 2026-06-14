@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <bitset>
 #include <cassert>
+#include <cstdlib>
+#include <cmath>
 #include <cstdint>
 #include <fstream>
 #include <iomanip>
@@ -159,10 +161,10 @@ qc::QuantumComputation buildEvaluationCircuit(
         evaluation.cx(qubit, static_cast<qc::Qubit>(systemQubits + qubit));
     }
 
-    for (const auto& op : inverseOriginal) {
+    for (const auto& op : faulty) {
         appendShiftedOperation(evaluation, *op, systemQubits);
     }
-    for (const auto& op : faulty) {
+    for (const auto& op : inverseOriginal) {
         appendShiftedOperation(evaluation, *op, systemQubits);
     }
 
@@ -196,7 +198,19 @@ ContractionStats contractWithStats(dd::TensorNetwork* tensorNetwork, dd::Package
     ddpackage->incRef(result.e);
     unsigned int maxNode = ddpackage->size(result.e);
 
-    for (std::size_t index = 0; index < tensorNetwork->tensors.size(); ++index) {
+    std::size_t contractionLimit = tensorNetwork->tensors.size();
+    if (const auto* limitEnv = std::getenv("LIMTDD_FIDELITY_PREFIX")) {
+        contractionLimit = std::min(contractionLimit, static_cast<std::size_t>(std::stoull(limitEnv)));
+    }
+    const bool traceSteps = std::getenv("LIMTDD_FIDELITY_TRACE") != nullptr;
+    const auto* traceStepEnv = std::getenv("LIMTDD_FIDELITY_TRACE_STEP");
+    const auto tracedStep = traceStepEnv ? static_cast<std::size_t>(std::stoull(traceStepEnv)) : std::numeric_limits<std::size_t>::max();
+
+    for (std::size_t index = 0; index < contractionLimit; ++index) {
+        if (traceSteps) {
+            std::cerr << "fidelity_step\t" << index << "\tcurrent_nodes\t" << ddpackage->size(result.e) << std::endl;
+        }
+        ddpackage->setContStageTrace(index == tracedStep, index);
         TDD current = tensorNetwork->tensors[index].to_tdd(ddpackage);
         TDD next = ddpackage->cont(result, current);
         ddpackage->incRef(next.e);
@@ -205,6 +219,8 @@ ContractionStats contractWithStats(dd::TensorNetwork* tensorNetwork, dd::Package
         result = next;
         maxNode = std::max(maxNode, ddpackage->size(result.e));
     }
+
+    ddpackage->setContStageTrace(false);
 
     clock_t end = clock();
     return {
@@ -260,14 +276,13 @@ Edge<mNode> sliceStateEdge(const Edge<mNode>& edge, const int variable, const in
     return next;
 }
 
-Complex amplitudeForBitstring(const TDD& tdd, const std::string& basisState, dd::Package<>* ddpackage) {
+dd::Complex amplitudeForZeroState(const TDD& tdd, const std::size_t qubitCount, dd::Package<>* ddpackage) {
     auto edge = tdd.e;
-    for (const auto bitChar : basisState) {
+    for (std::size_t variable = 0; variable < qubitCount; ++variable) {
         if (edge.p->v == -1) {
             break;
         }
-        const auto bit = bitChar == '1' ? 1 : 0;
-        edge = sliceStateEdge(edge, edge.p->v, bit, ddpackage);
+        edge = sliceStateEdge(edge, edge.p->v, 0, ddpackage);
     }
     return edge.w;
 }
@@ -302,12 +317,9 @@ int main(int argc, char* argv[]) {
         auto tensorNetwork = cir_2_tn(evaluationCircuitPtr, ddPack);
         const auto stats = contractWithStats(&tensorNetwork, ddPack.get(), static_cast<int>(evaluationCircuitPtr->getNqubits()));
 
-        const auto overlap = amplitudeForBitstring(
-            stats.tdd,
-            std::string(evaluationCircuitPtr->getNqubits(), '0'),
-            ddPack.get());
+        const auto overlap = amplitudeForZeroState(stats.tdd, evaluationCircuitPtr->getNqubits(), ddPack.get());
 
-        const double dimension = static_cast<double>(std::uint64_t{1} << originalCircuit.getNqubits());
+        const double dimension = std::ldexp(1.0, static_cast<int>(originalCircuit.getNqubits()));
         const double traceReal = dd::CTEntry::val(overlap.r) * dimension;
         const double traceImag = dd::CTEntry::val(overlap.i) * dimension;
         const double fidelity = squaredMagnitude(overlap);
