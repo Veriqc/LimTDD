@@ -178,6 +178,7 @@ namespace dd {
 		bool to_test = false;
 		bool enableRegressionDiagnostics = false;
 		bool disableMapdivLookupWriteback = false;
+		bool enableTailCxRenormExperiment = false;
 		bool enableUniqueSemanticProbe = false;
 		RegressionDiagnostics regressionDiagnostics{};
 		bool enableContStageTrace = false;
@@ -1064,11 +1065,12 @@ namespace dd {
 			auto it = self->next.find(new_key);
 
 			if (it != self->next.end()) {
-				return self->next[new_key];
+				return it->second;
 			}
 			else {
 				self->next[new_key] = new the_maps{ level, x, rotate,0,{}, self };
 				//std::cout << 570 << " " << x << " " << rotate<< " " << rotate % root_of_unit << std::endl;
+				self->next[new_key]->extra_phase = 0;
 				return self->next[new_key];
 			}
 		}
@@ -1101,6 +1103,9 @@ namespace dd {
 					if (r->extra_phase != 0) {
 						regressionDiagnostics.mapmulLookupPhaseful++;
 					}
+				}
+				if (disableMapdivLookupWriteback) {
+					r->extra_phase = 0;
 				}
 				return r;
 			}
@@ -1798,25 +1803,27 @@ namespace dd {
 				}
 			} taddTraceGuard{this, traceTadd, traceBefore};
 
-			//std::cout <<"879 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v)<<" " << x.map << " " << y.map << std::endl;
-			//the_maps::print_maps(x.map);
-			//the_maps::print_maps(y.map);
-
 			if (x.p > y.p) {
 				return T_add2(y, x);
 			}
 
-			if (x.w.exactlyZero()) {
-				if (y.w.exactlyZero()) {
+			if (x.w.approximatelyZero()) {
+				if (y.w.approximatelyZero()) {
 					return Edge<Node>::zero;
 				}
 				auto r = y;
 				r.w = cn.getCached(CTEntry::val(y.w.r), CTEntry::val(y.w.i));
+				if (r.w.approximatelyZero()) {
+					return Edge<Node>::zero;
+				}
 				return r;
 			}
-			if (y.w.exactlyZero()) {
+			if (y.w.approximatelyZero()) {
 				auto r = x;
 				r.w = cn.getCached(CTEntry::val(x.w.r), CTEntry::val(x.w.i));
+				if (r.w.approximatelyZero()) {
+					return Edge<Node>::zero;
+				}
 				return r;
 			}
 			if (x.p == y.p && x.map==y.map) {
@@ -2332,6 +2339,14 @@ namespace dd {
 
 			auto res = contTable.lookup(xCopy, yCopy, temp_key_2_new_key1, temp_key_2_new_key2);
 			if (res.e.p != nullptr) {
+				if (traceRootCall) {
+					std::cerr << "cont_root_cache\tstep\t" << traceStep
+						<< "\tcont_num\t" << res.cont_num
+						<< "\tvar_num\t" << var_num
+						<< "\tres_w_re\t" << res.e.w.r
+						<< "\tres_w_im\t" << res.e.w.i
+						<< "\n";
+				}
 				if (res.e.w.approximatelyZero()) {
 					// cn.returnToCache(extra_phase);
 					return ResultEdge::zero;
@@ -2361,6 +2376,12 @@ namespace dd {
 				// cn.mul(e.w, e.w, extra_phase);
 				cn.mul(e.w, e.w, cn.getTemporary(cos(extra_phase*rotate_angle),sin(extra_phase*rotate_angle)));
 				// cn.returnToCache(extra_phase);
+				if (traceRootCall) {
+					std::cerr << "cont_root_cache_return\tstep\t" << traceStep
+						<< "\te_w_re\t" << CTEntry::val(e.w.r)
+						<< "\te_w_im\t" << CTEntry::val(e.w.i)
+						<< "\n";
+				}
 				return e;
 			}
 			// TODO: add if here
@@ -2431,6 +2452,17 @@ namespace dd {
 			float newk1 = temp_key_2_new_key1->new_key;
 
 			float newk2 = temp_key_2_new_key2->new_key;
+			if (traceRootCall) {
+				std::cerr << "cont_root_keys\tstep\t" << traceStep
+					<< "\tvar_num\t" << var_num
+					<< "\tnewk1\t" << newk1
+					<< "\tnewk2\t" << newk2
+					<< "\tifc1\t" << ifContract(newk1)
+					<< "\tifc2\t" << ifContract(newk2)
+					<< "\tx_var\t" << static_cast<int>(x.p->v)
+					<< "\ty_var\t" << static_cast<int>(y.p->v)
+					<< "\n";
+			}
 			if(to_test){
 				std::cout << 1298 << std::endl;
 				std::cout << "newk1: " << newk1 << " newk2: " << newk2 << std::endl;
@@ -2493,6 +2525,18 @@ namespace dd {
 				}
 					if (traceRootCall) {
 						traceBeforeRootMakeNode = regressionDiagnostics;
+						for (std::size_t edgeIndex = 0; edgeIndex < e.size(); ++edgeIndex) {
+							std::cerr << "cont_root_edges\tstep\t" << traceStep
+								<< "\tedge\t" << edgeIndex
+								<< "\tw_re\t" << CTEntry::val(e[edgeIndex].w.r)
+								<< "\tw_im\t" << CTEntry::val(e[edgeIndex].w.i)
+								<< "\tchild_var\t" << static_cast<int>(e[edgeIndex].p->v)
+								<< "\tmap_level\t" << (e[edgeIndex].map ? static_cast<int>(e[edgeIndex].map->level) : -999)
+								<< "\tmap_x\t" << (e[edgeIndex].map ? static_cast<int>(e[edgeIndex].map->x) : -1)
+								<< "\tmap_rot\t" << (e[edgeIndex].map ? e[edgeIndex].map->rotate : -999)
+								<< "\tmap_ep\t" << (e[edgeIndex].map ? e[edgeIndex].map->extra_phase : -999)
+								<< "\n";
+						}
 					}
 					r = makeDDNode(Qubit(newk1), e, true);
 					if (traceRootCall) {
@@ -2554,8 +2598,29 @@ namespace dd {
 				}
 					if (traceRootCall) {
 						traceBeforeRootMakeNode = regressionDiagnostics;
+						for (std::size_t edgeIndex = 0; edgeIndex < e.size(); ++edgeIndex) {
+							std::cerr << "cont_root_edges\tstep\t" << traceStep
+								<< "\tedge\t" << edgeIndex
+								<< "\tw_re\t" << CTEntry::val(e[edgeIndex].w.r)
+								<< "\tw_im\t" << CTEntry::val(e[edgeIndex].w.i)
+								<< "\tchild_var\t" << static_cast<int>(e[edgeIndex].p->v)
+								<< "\tmap_level\t" << (e[edgeIndex].map ? static_cast<int>(e[edgeIndex].map->level) : -999)
+								<< "\tmap_x\t" << (e[edgeIndex].map ? static_cast<int>(e[edgeIndex].map->x) : -1)
+								<< "\tmap_rot\t" << (e[edgeIndex].map ? e[edgeIndex].map->rotate : -999)
+								<< "\tmap_ep\t" << (e[edgeIndex].map ? e[edgeIndex].map->extra_phase : -999)
+								<< "\n";
+						}
 					}
 					r = makeDDNode(Qubit(newk2), e, true);
+					if (enableTailCxRenormExperiment &&
+						ifContract(newk1) && !ifContract(newk2) &&
+						var_num == 2 &&
+						r.p != nullptr && static_cast<float>(r.p->v) == newk2 &&
+						e.size() == 2 &&
+						e[0].w.exactlyOne() && e[1].w.approximatelyZero() &&
+						r.w.exactlyOne()) {
+						ComplexNumbers::mul(r.w, r.w, cn.getTemporary(std::sqrt(0.5), 0));
+					}
 					if (traceRootCall) {
 						traceSawRootMakeNode = true;
 						traceAfterRootMakeNode = regressionDiagnostics;
@@ -2637,6 +2702,18 @@ namespace dd {
 					}
 					if (traceRootCall) {
 						traceBeforeRootMakeNode = regressionDiagnostics;
+						for (std::size_t edgeIndex = 0; edgeIndex < e.size(); ++edgeIndex) {
+							std::cerr << "cont_root_edges\tstep\t" << traceStep
+								<< "\tedge\t" << edgeIndex
+								<< "\tw_re\t" << CTEntry::val(e[edgeIndex].w.r)
+								<< "\tw_im\t" << CTEntry::val(e[edgeIndex].w.i)
+								<< "\tchild_var\t" << static_cast<int>(e[edgeIndex].p->v)
+								<< "\tmap_level\t" << (e[edgeIndex].map ? static_cast<int>(e[edgeIndex].map->level) : -999)
+								<< "\tmap_x\t" << (e[edgeIndex].map ? static_cast<int>(e[edgeIndex].map->x) : -1)
+								<< "\tmap_rot\t" << (e[edgeIndex].map ? e[edgeIndex].map->rotate : -999)
+								<< "\tmap_ep\t" << (e[edgeIndex].map ? e[edgeIndex].map->extra_phase : -999)
+								<< "\n";
+						}
 					}
 					r = makeDDNode(Qubit(newk1), e, true);
 					if (traceRootCall) {
@@ -2663,6 +2740,16 @@ namespace dd {
 			// }
 			contTable.insert(xCopy, yCopy, { r.p, r.w,r.map }, temp_key_2_new_key1, temp_key_2_new_key2, var_num);
 			
+			if (traceRootCall) {
+				std::cerr << "cont_root_prexy\tstep\t" << traceStep
+					<< "\tr_w_re\t" << CTEntry::val(r.w.r)
+					<< "\tr_w_im\t" << CTEntry::val(r.w.i)
+					<< "\tx_w_re\t" << CTEntry::val(x.w.r)
+					<< "\tx_w_im\t" << CTEntry::val(x.w.i)
+					<< "\ty_w_re\t" << CTEntry::val(y.w.r)
+					<< "\ty_w_im\t" << CTEntry::val(y.w.i)
+					<< "\n";
+			}
 			if (!r.w.exactlyZero() && (x.w.exactlyOne() || !y.w.exactlyZero())) {
 				if (r.w.exactlyOne()) {
 					r.w = cn.mulCached(x.w, y.w);
@@ -2684,6 +2771,12 @@ namespace dd {
 				return ResultEdge::zero;
 			}
 			else {
+				if (traceRootCall) {
+					std::cerr << "cont_root_build_prephase\tstep\t" << traceStep
+						<< "\tr_w_re\t" << CTEntry::val(r.w.r)
+						<< "\tr_w_im\t" << CTEntry::val(r.w.i)
+						<< "\n";
+				}
 				r.map = mapmul(r_maps->remain_map, r.map);
 				assert(r.w != Complex::zero);
 				// cn.mul(r.w, r.w, r.map->extra_phase);
@@ -2693,6 +2786,12 @@ namespace dd {
 				// cn.mul(r.w, r.w, extra_phase);
 				cn.mul(r.w, r.w, cn.getTemporary(cos(extra_phase*rotate_angle),sin(extra_phase*rotate_angle)));
 				// cn.returnToCache(extra_phase);
+				if (traceRootCall) {
+					std::cerr << "cont_root_build_postphase\tstep\t" << traceStep
+						<< "\tr_w_re\t" << CTEntry::val(r.w.r)
+						<< "\tr_w_im\t" << CTEntry::val(r.w.i)
+						<< "\n";
+				}
 			}
 			const auto traceAfterFinalize = traceRootCall ? regressionDiagnostics : RegressionDiagnostics{};
 			if (traceRootCall) {

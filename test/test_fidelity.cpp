@@ -63,6 +63,15 @@ std::string readFile(const std::string& filename) {
     return buffer.str();
 }
 
+bool envFlagEnabled(const char* name) {
+    const auto* value = std::getenv(name);
+    if (value == nullptr) {
+        return false;
+    }
+    const std::string flag(value);
+    return flag == "1" || flag == "true" || flag == "TRUE" || flag == "on" || flag == "ON";
+}
+
 std::vector<InjectedPauliError> sampleInjectedErrors(
     const qc::QuantumComputation& circuit,
     const std::size_t errorCount,
@@ -124,6 +133,21 @@ qc::QuantumComputation buildFaultyCircuit(
     }
 
     return faulty;
+}
+
+qc::QuantumComputation takeCircuitPrefix(
+    const qc::QuantumComputation& original,
+    const std::size_t gateCount) {
+    qc::QuantumComputation prefix(original.getNqubits(), original.getNcbits());
+    prefix = qc::QuantumComputation(original);
+    prefix.clear();
+
+    const auto keptGates = std::min(gateCount, original.getNops());
+    for (std::size_t gateIndex = 0; gateIndex < keptGates; ++gateIndex) {
+        prefix.emplace_back(original.at(gateIndex)->clone());
+    }
+
+    return prefix;
 }
 
 void appendShiftedOperation(
@@ -278,11 +302,20 @@ Edge<mNode> sliceStateEdge(const Edge<mNode>& edge, const int variable, const in
 
 dd::Complex amplitudeForZeroState(const TDD& tdd, const std::size_t qubitCount, dd::Package<>* ddpackage) {
     auto edge = tdd.e;
+    const bool traceAmplitude = std::getenv("LIMTDD_FIDELITY_SLICE_TRACE") != nullptr;
+    std::size_t sliceCount = 0;
     for (std::size_t variable = 0; variable < qubitCount; ++variable) {
         if (edge.p->v == -1) {
             break;
         }
+        if (traceAmplitude) {
+            std::cerr << "slice_step\t" << sliceCount << "\tedge_var\t" << edge.p->v << "\tmap_level\t" << edge.map->level << '\n';
+        }
         edge = sliceStateEdge(edge, edge.p->v, 0, ddpackage);
+        ++sliceCount;
+    }
+    if (traceAmplitude) {
+        std::cerr << "slice_done\tcount\t" << sliceCount << "\tterminal\t" << (edge.p->v == -1 ? 1 : 0) << "\tfinal_var\t" << edge.p->v << '\n';
     }
     return edge.w;
 }
@@ -307,13 +340,31 @@ int main(int argc, char* argv[]) {
 
     try {
         const auto qasm = readFile(qasmPath);
-        const auto originalCircuit = qc::QuantumComputation::fromQASM(qasm);
+        auto originalCircuit = qc::QuantumComputation::fromQASM(qasm);
+        if (const auto* originalPrefixEnv = std::getenv("LIMTDD_ORIGINAL_GATE_PREFIX")) {
+            originalCircuit = takeCircuitPrefix(originalCircuit, static_cast<std::size_t>(std::stoull(originalPrefixEnv)));
+        }
         const auto sampledErrors = sampleInjectedErrors(originalCircuit, errorCount, seed);
         const auto faultyCircuit = buildFaultyCircuit(originalCircuit, sampledErrors);
         const auto evaluationCircuit = buildEvaluationCircuit(originalCircuit, faultyCircuit);
 
+        if (std::getenv("LIMTDD_FIDELITY_TRACE") != nullptr) {
+            if (const auto* traceStepEnv = std::getenv("LIMTDD_FIDELITY_TRACE_STEP")) {
+                const auto tracedStep = static_cast<std::size_t>(std::stoull(traceStepEnv));
+                if (tracedStep < evaluationCircuit.getNops()) {
+                    std::cerr << "trace_gate\t" << tracedStep << "\t" << *evaluationCircuit.at(tracedStep) << '\n';
+                }
+                if (tracedStep > 0 && tracedStep - 1 < evaluationCircuit.getNops()) {
+                    std::cerr << "trace_gate_prev\t" << (tracedStep - 1) << "\t" << *evaluationCircuit.at(tracedStep - 1) << '\n';
+                }
+            }
+        }
+
         auto evaluationCircuitPtr = std::make_shared<qc::QuantumComputation>(evaluationCircuit);
         auto ddPack = std::make_shared<dd::Package<>>(3 * evaluationCircuitPtr->getNqubits());
+        ddPack->enableRegressionDiagnostics = envFlagEnabled("LIMTDD_REGRESSION_DIAG");
+        ddPack->disableMapdivLookupWriteback = envFlagEnabled("LIMTDD_DISABLE_MAPDIV_LOOKUP_WRITEBACK");
+        ddPack->enableTailCxRenormExperiment = envFlagEnabled("LIMTDD_EXPERIMENTAL_TAIL_CX_RENORM");
         auto tensorNetwork = cir_2_tn(evaluationCircuitPtr, ddPack);
         const auto stats = contractWithStats(&tensorNetwork, ddPack.get(), static_cast<int>(evaluationCircuitPtr->getNqubits()));
 
