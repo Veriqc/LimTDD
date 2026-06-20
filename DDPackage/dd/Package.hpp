@@ -178,6 +178,7 @@ namespace dd {
 		bool to_test = false;
 		bool enableRegressionDiagnostics = false;
 		bool disableMapdivLookupWriteback = false;
+		bool enableTailCxRenormExperiment = false;
 		bool enableUniqueSemanticProbe = false;
 		RegressionDiagnostics regressionDiagnostics{};
 		bool enableContStageTrace = false;
@@ -722,6 +723,19 @@ namespace dd {
 							if (i == 1U) {
 								child1AngleSnapped = true;
 							}
+							if (std::getenv("LIMTDD_TRACE_NORMALIZE_SNAP") != nullptr && enableContStageTrace && contStageTraceDepth > 0) {
+								std::cerr << "normalize_snap"
+									<< "\tstep\t" << contStageTraceStep
+									<< "\tdepth\t" << contStageTraceDepth
+									<< "\tvar\t" << static_cast<int>(e.p->v)
+									<< "\tedge\t" << i
+									<< "\tc_re_before\t" << CTEntry::val(c.r)
+									<< "\tc_im_before\t" << CTEntry::val(c.i)
+									<< "\tmag2\t" << ComplexNumbers::mag2(c)
+									<< "\trot\t" << rot
+									<< "\tdelta\t" << detla_angle
+									<< "\n";
+							}
 							c.r->value = sqrt(ComplexNumbers::mag2(c));
 							c.i->value = 0;
 							throwOnNonFinite("snap_lookup", i, c, max_value, angle, detla_angle, ComplexNumbers::mag2(c), rot, res.p->e[i].map, res.map);
@@ -943,6 +957,26 @@ namespace dd {
 					throw std::runtime_error(message.str());
 				}
 			}
+			if (traceMakeNode && contStageTraceDepth == 1) {
+				std::cerr << "makeDDNode_root_begin\tstep\t" << contStageTraceStep
+					<< "\tvar\t" << static_cast<int>(var)
+					<< "\tcached\t" << cached
+					<< "\tedge_count\t" << edges.size()
+					<< "\n";
+				for (std::size_t edgeIndex = 0; edgeIndex < edges.size(); ++edgeIndex) {
+					std::cerr << "makeDDNode_root_input\tstep\t" << contStageTraceStep
+						<< "\tvar\t" << static_cast<int>(var)
+						<< "\tedge\t" << edgeIndex
+						<< "\tw_re\t" << CTEntry::val(edges[edgeIndex].w.r)
+						<< "\tw_im\t" << CTEntry::val(edges[edgeIndex].w.i)
+						<< "\tchild_var\t" << static_cast<int>(edges[edgeIndex].p->v)
+						<< "\tmap_level\t" << (edges[edgeIndex].map ? static_cast<int>(edges[edgeIndex].map->level) : -999)
+						<< "\tmap_x\t" << (edges[edgeIndex].map ? static_cast<int>(edges[edgeIndex].map->x) : -1)
+						<< "\tmap_rot\t" << (edges[edgeIndex].map ? edges[edgeIndex].map->rotate : -999)
+						<< "\tmap_ep\t" << (edges[edgeIndex].map ? edges[edgeIndex].map->extra_phase : -999)
+						<< "\n";
+				}
+			}
 
 
 			//if (edges[0].p == edges[1].p && e.p->e[0].w.approximatelyEquals(e.p->e[1].w)) {
@@ -978,6 +1012,32 @@ namespace dd {
 			}
 
 			e = normalize(e, cached);
+
+			if (traceMakeNode && contStageTraceDepth == 1) {
+				std::cerr << "makeDDNode_root_after_normalize\tstep\t" << contStageTraceStep
+					<< "\tvar\t" << static_cast<int>(var)
+					<< "\tret_w_re\t" << CTEntry::val(e.w.r)
+					<< "\tret_w_im\t" << CTEntry::val(e.w.i)
+					<< "\tret_var\t" << static_cast<int>(e.p->v)
+					<< "\tret_map_level\t" << (e.map ? static_cast<int>(e.map->level) : -999)
+					<< "\tret_map_x\t" << (e.map ? static_cast<int>(e.map->x) : -1)
+					<< "\tret_map_rot\t" << (e.map ? e.map->rotate : -999)
+					<< "\tret_map_ep\t" << (e.map ? e.map->extra_phase : -999)
+					<< "\n";
+				for (std::size_t edgeIndex = 0; edgeIndex < e.p->e.size(); ++edgeIndex) {
+					std::cerr << "makeDDNode_root_norm_edge\tstep\t" << contStageTraceStep
+						<< "\tvar\t" << static_cast<int>(var)
+						<< "\tedge\t" << edgeIndex
+						<< "\tw_re\t" << CTEntry::val(e.p->e[edgeIndex].w.r)
+						<< "\tw_im\t" << CTEntry::val(e.p->e[edgeIndex].w.i)
+						<< "\tchild_var\t" << static_cast<int>(e.p->e[edgeIndex].p->v)
+						<< "\tmap_level\t" << (e.p->e[edgeIndex].map ? static_cast<int>(e.p->e[edgeIndex].map->level) : -999)
+						<< "\tmap_x\t" << (e.p->e[edgeIndex].map ? static_cast<int>(e.p->e[edgeIndex].map->x) : -1)
+						<< "\tmap_rot\t" << (e.p->e[edgeIndex].map ? e.p->e[edgeIndex].map->rotate : -999)
+						<< "\tmap_ep\t" << (e.p->e[edgeIndex].map ? e.p->e[edgeIndex].map->extra_phase : -999)
+						<< "\n";
+				}
+			}
 
 			assert(e.p->v == var || e.isTerminal());
 
@@ -1051,6 +1111,27 @@ namespace dd {
 
 	public:
 
+		void traceMapChain(const char* label, const the_maps* map) const {
+			if (!enableContStageTrace) {
+				return;
+			}
+			std::cerr << label << "\tstep\t" << contStageTraceStep;
+			int depth = 0;
+			for (const auto* cur = map; cur != nullptr; cur = cur->father) {
+				std::cerr << "\tnode" << depth
+					<< "_addr\t" << cur
+					<< "\tnode" << depth << "_level\t" << static_cast<int>(cur->level)
+					<< "\tnode" << depth << "_x\t" << static_cast<int>(cur->x)
+					<< "\tnode" << depth << "_rot\t" << cur->rotate
+					<< "\tnode" << depth << "_ep\t" << cur->extra_phase;
+				++depth;
+				if (cur->level == -1) {
+					break;
+				}
+			}
+			std::cerr << "\n";
+		}
+
 		the_maps* append_new_map(the_maps* self, short level, bool x, int rotate) {
 
 			rotate = (rotate % root_of_unit + root_of_unit) % root_of_unit;
@@ -1064,11 +1145,12 @@ namespace dd {
 			auto it = self->next.find(new_key);
 
 			if (it != self->next.end()) {
-				return self->next[new_key];
+				return it->second;
 			}
 			else {
 				self->next[new_key] = new the_maps{ level, x, rotate,0,{}, self };
 				//std::cout << 570 << " " << x << " " << rotate<< " " << rotate % root_of_unit << std::endl;
+				self->next[new_key]->extra_phase = 0;
 				return self->next[new_key];
 			}
 		}
@@ -1078,7 +1160,28 @@ namespace dd {
 
 		the_maps* mapmul(the_maps* self, the_maps* other) {
 
+			const auto traceMapOps = enableContStageTrace;
+			if (traceMapOps && ((self == the_maps::the_maps_header() && self->extra_phase != 0) || (other == the_maps::the_maps_header() && other->extra_phase != 0))) {
+				std::cerr << "mapmul_header_phase_input\tstep\t" << contStageTraceStep
+					<< "\tdepth\t" << contStageTraceDepth
+					<< "\tself_header\t" << (self == the_maps::the_maps_header())
+					<< "\tself_ep\t" << self->extra_phase
+					<< "\tother_header\t" << (other == the_maps::the_maps_header())
+					<< "\tother_ep\t" << other->extra_phase
+					<< "\n";
+				traceMapChain("mapmul_input_self_chain", self);
+				traceMapChain("mapmul_input_other_chain", other);
+			}
+
 			if (self->level == -1) {
+				if (traceMapOps && other->extra_phase != 0) {
+					std::cerr << "mapmul_base_reset_other\tstep\t" << contStageTraceStep
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tother_header\t" << (other == the_maps::the_maps_header())
+						<< "\tother_level\t" << static_cast<int>(other->level)
+						<< "\told_ep\t" << other->extra_phase
+						<< "\n";
+				}
 				if (enableRegressionDiagnostics) {
 					regressionDiagnostics.mapmulBaseResetOther++;
 				}
@@ -1087,6 +1190,14 @@ namespace dd {
 			}
 
 			if (other->level == -1) {
+				if (traceMapOps && self->extra_phase != 0) {
+					std::cerr << "mapmul_base_reset_self\tstep\t" << contStageTraceStep
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tself_header\t" << (self == the_maps::the_maps_header())
+						<< "\tself_level\t" << static_cast<int>(self->level)
+						<< "\told_ep\t" << self->extra_phase
+						<< "\n";
+				}
 				if (enableRegressionDiagnostics) {
 					regressionDiagnostics.mapmulBaseResetSelf++;
 				}
@@ -1094,13 +1205,25 @@ namespace dd {
 				return self;
 			}
 
-			auto r = mapmulTable.lookup(self, other);
-			if (r != nullptr) {
+				auto r = mapmulTable.lookup(self, other);
+				if (r != nullptr) {
+					if (traceMapOps && (r == the_maps::the_maps_header() || r->extra_phase != 0)) {
+						std::cerr << "mapmul_lookup_return\tstep\t" << contStageTraceStep
+							<< "\tdepth\t" << contStageTraceDepth
+							<< "\tresult_header\t" << (r == the_maps::the_maps_header())
+							<< "\tresult_level\t" << static_cast<int>(r->level)
+							<< "\tresult_ep\t" << r->extra_phase
+							<< "\n";
+						traceMapChain("mapmul_lookup_result_chain", r);
+					}
 				if (enableRegressionDiagnostics) {
 					regressionDiagnostics.mapmulLookupHits++;
 					if (r->extra_phase != 0) {
 						regressionDiagnostics.mapmulLookupPhaseful++;
 					}
+				}
+				if (disableMapdivLookupWriteback) {
+					r->extra_phase = 0;
 				}
 				return r;
 			}
@@ -1133,7 +1256,17 @@ namespace dd {
 				}
 			}
 
-			mapmulTable.insert(self, other, res, res->extra_phase%root_of_unit);
+				if (traceMapOps && (res == the_maps::the_maps_header() || res->extra_phase != 0)) {
+					std::cerr << "mapmul_insert_result\tstep\t" << contStageTraceStep
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tresult_header\t" << (res == the_maps::the_maps_header())
+						<< "\tresult_level\t" << static_cast<int>(res->level)
+						<< "\tresult_ep\t" << res->extra_phase
+						<< "\tstored_ep\t" << (res->extra_phase % root_of_unit)
+						<< "\n";
+					traceMapChain("mapmul_insert_result_chain", res);
+				}
+				mapmulTable.insert(self, other, res, res->extra_phase%root_of_unit);
 			if (enableRegressionDiagnostics && res->extra_phase != 0) {
 				regressionDiagnostics.mapmulResultPhaseful++;
 			}
@@ -1145,7 +1278,28 @@ namespace dd {
 
 		the_maps* mapdiv(the_maps* self, the_maps* other) {
 
+				const auto traceMapOps = enableContStageTrace;
+				if (traceMapOps && ((self == the_maps::the_maps_header() && self->extra_phase != 0) || (other == the_maps::the_maps_header() && other->extra_phase != 0))) {
+					std::cerr << "mapdiv_header_phase_input\tstep\t" << contStageTraceStep
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tself_header\t" << (self == the_maps::the_maps_header())
+						<< "\tself_ep\t" << self->extra_phase
+						<< "\tother_header\t" << (other == the_maps::the_maps_header())
+						<< "\tother_ep\t" << other->extra_phase
+						<< "\n";
+					traceMapChain("mapdiv_input_self_chain", self);
+					traceMapChain("mapdiv_input_other_chain", other);
+				}
+
 			if (other->level == -1) {
+				if (traceMapOps && self->extra_phase != 0) {
+					std::cerr << "mapdiv_base_reset_self\tstep\t" << contStageTraceStep
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tself_header\t" << (self == the_maps::the_maps_header())
+						<< "\tself_level\t" << static_cast<int>(self->level)
+						<< "\told_ep\t" << self->extra_phase
+						<< "\n";
+				}
 				if (enableRegressionDiagnostics) {
 					regressionDiagnostics.mapdivBaseResetSelf++;
 				}
@@ -1154,6 +1308,12 @@ namespace dd {
 			}
 			if (self == other) {
 				auto the_maps_header = the_maps::the_maps_header();
+				if (traceMapOps && the_maps_header->extra_phase != 0) {
+					std::cerr << "mapdiv_same_return_header_reset\tstep\t" << contStageTraceStep
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\told_ep\t" << the_maps_header->extra_phase
+						<< "\n";
+				}
 				if (enableRegressionDiagnostics) {
 					regressionDiagnostics.mapdivHeaderReset++;
 				}
@@ -1162,6 +1322,16 @@ namespace dd {
 			}
 			
 			if (const auto* entry = mapdivTable.findEntry(self, other); entry != nullptr) {
+				if (traceMapOps && (entry->result == the_maps::the_maps_header() || entry->extra_phase != 0 || entry->result->extra_phase != entry->extra_phase)) {
+					std::cerr << "mapdiv_lookup_return\tstep\t" << contStageTraceStep
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tresult_header\t" << (entry->result == the_maps::the_maps_header())
+						<< "\tresult_level\t" << static_cast<int>(entry->result->level)
+						<< "\tresult_ep_before\t" << entry->result->extra_phase
+						<< "\tentry_ep\t" << entry->extra_phase
+						<< "\n";
+					traceMapChain("mapdiv_lookup_result_chain", entry->result);
+				}
 				if (enableRegressionDiagnostics) {
 					regressionDiagnostics.mapdivLookupHits++;
 					if (entry->extra_phase != 0) {
@@ -1226,6 +1396,16 @@ namespace dd {
 				if (x == 1) {
 					res->extra_phase = res->extra_phase - other->rotate;
 				}
+			}
+			if (traceMapOps && (res == the_maps::the_maps_header() || res->extra_phase != 0)) {
+				std::cerr << "mapdiv_insert_result\tstep\t" << contStageTraceStep
+					<< "\tdepth\t" << contStageTraceDepth
+					<< "\tresult_header\t" << (res == the_maps::the_maps_header())
+					<< "\tresult_level\t" << static_cast<int>(res->level)
+					<< "\tresult_ep\t" << res->extra_phase
+					<< "\tstored_ep\t" << (res->extra_phase % root_of_unit)
+					<< "\n";
+				traceMapChain("mapdiv_insert_result_chain", res);
 			}
 			mapdivTable.insert(self, other, res, res->extra_phase%root_of_unit);
 			if (enableRegressionDiagnostics && res->extra_phase != 0) {
@@ -1798,25 +1978,27 @@ namespace dd {
 				}
 			} taddTraceGuard{this, traceTadd, traceBefore};
 
-			//std::cout <<"879 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v)<<" " << x.map << " " << y.map << std::endl;
-			//the_maps::print_maps(x.map);
-			//the_maps::print_maps(y.map);
-
 			if (x.p > y.p) {
 				return T_add2(y, x);
 			}
 
-			if (x.w.exactlyZero()) {
-				if (y.w.exactlyZero()) {
+			if (x.w.approximatelyZero()) {
+				if (y.w.approximatelyZero()) {
 					return Edge<Node>::zero;
 				}
 				auto r = y;
 				r.w = cn.getCached(CTEntry::val(y.w.r), CTEntry::val(y.w.i));
+				if (r.w.approximatelyZero()) {
+					return Edge<Node>::zero;
+				}
 				return r;
 			}
-			if (y.w.exactlyZero()) {
+			if (y.w.approximatelyZero()) {
 				auto r = x;
 				r.w = cn.getCached(CTEntry::val(x.w.r), CTEntry::val(x.w.i));
+				if (r.w.approximatelyZero()) {
+					return Edge<Node>::zero;
+				}
 				return r;
 			}
 			if (x.p == y.p && x.map==y.map) {
@@ -2108,6 +2290,17 @@ namespace dd {
 				return res;
 			}
 			if (map1->level == -1 && map2->level == -1) {
+				if (enableContStageTrace && (map1->extra_phase != 0 || map2->extra_phase != 0)) {
+					std::cerr << "find_remain_header_phase_input\tstep\t" << contStageTraceStep
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tmap1_header\t" << (map1 == the_maps::the_maps_header())
+						<< "\tmap1_ep\t" << map1->extra_phase
+						<< "\tmap2_header\t" << (map2 == the_maps::the_maps_header())
+						<< "\tmap2_ep\t" << map2->extra_phase
+						<< "\n";
+					traceMapChain("find_remain_input_map1_chain", map1);
+					traceMapChain("find_remain_input_map2_chain", map2);
+				}
 				comm_maps* res=new comm_maps{ the_maps::the_maps_header(),the_maps::the_maps_header(),the_maps::the_maps_header() };
 				res->remain_map->extra_phase = 0;
 				return res;
@@ -2261,6 +2454,25 @@ namespace dd {
 			bool traceSawRootMakeNode = false;
 			auto traceBeforeRootMakeNode = RegressionDiagnostics{};
 			auto traceAfterRootMakeNode = RegressionDiagnostics{};
+			if (traceRootCall) {
+				std::cerr << "cont_root_entry\tstep\t" << traceStep
+					<< "\tvar_num\t" << var_num
+					<< "\tx_w_re\t" << CTEntry::val(x.w.r)
+					<< "\tx_w_im\t" << CTEntry::val(x.w.i)
+					<< "\tx_var\t" << static_cast<int>(x.p->v)
+					<< "\tx_map_level\t" << (x.map ? static_cast<int>(x.map->level) : -999)
+					<< "\tx_map_x\t" << (x.map ? static_cast<int>(x.map->x) : -1)
+					<< "\tx_map_rot\t" << (x.map ? x.map->rotate : -999)
+					<< "\tx_map_ep\t" << (x.map ? x.map->extra_phase : -999)
+					<< "\ty_w_re\t" << CTEntry::val(y.w.r)
+					<< "\ty_w_im\t" << CTEntry::val(y.w.i)
+					<< "\ty_var\t" << static_cast<int>(y.p->v)
+					<< "\ty_map_level\t" << (y.map ? static_cast<int>(y.map->level) : -999)
+					<< "\ty_map_x\t" << (y.map ? static_cast<int>(y.map->x) : -1)
+					<< "\ty_map_rot\t" << (y.map ? y.map->rotate : -999)
+					<< "\ty_map_ep\t" << (y.map ? y.map->extra_phase : -999)
+					<< "\n";
+			}
 			//std::cout <<"838 " << x.w << " " << y.w.r->value<<" "<<y.w.i->value<< std::endl;
 			//std::cout <<"838 " << x.w << " " << y.w << " " << int(x.p->v) << " " << int(y.p->v) << std::endl;
 			//the_maps::print_maps(x.map);
@@ -2281,10 +2493,31 @@ namespace dd {
 			if (x.p->v == -1 && y.p->v == -1)
 			{
 				auto c = cn.mulCached(x.w, y.w);
+				if (enableContStageTrace && traceStep == 519) {
+					std::cerr << "cont_terminal_entry\tstep\t" << traceStep
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tvar_num\t" << var_num
+						<< "\tx_w_re\t" << CTEntry::val(x.w.r)
+						<< "\tx_w_im\t" << CTEntry::val(x.w.i)
+						<< "\ty_w_re\t" << CTEntry::val(y.w.r)
+						<< "\ty_w_im\t" << CTEntry::val(y.w.i)
+						<< "\tc_pre_re\t" << CTEntry::val(c.r)
+						<< "\tc_pre_im\t" << CTEntry::val(c.i)
+						<< "\n";
+				}
 
-				if (var_num > 0) {
+				if (var_num > 0 && std::getenv("LIMTDD_DISABLE_TERMINAL_VAR_SCALE") == nullptr) {
 					assert(c != Complex::zero);
 					ComplexNumbers::mul(c, c, cn.getTemporary(pow(2, var_num), 0));
+				}
+				if (enableContStageTrace && traceStep == 519) {
+					std::cerr << "cont_terminal_return\tstep\t" << traceStep
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tvar_num\t" << var_num
+						<< "\tpow2\t" << (var_num > 0 ? pow(2, var_num) : 1)
+						<< "\tc_re\t" << CTEntry::val(c.r)
+						<< "\tc_im\t" << CTEntry::val(c.i)
+						<< "\n";
 				}
 				//std::cout << "Case 00" << std::endl;
 				return ResultEdge::terminal(c);
@@ -2319,6 +2552,13 @@ namespace dd {
 
 			
 			auto r_maps = find_remain_map(x.map, y.map, key_2_new_key1, key_2_new_key2);
+			if (traceRootCall) {
+				traceMapChain("cont_root_x_map_chain", x.map);
+				traceMapChain("cont_root_y_map_chain", y.map);
+				traceMapChain("cont_root_cont1_chain", r_maps->cont_map1);
+				traceMapChain("cont_root_cont2_chain", r_maps->cont_map2);
+				traceMapChain("cont_root_remain_chain", r_maps->remain_map);
+			}
 			const auto traceAfterFindRemain = traceRootCall ? regressionDiagnostics : RegressionDiagnostics{};
 			if (traceRootCall) {
 				printContStageDelta("find_remain", traceStart, traceAfterFindRemain, traceEdgeNodesBefore, traceEdgeNodesBefore);
@@ -2329,17 +2569,93 @@ namespace dd {
 			// yCopy.map->print_maps(yCopy.map);
 			//auto extra_phase = cn.getCached(r_maps->remain_map->extra_phase.r->value, r_maps->remain_map->extra_phase.i->value);
 			auto extra_phase = r_maps->remain_map->extra_phase;
+			if (traceRootCall) {
+				std::cerr << "cont_root_maps\tstep\t" << traceStep
+					<< "\tcont1_level\t" << (r_maps->cont_map1 ? static_cast<int>(r_maps->cont_map1->level) : -999)
+					<< "\tcont1_x\t" << (r_maps->cont_map1 ? static_cast<int>(r_maps->cont_map1->x) : -1)
+					<< "\tcont1_rot\t" << (r_maps->cont_map1 ? r_maps->cont_map1->rotate : -999)
+					<< "\tcont1_ep\t" << (r_maps->cont_map1 ? r_maps->cont_map1->extra_phase : -999)
+					<< "\tcont2_level\t" << (r_maps->cont_map2 ? static_cast<int>(r_maps->cont_map2->level) : -999)
+					<< "\tcont2_x\t" << (r_maps->cont_map2 ? static_cast<int>(r_maps->cont_map2->x) : -1)
+					<< "\tcont2_rot\t" << (r_maps->cont_map2 ? r_maps->cont_map2->rotate : -999)
+					<< "\tcont2_ep\t" << (r_maps->cont_map2 ? r_maps->cont_map2->extra_phase : -999)
+					<< "\tremain_level\t" << (r_maps->remain_map ? static_cast<int>(r_maps->remain_map->level) : -999)
+					<< "\tremain_x\t" << (r_maps->remain_map ? static_cast<int>(r_maps->remain_map->x) : -1)
+					<< "\tremain_rot\t" << (r_maps->remain_map ? r_maps->remain_map->rotate : -999)
+					<< "\tremain_ep\t" << (r_maps->remain_map ? r_maps->remain_map->extra_phase : -999)
+					<< "\textra_phase\t" << extra_phase
+					<< "\n";
+			}
 
-			auto res = contTable.lookup(xCopy, yCopy, temp_key_2_new_key1, temp_key_2_new_key2);
+			auto res = (std::getenv("LIMTDD_DISABLE_CONT_CACHE") == nullptr)
+				? contTable.lookup(xCopy, yCopy, temp_key_2_new_key1, temp_key_2_new_key2)
+				: decltype(contTable.lookup(xCopy, yCopy, temp_key_2_new_key1, temp_key_2_new_key2)){};
+			if (std::getenv("LIMTDD_BYPASS_REMAIN_MAP_CONT_CACHE") != nullptr && res.e.p != nullptr &&
+				((x.map != xCopy.map && xCopy.map != nullptr && xCopy.map->level == -1) ||
+				 (y.map != yCopy.map && yCopy.map != nullptr && yCopy.map->level == -1))) {
+				res = {};
+			}
 			if (res.e.p != nullptr) {
+				if (enableContStageTrace && traceStep == 519) {
+					std::cerr << "cont_cache_hit\tstep\t" << traceStep
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tcont_num\t" << res.cont_num
+						<< "\tvar_num\t" << var_num
+						<< "\tx_w_re\t" << CTEntry::val(x.w.r)
+						<< "\tx_w_im\t" << CTEntry::val(x.w.i)
+						<< "\tx_var\t" << static_cast<int>(x.p->v)
+						<< "\tx_map_level\t" << (x.map ? static_cast<int>(x.map->level) : -999)
+						<< "\tx_copy_map_level\t" << (xCopy.map ? static_cast<int>(xCopy.map->level) : -999)
+						<< "\tx_copy_map_x\t" << (xCopy.map ? static_cast<int>(xCopy.map->x) : -1)
+						<< "\tx_copy_map_rot\t" << (xCopy.map ? xCopy.map->rotate : -999)
+						<< "\tx_copy_map_ep\t" << (xCopy.map ? xCopy.map->extra_phase : -999)
+						<< "\ty_w_re\t" << CTEntry::val(y.w.r)
+						<< "\ty_w_im\t" << CTEntry::val(y.w.i)
+						<< "\ty_var\t" << static_cast<int>(y.p->v)
+						<< "\ty_map_level\t" << (y.map ? static_cast<int>(y.map->level) : -999)
+						<< "\tres_w_re\t" << res.e.w.r
+						<< "\tres_w_im\t" << res.e.w.i
+						<< "\tres_var\t" << static_cast<int>(res.e.p->v)
+						<< "\tres_map_level\t" << (res.e.map ? static_cast<int>(res.e.map->level) : -999)
+						<< "\n";
+				}
+				if (traceRootCall) {
+					std::cerr << "cont_root_cache\tstep\t" << traceStep
+						<< "\tcont_num\t" << res.cont_num
+						<< "\tvar_num\t" << var_num
+						<< "\tres_w_re\t" << res.e.w.r
+						<< "\tres_w_im\t" << res.e.w.i
+						<< "\n";
+				}
 				if (res.e.w.approximatelyZero()) {
 					// cn.returnToCache(extra_phase);
 					return ResultEdge::zero;
 				}
 				auto e = ResultEdge{ res.e.p, cn.getCached(res.e.w),res.e.map };
 				assert(e.w != Complex::zero);
+				if (enableContStageTrace && traceStep == 519) {
+					std::cerr << "cont_cache_return_stage\tstep\t" << traceStep
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tstage\tloaded"
+						<< "\tvar_num\t" << var_num
+						<< "\tcont_num\t" << res.cont_num
+						<< "\te_w_re\t" << CTEntry::val(e.w.r)
+						<< "\te_w_im\t" << CTEntry::val(e.w.i)
+						<< "\te_map_level\t" << (e.map ? static_cast<int>(e.map->level) : -999)
+						<< "\n";
+				}
 				ComplexNumbers::mul(e.w, e.w, x.w);
 				ComplexNumbers::mul(e.w, e.w, y.w);
+				if (enableContStageTrace && traceStep == 519) {
+					std::cerr << "cont_cache_return_stage\tstep\t" << traceStep
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tstage\tafter_xy"
+						<< "\tvar_num\t" << var_num
+						<< "\tcont_num\t" << res.cont_num
+						<< "\te_w_re\t" << CTEntry::val(e.w.r)
+						<< "\te_w_im\t" << CTEntry::val(e.w.i)
+						<< "\n";
+				}
 				if (e.w.approximatelyZero()) {
 					//assert(e.w != Complex::zero);
 					// cn.returnToCache(e.w);
@@ -2347,20 +2663,56 @@ namespace dd {
 					return ResultEdge::zero;
 				}
 				//std::cout << "1160 " << var_num << " " << res.cont_num << std::endl;
-				if (res.cont_num != var_num) {
+				if (res.cont_num != var_num && std::getenv("LIMTDD_DISABLE_CACHE_CONT_NUM_SCALE") == nullptr) {
 					assert(e.w != Complex::zero);
 					ComplexNumbers::mul(e.w, e.w, cn.getTemporary(pow(2, var_num - res.cont_num), 0));//对于一般形状的tensor,以2为底数可能有问题
 					// TODO: pow(2,n) can be optimized by 1<<n
+				}
+				if (enableContStageTrace && traceStep == 519) {
+					std::cerr << "cont_cache_return_stage\tstep\t" << traceStep
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tstage\tafter_cont_num"
+						<< "\tvar_num\t" << var_num
+						<< "\tcont_num\t" << res.cont_num
+						<< "\tpow2\t" << (res.cont_num != var_num ? pow(2, var_num - res.cont_num) : 1)
+						<< "\te_w_re\t" << CTEntry::val(e.w.r)
+						<< "\te_w_im\t" << CTEntry::val(e.w.i)
+						<< "\n";
 				}
 				e.map = mapmul(r_maps->remain_map, e.map);
 				assert(e.w != Complex::zero);
 				// cn.mul(e.w, e.w, e.map->extra_phase);
 				cn.mul(e.w, e.w, cn.getTemporary(cos(e.map->extra_phase*rotate_angle),sin(e.map->extra_phase*rotate_angle)));
+				if (enableContStageTrace && traceStep == 519) {
+					std::cerr << "cont_cache_return_stage\tstep\t" << traceStep
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tstage\tafter_map_phase"
+						<< "\te_w_re\t" << CTEntry::val(e.w.r)
+						<< "\te_w_im\t" << CTEntry::val(e.w.i)
+						<< "\te_map_level\t" << (e.map ? static_cast<int>(e.map->level) : -999)
+						<< "\te_map_ep\t" << (e.map ? e.map->extra_phase : -999)
+						<< "\n";
+				}
 				// cn.returnToCache(e.map->extra_phase);
 				assert(e.w != Complex::zero);
 				// cn.mul(e.w, e.w, extra_phase);
 				cn.mul(e.w, e.w, cn.getTemporary(cos(extra_phase*rotate_angle),sin(extra_phase*rotate_angle)));
+				if (enableContStageTrace && traceStep == 519) {
+					std::cerr << "cont_cache_return_stage\tstep\t" << traceStep
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tstage\tafter_extra_phase"
+						<< "\textra_phase\t" << extra_phase
+						<< "\te_w_re\t" << CTEntry::val(e.w.r)
+						<< "\te_w_im\t" << CTEntry::val(e.w.i)
+						<< "\n";
+				}
 				// cn.returnToCache(extra_phase);
+				if (traceRootCall) {
+					std::cerr << "cont_root_cache_return\tstep\t" << traceStep
+						<< "\te_w_re\t" << CTEntry::val(e.w.r)
+						<< "\te_w_im\t" << CTEntry::val(e.w.i)
+						<< "\n";
+				}
 				return e;
 			}
 			// TODO: add if here
@@ -2431,6 +2783,17 @@ namespace dd {
 			float newk1 = temp_key_2_new_key1->new_key;
 
 			float newk2 = temp_key_2_new_key2->new_key;
+			if (traceRootCall) {
+				std::cerr << "cont_root_keys\tstep\t" << traceStep
+					<< "\tvar_num\t" << var_num
+					<< "\tnewk1\t" << newk1
+					<< "\tnewk2\t" << newk2
+					<< "\tifc1\t" << ifContract(newk1)
+					<< "\tifc2\t" << ifContract(newk2)
+					<< "\tx_var\t" << static_cast<int>(x.p->v)
+					<< "\ty_var\t" << static_cast<int>(y.p->v)
+					<< "\n";
+			}
 			if(to_test){
 				std::cout << 1298 << std::endl;
 				std::cout << "newk1: " << newk1 << " newk2: " << newk2 << std::endl;
@@ -2473,7 +2836,42 @@ namespace dd {
 						//e1 = x.p->e[k];
 						auto e1 = Slicing2(xCopy, xCopy.p->v, k);
 						auto& e2 = yCopy;
+						if (traceRootCall) {
+							std::cerr << "cont_root_child_input\tstep\t" << traceStep
+								<< "\tbranch\tgt"
+								<< "\tk\t" << k
+								<< "\tvar_num\t" << var_num
+								<< "\te1_w_re\t" << CTEntry::val(e1.w.r)
+								<< "\te1_w_im\t" << CTEntry::val(e1.w.i)
+								<< "\te1_var\t" << static_cast<int>(e1.p->v)
+								<< "\te1_map_level\t" << (e1.map ? static_cast<int>(e1.map->level) : -999)
+								<< "\te1_map_x\t" << (e1.map ? static_cast<int>(e1.map->x) : -1)
+								<< "\te1_map_rot\t" << (e1.map ? e1.map->rotate : -999)
+								<< "\te1_map_ep\t" << (e1.map ? e1.map->extra_phase : -999)
+								<< "\te2_w_re\t" << CTEntry::val(e2.w.r)
+								<< "\te2_w_im\t" << CTEntry::val(e2.w.i)
+								<< "\te2_var\t" << static_cast<int>(e2.p->v)
+								<< "\te2_map_level\t" << (e2.map ? static_cast<int>(e2.map->level) : -999)
+								<< "\te2_map_x\t" << (e2.map ? static_cast<int>(e2.map->x) : -1)
+								<< "\te2_map_rot\t" << (e2.map ? e2.map->rotate : -999)
+								<< "\te2_map_ep\t" << (e2.map ? e2.map->extra_phase : -999)
+								<< "\n";
+						}
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
+						if (traceRootCall) {
+							const auto& child = e.back();
+							std::cerr << "cont_root_child_output\tstep\t" << traceStep
+								<< "\tbranch\tgt"
+								<< "\tk\t" << k
+								<< "\tchild_w_re\t" << CTEntry::val(child.w.r)
+								<< "\tchild_w_im\t" << CTEntry::val(child.w.i)
+								<< "\tchild_var\t" << static_cast<int>(child.p->v)
+								<< "\tchild_map_level\t" << (child.map ? static_cast<int>(child.map->level) : -999)
+								<< "\tchild_map_x\t" << (child.map ? static_cast<int>(child.map->x) : -1)
+								<< "\tchild_map_rot\t" << (child.map ? child.map->rotate : -999)
+								<< "\tchild_map_ep\t" << (child.map ? child.map->extra_phase : -999)
+								<< "\n";
+						}
 						throwOnNonFiniteResult("vector_gt", e.back());
 						if (e1.w != Complex::zero) {
 							// cn.returnToCache(e1.w);
@@ -2493,9 +2891,31 @@ namespace dd {
 				}
 					if (traceRootCall) {
 						traceBeforeRootMakeNode = regressionDiagnostics;
+						for (std::size_t edgeIndex = 0; edgeIndex < e.size(); ++edgeIndex) {
+							std::cerr << "cont_root_edges\tstep\t" << traceStep
+								<< "\tedge\t" << edgeIndex
+								<< "\tw_re\t" << CTEntry::val(e[edgeIndex].w.r)
+								<< "\tw_im\t" << CTEntry::val(e[edgeIndex].w.i)
+								<< "\tchild_var\t" << static_cast<int>(e[edgeIndex].p->v)
+								<< "\tmap_level\t" << (e[edgeIndex].map ? static_cast<int>(e[edgeIndex].map->level) : -999)
+								<< "\tmap_x\t" << (e[edgeIndex].map ? static_cast<int>(e[edgeIndex].map->x) : -1)
+								<< "\tmap_rot\t" << (e[edgeIndex].map ? e[edgeIndex].map->rotate : -999)
+								<< "\tmap_ep\t" << (e[edgeIndex].map ? e[edgeIndex].map->extra_phase : -999)
+								<< "\n";
+						}
 					}
 					r = makeDDNode(Qubit(newk1), e, true);
 					if (traceRootCall) {
+						std::cerr << "cont_root_after_make\tstep\t" << traceStep
+							<< "\tbranch\tgt"
+							<< "\tr_w_re\t" << CTEntry::val(r.w.r)
+							<< "\tr_w_im\t" << CTEntry::val(r.w.i)
+							<< "\tr_var\t" << static_cast<int>(r.p->v)
+							<< "\tr_map_level\t" << (r.map ? static_cast<int>(r.map->level) : -999)
+							<< "\tr_map_x\t" << (r.map ? static_cast<int>(r.map->x) : -1)
+							<< "\tr_map_rot\t" << (r.map ? r.map->rotate : -999)
+							<< "\tr_map_ep\t" << (r.map ? r.map->extra_phase : -999)
+							<< "\n";
 						traceSawRootMakeNode = true;
 						traceAfterRootMakeNode = regressionDiagnostics;
 					}
@@ -2554,11 +2974,40 @@ namespace dd {
 				}
 					if (traceRootCall) {
 						traceBeforeRootMakeNode = regressionDiagnostics;
+						for (std::size_t edgeIndex = 0; edgeIndex < e.size(); ++edgeIndex) {
+							std::cerr << "cont_root_edges\tstep\t" << traceStep
+								<< "\tedge\t" << edgeIndex
+								<< "\tw_re\t" << CTEntry::val(e[edgeIndex].w.r)
+								<< "\tw_im\t" << CTEntry::val(e[edgeIndex].w.i)
+								<< "\tchild_var\t" << static_cast<int>(e[edgeIndex].p->v)
+								<< "\tmap_level\t" << (e[edgeIndex].map ? static_cast<int>(e[edgeIndex].map->level) : -999)
+								<< "\tmap_x\t" << (e[edgeIndex].map ? static_cast<int>(e[edgeIndex].map->x) : -1)
+								<< "\tmap_rot\t" << (e[edgeIndex].map ? e[edgeIndex].map->rotate : -999)
+								<< "\tmap_ep\t" << (e[edgeIndex].map ? e[edgeIndex].map->extra_phase : -999)
+								<< "\n";
+						}
 					}
 					r = makeDDNode(Qubit(newk2), e, true);
 					if (traceRootCall) {
-						traceSawRootMakeNode = true;
-						traceAfterRootMakeNode = regressionDiagnostics;
+						std::cerr << "cont_root_after_make\tstep\t" << traceStep
+							<< "\tbranch\tlt"
+							<< "\tr_w_re\t" << CTEntry::val(r.w.r)
+							<< "\tr_w_im\t" << CTEntry::val(r.w.i)
+							<< "\tr_var\t" << static_cast<int>(r.p->v)
+							<< "\tr_map_level\t" << (r.map ? static_cast<int>(r.map->level) : -999)
+							<< "\tr_map_x\t" << (r.map ? static_cast<int>(r.map->x) : -1)
+							<< "\tr_map_rot\t" << (r.map ? r.map->rotate : -999)
+							<< "\tr_map_ep\t" << (r.map ? r.map->extra_phase : -999)
+							<< "\n";
+					}
+					if (enableTailCxRenormExperiment &&
+						ifContract(newk1) && !ifContract(newk2) &&
+						var_num == 2 &&
+						r.p != nullptr && static_cast<float>(r.p->v) == newk2 &&
+						e.size() == 2 &&
+						e[0].w.exactlyOne() && e[1].w.approximatelyZero() &&
+						r.w.exactlyOne()) {
+						ComplexNumbers::mul(r.w, r.w, cn.getTemporary(std::sqrt(0.5), 0));
 					}
 				}
 
@@ -2637,9 +3086,31 @@ namespace dd {
 					}
 					if (traceRootCall) {
 						traceBeforeRootMakeNode = regressionDiagnostics;
+						for (std::size_t edgeIndex = 0; edgeIndex < e.size(); ++edgeIndex) {
+							std::cerr << "cont_root_edges\tstep\t" << traceStep
+								<< "\tedge\t" << edgeIndex
+								<< "\tw_re\t" << CTEntry::val(e[edgeIndex].w.r)
+								<< "\tw_im\t" << CTEntry::val(e[edgeIndex].w.i)
+								<< "\tchild_var\t" << static_cast<int>(e[edgeIndex].p->v)
+								<< "\tmap_level\t" << (e[edgeIndex].map ? static_cast<int>(e[edgeIndex].map->level) : -999)
+								<< "\tmap_x\t" << (e[edgeIndex].map ? static_cast<int>(e[edgeIndex].map->x) : -1)
+								<< "\tmap_rot\t" << (e[edgeIndex].map ? e[edgeIndex].map->rotate : -999)
+								<< "\tmap_ep\t" << (e[edgeIndex].map ? e[edgeIndex].map->extra_phase : -999)
+								<< "\n";
+						}
 					}
 					r = makeDDNode(Qubit(newk1), e, true);
 					if (traceRootCall) {
+						std::cerr << "cont_root_after_make\tstep\t" << traceStep
+							<< "\tbranch\teq"
+							<< "\tr_w_re\t" << CTEntry::val(r.w.r)
+							<< "\tr_w_im\t" << CTEntry::val(r.w.i)
+							<< "\tr_var\t" << static_cast<int>(r.p->v)
+							<< "\tr_map_level\t" << (r.map ? static_cast<int>(r.map->level) : -999)
+							<< "\tr_map_x\t" << (r.map ? static_cast<int>(r.map->x) : -1)
+							<< "\tr_map_rot\t" << (r.map ? r.map->rotate : -999)
+							<< "\tr_map_ep\t" << (r.map ? r.map->extra_phase : -999)
+							<< "\n";
 						traceSawRootMakeNode = true;
 						traceAfterRootMakeNode = regressionDiagnostics;
 					}
@@ -2661,8 +3132,64 @@ namespace dd {
 			// 		std::cout << "r size: "<< size(r) << " x size: " << size(xCopy) << std::endl;
 			// 	}
 			// }
-			contTable.insert(xCopy, yCopy, { r.p, r.w,r.map }, temp_key_2_new_key1, temp_key_2_new_key2, var_num);
-			
+			const auto traceContInsertShape = [&]() {
+				if (std::getenv("LIMTDD_CONT_INSERT_TRACE") == nullptr) {
+					return false;
+				}
+				if (const auto* startEnv = std::getenv("LIMTDD_CONT_INSERT_TRACE_STEP_START")) {
+					if (contStageTraceStep < static_cast<std::size_t>(std::stoull(startEnv))) {
+						return false;
+					}
+				}
+				if (const auto* endEnv = std::getenv("LIMTDD_CONT_INSERT_TRACE_STEP_END")) {
+					if (contStageTraceStep > static_cast<std::size_t>(std::stoull(endEnv))) {
+						return false;
+					}
+				}
+				const auto rRe = CTEntry::val(r.w.r);
+				const auto rIm = CTEntry::val(r.w.i);
+				return var_num == 1 && std::abs(rRe - 2.0) < 1e-9 && std::abs(rIm) < 1e-9 &&
+					yCopy.p != nullptr && yCopy.p->v == 1 && yCopy.map != nullptr && yCopy.map->level == -1;
+			}();
+			if (traceContInsertShape) {
+				std::cerr << "cont_cache_insert_candidate"
+					<< "\tstep\t" << contStageTraceStep
+					<< "\tdepth\t" << contStageTraceDepth
+					<< "\tvar_num\t" << var_num
+					<< "\tx_var\t" << static_cast<int>(xCopy.p->v)
+					<< "\tx_map_level\t" << (xCopy.map ? static_cast<int>(xCopy.map->level) : -999)
+					<< "\tx_map_x\t" << (xCopy.map ? static_cast<int>(xCopy.map->x) : -1)
+					<< "\tx_map_rot\t" << (xCopy.map ? xCopy.map->rotate : -999)
+					<< "\tx_map_ep\t" << (xCopy.map ? xCopy.map->extra_phase : -999)
+					<< "\ty_var\t" << static_cast<int>(yCopy.p->v)
+					<< "\ty_map_level\t" << (yCopy.map ? static_cast<int>(yCopy.map->level) : -999)
+					<< "\ty_map_x\t" << (yCopy.map ? static_cast<int>(yCopy.map->x) : -1)
+					<< "\ty_map_rot\t" << (yCopy.map ? yCopy.map->rotate : -999)
+					<< "\ty_map_ep\t" << (yCopy.map ? yCopy.map->extra_phase : -999)
+					<< "\tr_w_re\t" << CTEntry::val(r.w.r)
+					<< "\tr_w_im\t" << CTEntry::val(r.w.i)
+					<< "\tr_var\t" << static_cast<int>(r.p->v)
+					<< "\tr_map_level\t" << (r.map ? static_cast<int>(r.map->level) : -999)
+					<< "\tkey1_level\t" << (temp_key_2_new_key1 ? temp_key_2_new_key1->level : -999)
+					<< "\tkey1_new\t" << (temp_key_2_new_key1 ? temp_key_2_new_key1->new_key : -999)
+					<< "\tkey2_level\t" << (temp_key_2_new_key2 ? temp_key_2_new_key2->level : -999)
+					<< "\tkey2_new\t" << (temp_key_2_new_key2 ? temp_key_2_new_key2->new_key : -999)
+					<< "\n";
+			}
+			if (std::getenv("LIMTDD_DISABLE_CONT_CACHE") == nullptr) {
+				contTable.insert(xCopy, yCopy, { r.p, r.w,r.map }, temp_key_2_new_key1, temp_key_2_new_key2, var_num);
+			}
+
+			if (traceRootCall) {
+				std::cerr << "cont_root_prexy\tstep\t" << traceStep
+					<< "\tr_w_re\t" << CTEntry::val(r.w.r)
+					<< "\tr_w_im\t" << CTEntry::val(r.w.i)
+					<< "\tx_w_re\t" << CTEntry::val(x.w.r)
+					<< "\tx_w_im\t" << CTEntry::val(x.w.i)
+					<< "\ty_w_re\t" << CTEntry::val(y.w.r)
+					<< "\ty_w_im\t" << CTEntry::val(y.w.i)
+					<< "\n";
+			}
 			if (!r.w.exactlyZero() && (x.w.exactlyOne() || !y.w.exactlyZero())) {
 				if (r.w.exactlyOne()) {
 					r.w = cn.mulCached(x.w, y.w);
@@ -2684,6 +3211,12 @@ namespace dd {
 				return ResultEdge::zero;
 			}
 			else {
+				if (traceRootCall) {
+					std::cerr << "cont_root_build_prephase\tstep\t" << traceStep
+						<< "\tr_w_re\t" << CTEntry::val(r.w.r)
+						<< "\tr_w_im\t" << CTEntry::val(r.w.i)
+						<< "\n";
+				}
 				r.map = mapmul(r_maps->remain_map, r.map);
 				assert(r.w != Complex::zero);
 				// cn.mul(r.w, r.w, r.map->extra_phase);
@@ -2693,6 +3226,12 @@ namespace dd {
 				// cn.mul(r.w, r.w, extra_phase);
 				cn.mul(r.w, r.w, cn.getTemporary(cos(extra_phase*rotate_angle),sin(extra_phase*rotate_angle)));
 				// cn.returnToCache(extra_phase);
+				if (traceRootCall) {
+					std::cerr << "cont_root_build_postphase\tstep\t" << traceStep
+						<< "\tr_w_re\t" << CTEntry::val(r.w.r)
+						<< "\tr_w_im\t" << CTEntry::val(r.w.i)
+						<< "\n";
+				}
 			}
 			const auto traceAfterFinalize = traceRootCall ? regressionDiagnostics : RegressionDiagnostics{};
 			if (traceRootCall) {

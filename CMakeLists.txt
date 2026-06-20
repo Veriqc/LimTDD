@@ -5,7 +5,7 @@ project(Limtdd)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-set(MY_LOCAL_INSTALL_DIR "$ENV{HOME}/local")
+set(MY_LOCAL_INSTALL_DIR "$ENV{HOME}/thu/LimTDDexpr")
 include_directories(
     ${MY_LOCAL_INSTALL_DIR}/include
 )
