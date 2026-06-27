@@ -182,6 +182,7 @@ namespace dd {
 		bool enableUniqueSemanticProbe = false;
 		RegressionDiagnostics regressionDiagnostics{};
 		bool enableContStageTrace = false;
+		bool enableContStageVerbose = true;  // set false by LIMTDD_FIDELITY_TRACE_QUIET=1
 		std::size_t contStageTraceStep = 0;
 		std::size_t contStageTraceDepth = 0;
 		bool contStageTraceNextChild = false;
@@ -239,6 +240,9 @@ namespace dd {
 
 		void setContStageTrace(const bool enabled, const std::size_t step = 0) {
 			enableContStageTrace = enabled;
+			if (enabled && std::getenv("LIMTDD_FIDELITY_TRACE_QUIET") != nullptr) {
+				enableContStageVerbose = false;
+			}
 			contStageTraceStep = step;
 			contStageTaddTotals = {};
 			contStageMakeNodeTotals = {};
@@ -970,7 +974,7 @@ namespace dd {
 			const auto* focusedMakeNodeVarEnv = std::getenv("LIMTDD_FOCUSED_MAKENODE_VAR");
 			const auto traceFocusedMakeNode = contStageTraceDepth > 1 &&
 				(focusedMakeNodeVarEnv == nullptr || static_cast<int>(var) == std::stoi(focusedMakeNodeVarEnv));
-			const auto traceThisMakeNode = traceMakeNode && (contStageTraceDepth == 1 || traceFocusedMakeNode);
+			const auto traceThisMakeNode = traceMakeNode && (traceFocusedMakeNode || (contStageTraceDepth == 1 && enableContStageVerbose));
 			if (traceThisMakeNode) {
 				std::cerr << "makeDDNode_trace_begin\tstep\t" << contStageTraceStep
 					<< "\tvar\t" << static_cast<int>(var)
@@ -1126,7 +1130,7 @@ namespace dd {
 	public:
 
 		void traceMapChain(const char* label, const the_maps* map) const {
-			if (!enableContStageTrace) {
+			if (!enableContStageTrace || !enableContStageVerbose) {
 				return;
 			}
 			std::cerr << label << "\tstep\t" << contStageTraceStep;
@@ -1293,7 +1297,7 @@ namespace dd {
 		the_maps* mapdiv(the_maps* self, the_maps* other) {
 
 				const auto traceMapOps = enableContStageTrace;
-				if (traceMapOps && ((self == the_maps::the_maps_header() && self->extra_phase != 0) || (other == the_maps::the_maps_header() && other->extra_phase != 0))) {
+				if (traceMapOps && enableContStageVerbose && ((self == the_maps::the_maps_header() && self->extra_phase != 0) || (other == the_maps::the_maps_header() && other->extra_phase != 0))) {
 					std::cerr << "mapdiv_header_phase_input\tstep\t" << contStageTraceStep
 						<< "\tdepth\t" << contStageTraceDepth
 						<< "\tself_header\t" << (self == the_maps::the_maps_header())
@@ -1510,6 +1514,24 @@ namespace dd {
 			}
 
 
+			if (enableContStageTrace && ((contStageTraceStep >= 120 && contStageTraceStep <= 124) || (contStageTraceStep >= 242 && contStageTraceStep <= 245))) {
+				std::cerr << "var_cont_diag\tstep\t" << contStageTraceStep
+					<< "\tvar_cont_size\t" << var_cont.size();
+				std::cerr << "\tstate_idx\t";
+				for (const auto& idx : tdd1.index_set) {
+					std::cerr << idx.key << ":" << idx.idx << ",";
+				}
+				std::cerr << "\tgate_idx\t";
+				for (const auto& idx : tdd2.index_set) {
+					std::cerr << idx.key << ":" << idx.idx << ",";
+				}
+				std::cerr << "\tvar_cont_keys\t";
+				for (const auto& k : var_cont) {
+					std::cerr << k << ",";
+				}
+				std::cerr << '\n';
+			}
+
 			key_2_new_key_node* key_2_new_key1 = key_2_new_key_tree_header;
 			key_2_new_key_node* key_2_new_key2 = key_2_new_key_tree_header;
 
@@ -1614,6 +1636,13 @@ namespace dd {
 			// std::cout << tdd1.e.w<<" "<<tdd2.e.w << std::endl;
 			res.e = cont2(tdd1.e, tdd2.e, key_2_new_key1, key_2_new_key2, var_cont.size());
 
+			if (enableContStageTrace && contStageTraceDepth == 0) {
+				std::cerr << "cont_post_cont2\tstep\t" << contStageTraceStep
+					<< "\tw_re\t" << CTEntry::val(res.e.w.r)
+					<< "\tw_im\t" << CTEntry::val(res.e.w.i)
+					<< "\tv\t" << static_cast<int>(res.e.p->v) << '\n';
+			}
+
 			if (to_test) {
 				std::cout << "TDD: ";
 				for (const auto& element : res.key_2_index) {
@@ -1631,7 +1660,16 @@ namespace dd {
 			if (!res.e.w.exactlyZero() && !res.e.w.exactlyOne()) {
 				//assert(res.e.w != Complex::zero);
 				// cn.returnToCache(res.e.w);
-				res.e.w = cn.lookup(res.e.w);
+				// NOTE: cn.lookup disabled — tolerance-based dedup can corrupt
+				// small weights in large circuits (nqubits >= 41).
+				// res.e.w = cn.lookup(res.e.w);
+			}
+
+			if (enableContStageTrace && contStageTraceDepth == 0) {
+				std::cerr << "cont_post_lookup\tstep\t" << contStageTraceStep
+					<< "\tw_re\t" << CTEntry::val(res.e.w.r)
+					<< "\tw_im\t" << CTEntry::val(res.e.w.i)
+					<< '\n';
 			}
 
 			[[maybe_unused]] const auto after = cn.cacheCount();
@@ -2358,7 +2396,7 @@ namespace dd {
 				return res;
 			}
 			if (map1->level == -1 && map2->level == -1) {
-				if (enableContStageTrace && (map1->extra_phase != 0 || map2->extra_phase != 0)) {
+				if (enableContStageTrace && enableContStageVerbose && (map1->extra_phase != 0 || map2->extra_phase != 0)) {
 					std::cerr << "find_remain_header_phase_input\tstep\t" << contStageTraceStep
 						<< "\tdepth\t" << contStageTraceDepth
 						<< "\tmap1_header\t" << (map1 == the_maps::the_maps_header())
@@ -2555,7 +2593,7 @@ res->remain_map->extra_phase =  res->remain_map->extra_phase+ map2->rotate;
 					<< "\ty_map_ep\t" << (y.map ? y.map->extra_phase : -999)
 					<< "\n";
 			}
-			if (traceChildCall) {
+			if (traceChildCall && enableContStageVerbose) {
 				std::cerr << "cont_child_entry\tstep\t" << traceStep
 					<< "\tparent_branch\t" << traceChildBranch
 					<< "\tparent_k\t" << traceChildK
@@ -3059,7 +3097,7 @@ res->remain_map->extra_phase =  res->remain_map->extra_phase+ map2->rotate;
 						//e1 = x.p->e[k];
 						auto e1 = Slicing2(xCopy, xCopy.p->v, k);
 						auto& e2 = yCopy;
-						if (traceRootCall) {
+						if (traceRootCall && enableContStageVerbose) {
 							std::cerr << "cont_root_child_input\tstep\t" << traceStep
 								<< "\tbranch\tgt"
 								<< "\tk\t" << k
@@ -3189,10 +3227,55 @@ res->remain_map->extra_phase =  res->remain_map->extra_phase+ map2->rotate;
 				else {
 					std::vector<ResultEdge> e;
 					for (int k = 0; k < y.p->e.size(); ++k) {
+						if (traceFocusedContCall) {
+							std::cerr << "cont_focused_ycopy_child\tstep\t" << traceStep
+								<< "\tdepth\t" << contStageTraceDepth
+								<< "\tk\t" << k
+								<< "\tycopy_v\t" << static_cast<int>(yCopy.p->v)
+								<< "\tycopy_map_level\t" << (yCopy.map ? static_cast<int>(yCopy.map->level) : -999)
+								<< "\tchild_w_re\t" << CTEntry::val(yCopy.p->e[k].w.r)
+								<< "\tchild_w_im\t" << CTEntry::val(yCopy.p->e[k].w.i)
+								<< "\tchild_v\t" << static_cast<int>(yCopy.p->e[k].p->v)
+								<< "\tchild_map_level\t" << (yCopy.p->e[k].map ? static_cast<int>(yCopy.p->e[k].map->level) : -999)
+								<< "\tchild_map_x\t" << (yCopy.p->e[k].map ? static_cast<int>(yCopy.p->e[k].map->x) : -1)
+								<< "\tchild_map_rot\t" << (yCopy.p->e[k].map ? yCopy.p->e[k].map->rotate : -999)
+								<< "\tchild_map_ep\t" << (yCopy.p->e[k].map ? yCopy.p->e[k].map->extra_phase : -999)
+								<< "\n";
+						}
+						if (traceFocusedContCall) {
+							for (int xck = 0; xck < xCopy.p->e.size(); ++xck) {
+								std::cerr << "cont_focused_xcopy_child\tstep\t" << traceStep
+									<< "\tdepth\t" << contStageTraceDepth
+									<< "\tk\t" << xck
+									<< "\txcopy_v\t" << static_cast<int>(xCopy.p->v)
+									<< "\txcopy_map_level\t" << (xCopy.map ? static_cast<int>(xCopy.map->level) : -999)
+									<< "\tchild_w_re\t" << CTEntry::val(xCopy.p->e[xck].w.r)
+									<< "\tchild_w_im\t" << CTEntry::val(xCopy.p->e[xck].w.i)
+									<< "\tchild_v\t" << static_cast<int>(xCopy.p->e[xck].p->v)
+									<< "\tchild_map_level\t" << (xCopy.p->e[xck].map ? static_cast<int>(xCopy.p->e[xck].map->level) : -999)
+									<< "\tchild_map_x\t" << (xCopy.p->e[xck].map ? static_cast<int>(xCopy.p->e[xck].map->x) : -1)
+									<< "\tchild_map_rot\t" << (xCopy.p->e[xck].map ? xCopy.p->e[xck].map->rotate : -999)
+									<< "\tchild_map_ep\t" << (xCopy.p->e[xck].map ? xCopy.p->e[xck].map->extra_phase : -999)
+									<< "\n";
+							}
+						}
 						auto& e1 = xCopy;
 						//e2 = y.p->e[k];
 						auto e2 = Slicing2(yCopy, yCopy.p->v, k);
 						traceRootAggEdge("lt", "input_e1", k, e1);
+						if (traceFocusedContCall) {
+							std::cerr << "cont_focused_lt_e1\tstep\t" << traceStep
+								<< "\tdepth\t" << contStageTraceDepth
+								<< "\tk\t" << k
+								<< "\txcopy_v\t" << static_cast<int>(xCopy.p->v)
+								<< "\txcopy_map_level\t" << (xCopy.map ? static_cast<int>(xCopy.map->level) : -999)
+								<< "\txcopy_map_x\t" << (xCopy.map ? static_cast<int>(xCopy.map->x) : -1)
+								<< "\txcopy_map_rot\t" << (xCopy.map ? xCopy.map->rotate : -999)
+								<< "\txcopy_map_ep\t" << (xCopy.map ? xCopy.map->extra_phase : -999)
+								<< "\te1_w_re\t" << CTEntry::val(e1.w.r)
+								<< "\te1_w_im\t" << CTEntry::val(e1.w.i)
+								<< "\n";
+						}
 						traceRootAggEdge("lt", "input_e2", k, e2);
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
 						traceRootAggEdge("lt", "child_output", k, e.back());
@@ -3262,6 +3345,40 @@ res->remain_map->extra_phase =  res->remain_map->extra_phase+ map2->rotate;
 					ResultEdge etemp;
 					for (int k = 0; k < x.p->e.size(); ++k) {
 						//e1 = x.p->e[k];
+						if (traceFocusedContCall && k == 0) {
+							for (int xck = 0; xck < xCopy.p->e.size(); ++xck) {
+								std::cerr << "cont_focused_xcopy_child_sum\tstep\t" << traceStep
+									<< "\tdepth\t" << contStageTraceDepth
+									<< "\tk\t" << xck
+									<< "\txcopy_v\t" << static_cast<int>(xCopy.p->v)
+									<< "\txcopy_map_level\t" << (xCopy.map ? static_cast<int>(xCopy.map->level) : -999)
+									<< "\tchild_w_re\t" << CTEntry::val(xCopy.p->e[xck].w.r)
+									<< "\tchild_w_im\t" << CTEntry::val(xCopy.p->e[xck].w.i)
+									<< "\tchild_v\t" << static_cast<int>(xCopy.p->e[xck].p->v)
+									<< "\tchild_map_level\t" << (xCopy.p->e[xck].map ? static_cast<int>(xCopy.p->e[xck].map->level) : -999)
+									<< "\tchild_map_x\t" << (xCopy.p->e[xck].map ? static_cast<int>(xCopy.p->e[xck].map->x) : -1)
+									<< "\tchild_map_rot\t" << (xCopy.p->e[xck].map ? xCopy.p->e[xck].map->rotate : -999)
+									<< "\tchild_map_ep\t" << (xCopy.p->e[xck].map ? xCopy.p->e[xck].map->extra_phase : -999)
+									<< "\n";
+							}
+						}
+						if (traceFocusedContCall && k == 0) {
+							for (int yck = 0; yck < yCopy.p->e.size(); ++yck) {
+								std::cerr << "cont_focused_ycopy_child_sum\tstep\t" << traceStep
+									<< "\tdepth\t" << contStageTraceDepth
+									<< "\tk\t" << yck
+									<< "\tycopy_v\t" << static_cast<int>(yCopy.p->v)
+									<< "\tycopy_map_level\t" << (yCopy.map ? static_cast<int>(yCopy.map->level) : -999)
+									<< "\tchild_w_re\t" << CTEntry::val(yCopy.p->e[yck].w.r)
+									<< "\tchild_w_im\t" << CTEntry::val(yCopy.p->e[yck].w.i)
+									<< "\tchild_v\t" << static_cast<int>(yCopy.p->e[yck].p->v)
+									<< "\tchild_map_level\t" << (yCopy.p->e[yck].map ? static_cast<int>(yCopy.p->e[yck].map->level) : -999)
+									<< "\tchild_map_x\t" << (yCopy.p->e[yck].map ? static_cast<int>(yCopy.p->e[yck].map->x) : -1)
+									<< "\tchild_map_rot\t" << (yCopy.p->e[yck].map ? yCopy.p->e[yck].map->rotate : -999)
+									<< "\tchild_map_ep\t" << (yCopy.p->e[yck].map ? yCopy.p->e[yck].map->extra_phase : -999)
+									<< "\n";
+							}
+						}
 						auto e1 = Slicing2(xCopy, xCopy.p->v, k);
 						//e2 = y.p->e[k];
 						//std::cout << "1554, e1 " << e1.w << std::endl;
@@ -3308,6 +3425,23 @@ res->remain_map->extra_phase =  res->remain_map->extra_phase+ map2->rotate;
 					std::vector<ResultEdge> e;
 					for (int k = 0; k < x.p->e.size(); ++k) {
 						//e1 = x.p->e[k];
+						if (traceFocusedContCall && k == 0) {
+							for (int xck = 0; xck < xCopy.p->e.size(); ++xck) {
+								std::cerr << "cont_focused_xcopy_child_eq\tstep\t" << traceStep
+									<< "\tdepth\t" << contStageTraceDepth
+									<< "\tk\t" << xck
+									<< "\txcopy_v\t" << static_cast<int>(xCopy.p->v)
+									<< "\txcopy_map_level\t" << (xCopy.map ? static_cast<int>(xCopy.map->level) : -999)
+									<< "\tchild_w_re\t" << CTEntry::val(xCopy.p->e[xck].w.r)
+									<< "\tchild_w_im\t" << CTEntry::val(xCopy.p->e[xck].w.i)
+									<< "\tchild_v\t" << static_cast<int>(xCopy.p->e[xck].p->v)
+									<< "\tchild_map_level\t" << (xCopy.p->e[xck].map ? static_cast<int>(xCopy.p->e[xck].map->level) : -999)
+									<< "\tchild_map_x\t" << (xCopy.p->e[xck].map ? static_cast<int>(xCopy.p->e[xck].map->x) : -1)
+									<< "\tchild_map_rot\t" << (xCopy.p->e[xck].map ? xCopy.p->e[xck].map->rotate : -999)
+									<< "\tchild_map_ep\t" << (xCopy.p->e[xck].map ? xCopy.p->e[xck].map->extra_phase : -999)
+									<< "\n";
+							}
+						}
 						auto e1 = Slicing2(xCopy, xCopy.p->v, k);
 						//e2 = y.p->e[k];
 						auto e2 = Slicing2(yCopy, yCopy.p->v, k);

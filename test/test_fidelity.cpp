@@ -231,7 +231,7 @@ ContractionStats contractWithStats(dd::TensorNetwork* tensorNetwork, dd::Package
     const auto tracedStep = traceStepEnv ? static_cast<std::size_t>(std::stoull(traceStepEnv)) : std::numeric_limits<std::size_t>::max();
 
     for (std::size_t index = 0; index < contractionLimit; ++index) {
-        if (traceSteps) {
+        if (traceSteps && std::getenv("LIMTDD_FIDELITY_TRACE_ALL_STEPS") != nullptr) {
             std::cerr << "fidelity_step\t" << index << "\tcurrent_nodes\t" << ddpackage->size(result.e) << std::endl;
         }
         bool traceThisContraction = index == tracedStep;
@@ -254,6 +254,11 @@ ContractionStats contractWithStats(dd::TensorNetwork* tensorNetwork, dd::Package
         ddpackage->garbageCollect();
         result = next;
         maxNode = std::max(maxNode, ddpackage->size(result.e));
+        if (std::getenv("LIMTDD_TRACE_ROOT_WEIGHT") != nullptr) {
+            std::cerr << "root_weight_step\t" << index << "\tw_re\t" << dd::CTEntry::val(result.e.w.r)
+                << "\tw_im\t" << dd::CTEntry::val(result.e.w.i)
+                << "\tv\t" << static_cast<int>(result.e.p->v) << '\n';
+        }
     }
 
     ddpackage->setContStageTrace(false);
@@ -321,7 +326,7 @@ dd::Complex amplitudeForZeroState(const TDD& tdd, const std::size_t qubitCount, 
             break;
         }
         if (traceAmplitude) {
-            std::cerr << "slice_step\t" << sliceCount << "\tedge_var\t" << edge.p->v << "\tmap_level\t" << edge.map->level << '\n';
+            std::cerr << "slice_step\t" << sliceCount << "\tedge_var\t" << edge.p->v << "\tmap_level\t" << edge.map->level << "\tedge_w_re\t" << dd::CTEntry::val(edge.w.r) << "\tedge_w_im\t" << dd::CTEntry::val(edge.w.i) << '\n';
         }
         edge = sliceStateEdge(edge, edge.p->v, 0, ddpackage);
         ++sliceCount;
@@ -360,7 +365,7 @@ int main(int argc, char* argv[]) {
         const auto faultyCircuit = buildFaultyCircuit(originalCircuit, sampledErrors);
         const auto evaluationCircuit = buildEvaluationCircuit(originalCircuit, faultyCircuit);
 
-        if (std::getenv("LIMTDD_FIDELITY_TRACE") != nullptr) {
+        if (std::getenv("LIMTDD_FIDELITY_TRACE") != nullptr && std::getenv("LIMTDD_FIDELITY_TRACE_ALL_STEPS") != nullptr) {
             if (const auto* traceStepEnv = std::getenv("LIMTDD_FIDELITY_TRACE_STEP")) {
                 const auto tracedStep = static_cast<std::size_t>(std::stoull(traceStepEnv));
                 if (tracedStep < evaluationCircuit.getNops()) {
@@ -379,6 +384,14 @@ int main(int argc, char* argv[]) {
         ddPack->enableTailCxRenormExperiment = envFlagEnabled("LIMTDD_EXPERIMENTAL_TAIL_CX_RENORM");
         auto tensorNetwork = cir_2_tn(evaluationCircuitPtr, ddPack);
         const auto stats = contractWithStats(&tensorNetwork, ddPack.get(), static_cast<int>(evaluationCircuitPtr->getNqubits()));
+
+        if (std::getenv("LIMTDD_DEBUG_ROOT_EDGE") != nullptr) {
+            std::cerr << "DEBUG_ROOT_EDGE\tw_re\t" << dd::CTEntry::val(stats.tdd.e.w.r)
+                << "\tw_im\t" << dd::CTEntry::val(stats.tdd.e.w.i)
+                << "\tv\t" << static_cast<int>(stats.tdd.e.p->v)
+                << "\tmap_level\t" << (stats.tdd.e.map ? static_cast<int>(stats.tdd.e.map->level) : -999)
+                << '\n';
+        }
 
         const auto overlap = amplitudeForZeroState(stats.tdd, evaluationCircuitPtr->getNqubits(), ddPack.get());
 
