@@ -184,6 +184,11 @@ namespace dd {
 		bool enableContStageTrace = false;
 		std::size_t contStageTraceStep = 0;
 		std::size_t contStageTraceDepth = 0;
+		bool contStageTraceNextChild = false;
+		bool contStageTraceFocusedChildActive = false;
+		std::size_t contStageTraceNextChildParentDepth = 0;
+		const char* contStageTraceNextChildBranch = nullptr;
+		int contStageTraceNextChildK = -1;
 		std::size_t contStageTaddDepth = 0;
 		std::size_t contStageMakeNodeDepth = 0;
 		RegressionDiagnostics contStageTaddTotals{};
@@ -239,6 +244,11 @@ namespace dd {
 			contStageMakeNodeTotals = {};
 			contStageTaddDepth = 0;
 			contStageMakeNodeDepth = 0;
+			contStageTraceNextChild = false;
+			contStageTraceFocusedChildActive = false;
+			contStageTraceNextChildParentDepth = 0;
+			contStageTraceNextChildBranch = nullptr;
+			contStageTraceNextChildK = -1;
 			if (!enabled) {
 				contStageTraceDepth = 0;
 			}
@@ -957,14 +967,18 @@ namespace dd {
 					throw std::runtime_error(message.str());
 				}
 			}
-			if (traceMakeNode && contStageTraceDepth == 1) {
-				std::cerr << "makeDDNode_root_begin\tstep\t" << contStageTraceStep
+			const auto* focusedMakeNodeVarEnv = std::getenv("LIMTDD_FOCUSED_MAKENODE_VAR");
+			const auto traceFocusedMakeNode = contStageTraceDepth > 1 &&
+				(focusedMakeNodeVarEnv == nullptr || static_cast<int>(var) == std::stoi(focusedMakeNodeVarEnv));
+			const auto traceThisMakeNode = traceMakeNode && (contStageTraceDepth == 1 || traceFocusedMakeNode);
+			if (traceThisMakeNode) {
+				std::cerr << "makeDDNode_trace_begin\tstep\t" << contStageTraceStep
 					<< "\tvar\t" << static_cast<int>(var)
 					<< "\tcached\t" << cached
 					<< "\tedge_count\t" << edges.size()
 					<< "\n";
 				for (std::size_t edgeIndex = 0; edgeIndex < edges.size(); ++edgeIndex) {
-					std::cerr << "makeDDNode_root_input\tstep\t" << contStageTraceStep
+					std::cerr << "makeDDNode_trace_input\tstep\t" << contStageTraceStep
 						<< "\tvar\t" << static_cast<int>(var)
 						<< "\tedge\t" << edgeIndex
 						<< "\tw_re\t" << CTEntry::val(edges[edgeIndex].w.r)
@@ -1013,8 +1027,8 @@ namespace dd {
 
 			e = normalize(e, cached);
 
-			if (traceMakeNode && contStageTraceDepth == 1) {
-				std::cerr << "makeDDNode_root_after_normalize\tstep\t" << contStageTraceStep
+			if (traceThisMakeNode) {
+				std::cerr << "makeDDNode_trace_after_normalize\tstep\t" << contStageTraceStep
 					<< "\tvar\t" << static_cast<int>(var)
 					<< "\tret_w_re\t" << CTEntry::val(e.w.r)
 					<< "\tret_w_im\t" << CTEntry::val(e.w.i)
@@ -1025,7 +1039,7 @@ namespace dd {
 					<< "\tret_map_ep\t" << (e.map ? e.map->extra_phase : -999)
 					<< "\n";
 				for (std::size_t edgeIndex = 0; edgeIndex < e.p->e.size(); ++edgeIndex) {
-					std::cerr << "makeDDNode_root_norm_edge\tstep\t" << contStageTraceStep
+					std::cerr << "makeDDNode_trace_norm_edge\tstep\t" << contStageTraceStep
 						<< "\tvar\t" << static_cast<int>(var)
 						<< "\tedge\t" << edgeIndex
 						<< "\tw_re\t" << CTEntry::val(e.p->e[edgeIndex].w.r)
@@ -1791,28 +1805,58 @@ namespace dd {
 		Edge<Node> Slicing2(Edge<Node>& e, int x, int c) {
 
 			assert(e.w != Complex::zero);
+			const auto traceSlicing2 = std::getenv("LIMTDD_SLICING2_TRACE") != nullptr && enableContStageTrace;
+			const auto traceSlicing2ForDepth = traceSlicing2 &&
+				(std::getenv("LIMTDD_FOCUSED_CONT_DEPTH") == nullptr ||
+				 contStageTraceDepth == static_cast<std::size_t>(std::stoull(std::getenv("LIMTDD_FOCUSED_CONT_DEPTH"))));
+			if (traceSlicing2ForDepth) {
+				std::cerr << "slicing2_entry\tx\t" << x << "\tc\t" << c
+					<< "\tdepth\t" << contStageTraceDepth
+					<< "\te_v\t" << static_cast<int>(e.p->v)
+					<< "\te_w_re\t" << CTEntry::val(e.w.r)
+					<< "\te_w_im\t" << CTEntry::val(e.w.i)
+					<< "\te_map_level\t" << (e.map ? static_cast<int>(e.map->level) : -999)
+					<< "\te_map_x\t" << (e.map ? static_cast<int>(e.map->x) : -1)
+					<< "\te_map_rot\t" << (e.map ? e.map->rotate : -999)
+					<< "\te_map_ep\t" << (e.map ? e.map->extra_phase : -999)
+					<< "\n";
+			}
 		// used for contract
 			if (e.p->v == -1) {
+				if (traceSlicing2ForDepth) {
+					std::cerr << "slicing2_branch\tterminal\tx\t" << x << "\tc\t" << c << "\tdepth\t" << contStageTraceDepth << "\n";
+				}
 				return e;
 			}
 			if (e.p->v < x) {
+				if (traceSlicing2ForDepth) {
+					std::cerr << "slicing2_branch\tpass_through\tx\t" << x << "\tc\t" << c
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tout_v\t" << static_cast<int>(e.p->v)
+						<< "\tout_w_re\t" << CTEntry::val(e.w.r)
+						<< "\tout_map_level\t" << (e.map ? static_cast<int>(e.map->level) : -999)
+						<< "\n";
+				}
 				return e;
 			}
 			if (e.p->v == x) {
 				if (e.p->v != e.map->level) {
 					Edge<Node> temp = e.p->e[c];
-					// std::cout << "969 e.p->e[c]: " << & (e.p->e[c]) << std::endl;
-					// std::cout << "969 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
 					if (temp.w != Complex::zero) {
 						temp.map = mapmul(e.map, temp.map);
-						// temp->w=cn.mulCached(temp->w, temp->map->extra_phase);
 						temp.w = cn.mulCached(temp.w, cn.getTemporary(cos(temp.map->extra_phase * rotate_angle), sin(temp.map->extra_phase * rotate_angle)));
-						
-						// cn.returnToCache(temp->map->extra_phase);
-						// std::cout << "1004 ref count:" << temp->w.i->refCount << " " << temp->w.r->refCount << std::endl;
-						// std::cout << "1002 temp w: " << temp->w << " in:" << &(temp->w.i) << std::endl;
 					}
-					//std::cout << "Scling2 1 " << temp->w << std::endl;
+					if (traceSlicing2ForDepth) {
+						std::cerr << "slicing2_branch\tv_eq_x_level_mismatch\tx\t" << x << "\tc\t" << c
+							<< "\tdepth\t" << contStageTraceDepth
+							<< "\tout_w_re\t" << CTEntry::val(temp.w.r)
+							<< "\tout_w_im\t" << CTEntry::val(temp.w.i)
+							<< "\tout_v\t" << static_cast<int>(temp.p ? temp.p->v : -999)
+							<< "\tout_map_level\t" << (temp.map ? static_cast<int>(temp.map->level) : -999)
+							<< "\tout_map_x\t" << (temp.map ? static_cast<int>(temp.map->x) : -1)
+							<< "\tout_map_rot\t" << (temp.map ? temp.map->rotate : -999)
+							<< "\n";
+					}
 					return temp;
 				}
 				else if (e.map->x == 0) {
@@ -1845,6 +1889,18 @@ namespace dd {
 						// return {temp->p,  temp_w, temp_map};
 					}
 					//std::cout << "Scling2 2 " << temp->w << std::endl;
+					if (traceSlicing2ForDepth) {
+						std::cerr << "slicing2_branch\tv_eq_x_level_match_x0\tx\t" << x << "\tc\t" << c
+							<< "\tdepth\t" << contStageTraceDepth
+							<< "\te_map_rot\t" << (e.map ? e.map->rotate : -999)
+							<< "\tout_w_re\t" << CTEntry::val(temp.w.r)
+							<< "\tout_w_im\t" << CTEntry::val(temp.w.i)
+							<< "\tout_v\t" << static_cast<int>(temp.p ? temp.p->v : -999)
+							<< "\tout_map_level\t" << (temp.map ? static_cast<int>(temp.map->level) : -999)
+							<< "\tout_map_x\t" << (temp.map ? static_cast<int>(temp.map->x) : -1)
+							<< "\tout_map_rot\t" << (temp.map ? temp.map->rotate : -999)
+							<< "\n";
+					}
 					return temp;
 				}
 				else {
@@ -1867,6 +1923,18 @@ namespace dd {
 						// return {temp.p,  temp_w, temp_map};
 					}
 					//std::cout << "Scling2 3 " << temp->w << std::endl;
+					if (traceSlicing2ForDepth) {
+						std::cerr << "slicing2_branch\tv_eq_x_level_match_x1\tx\t" << x << "\tc\t" << c
+							<< "\tdepth\t" << contStageTraceDepth
+							<< "\te_map_rot\t" << (e.map ? e.map->rotate : -999)
+							<< "\tout_w_re\t" << CTEntry::val(temp.w.r)
+							<< "\tout_w_im\t" << CTEntry::val(temp.w.i)
+							<< "\tout_v\t" << static_cast<int>(temp.p ? temp.p->v : -999)
+							<< "\tout_map_level\t" << (temp.map ? static_cast<int>(temp.map->level) : -999)
+							<< "\tout_map_x\t" << (temp.map ? static_cast<int>(temp.map->x) : -1)
+							<< "\tout_map_rot\t" << (temp.map ? temp.map->rotate : -999)
+							<< "\n";
+					}
 					return temp;
 				}
 
@@ -2323,7 +2391,7 @@ namespace dd {
 				if (enableRegressionDiagnostics) {
 					regressionDiagnostics.findRemainPhaseCarries++;
 				}
-				res->remain_map->extra_phase =  res->remain_map->extra_phase+ map2->rotate;
+res->remain_map->extra_phase =  res->remain_map->extra_phase+ map2->rotate;
 			}
 
 			auto rotate = 0;
@@ -2348,17 +2416,31 @@ namespace dd {
 			}
 			using ResultEdge = Edge<mNode>;
 			const auto traceRootCall = enableContStageTrace && contStageTraceDepth == 1;
+			const auto traceChildCall = enableContStageTrace && contStageTraceNextChild && contStageTraceDepth == contStageTraceNextChildParentDepth + 1;
 			const auto traceStep = contStageTraceStep;
 			const auto traceEdgeNodesBefore = traceRootCall ? size(x) : 0U;
 			const auto traceStart = traceRootCall ? regressionDiagnostics : RegressionDiagnostics{};
+			const auto traceChildBranch = traceChildCall && contStageTraceNextChildBranch ? contStageTraceNextChildBranch : "";
+			const auto traceChildK = traceChildCall ? contStageTraceNextChildK : -1;
+			if (traceChildCall) {
+				contStageTraceNextChild = false;
+				contStageTraceFocusedChildActive = true;
+				contStageTraceNextChildParentDepth = 0;
+				contStageTraceNextChildBranch = nullptr;
+				contStageTraceNextChildK = -1;
+			}
 			struct ContStageTraceGuard {
 				Package* pkg;
+				bool focusedChild;
 				~ContStageTraceGuard() {
+					if (focusedChild) {
+						pkg->contStageTraceFocusedChildActive = false;
+					}
 					if (pkg->enableContStageTrace && pkg->contStageTraceDepth > 0) {
 						pkg->contStageTraceDepth--;
 					}
 				}
-			} traceGuard{this};
+			} traceGuard{this, traceChildCall};
 			auto printContStageDelta = [&](const char* stage,
 									  const RegressionDiagnostics& before,
 									  const RegressionDiagnostics& after,
@@ -2454,8 +2536,30 @@ namespace dd {
 			bool traceSawRootMakeNode = false;
 			auto traceBeforeRootMakeNode = RegressionDiagnostics{};
 			auto traceAfterRootMakeNode = RegressionDiagnostics{};
-			if (traceRootCall) {
-				std::cerr << "cont_root_entry\tstep\t" << traceStep
+				if (traceRootCall) {
+					std::cerr << "cont_root_entry\tstep\t" << traceStep
+						<< "\tvar_num\t" << var_num
+						<< "\tx_w_re\t" << CTEntry::val(x.w.r)
+					<< "\tx_w_im\t" << CTEntry::val(x.w.i)
+					<< "\tx_var\t" << static_cast<int>(x.p->v)
+					<< "\tx_map_level\t" << (x.map ? static_cast<int>(x.map->level) : -999)
+					<< "\tx_map_x\t" << (x.map ? static_cast<int>(x.map->x) : -1)
+					<< "\tx_map_rot\t" << (x.map ? x.map->rotate : -999)
+					<< "\tx_map_ep\t" << (x.map ? x.map->extra_phase : -999)
+					<< "\ty_w_re\t" << CTEntry::val(y.w.r)
+					<< "\ty_w_im\t" << CTEntry::val(y.w.i)
+					<< "\ty_var\t" << static_cast<int>(y.p->v)
+					<< "\ty_map_level\t" << (y.map ? static_cast<int>(y.map->level) : -999)
+					<< "\ty_map_x\t" << (y.map ? static_cast<int>(y.map->x) : -1)
+					<< "\ty_map_rot\t" << (y.map ? y.map->rotate : -999)
+					<< "\ty_map_ep\t" << (y.map ? y.map->extra_phase : -999)
+					<< "\n";
+			}
+			if (traceChildCall) {
+				std::cerr << "cont_child_entry\tstep\t" << traceStep
+					<< "\tparent_branch\t" << traceChildBranch
+					<< "\tparent_k\t" << traceChildK
+					<< "\tdepth\t" << contStageTraceDepth
 					<< "\tvar_num\t" << var_num
 					<< "\tx_w_re\t" << CTEntry::val(x.w.r)
 					<< "\tx_w_im\t" << CTEntry::val(x.w.i)
@@ -2493,7 +2597,8 @@ namespace dd {
 			if (x.p->v == -1 && y.p->v == -1)
 			{
 				auto c = cn.mulCached(x.w, y.w);
-				if (enableContStageTrace && traceStep == 519) {
+				const auto traceTerminalScale = enableContStageTrace && (traceStep == 519 || (contStageTraceDepth > 1 && var_num > 0));
+				if (traceTerminalScale) {
 					std::cerr << "cont_terminal_entry\tstep\t" << traceStep
 						<< "\tdepth\t" << contStageTraceDepth
 						<< "\tvar_num\t" << var_num
@@ -2510,7 +2615,7 @@ namespace dd {
 					assert(c != Complex::zero);
 					ComplexNumbers::mul(c, c, cn.getTemporary(pow(2, var_num), 0));
 				}
-				if (enableContStageTrace && traceStep == 519) {
+				if (traceTerminalScale) {
 					std::cerr << "cont_terminal_return\tstep\t" << traceStep
 						<< "\tdepth\t" << contStageTraceDepth
 						<< "\tvar_num\t" << var_num
@@ -2559,6 +2664,13 @@ namespace dd {
 				traceMapChain("cont_root_cont2_chain", r_maps->cont_map2);
 				traceMapChain("cont_root_remain_chain", r_maps->remain_map);
 			}
+			if (traceChildCall) {
+				traceMapChain("cont_child_x_map_chain", x.map);
+				traceMapChain("cont_child_y_map_chain", y.map);
+				traceMapChain("cont_child_cont1_chain", r_maps->cont_map1);
+				traceMapChain("cont_child_cont2_chain", r_maps->cont_map2);
+				traceMapChain("cont_child_remain_chain", r_maps->remain_map);
+			}
 			const auto traceAfterFindRemain = traceRootCall ? regressionDiagnostics : RegressionDiagnostics{};
 			if (traceRootCall) {
 				printContStageDelta("find_remain", traceStart, traceAfterFindRemain, traceEdgeNodesBefore, traceEdgeNodesBefore);
@@ -2569,6 +2681,26 @@ namespace dd {
 			// yCopy.map->print_maps(yCopy.map);
 			//auto extra_phase = cn.getCached(r_maps->remain_map->extra_phase.r->value, r_maps->remain_map->extra_phase.i->value);
 			auto extra_phase = r_maps->remain_map->extra_phase;
+			if (traceChildCall) {
+				std::cerr << "cont_child_maps\tstep\t" << traceStep
+					<< "\tparent_branch\t" << traceChildBranch
+					<< "\tparent_k\t" << traceChildK
+					<< "\tdepth\t" << contStageTraceDepth
+					<< "\tcont1_level\t" << (r_maps->cont_map1 ? static_cast<int>(r_maps->cont_map1->level) : -999)
+					<< "\tcont1_x\t" << (r_maps->cont_map1 ? static_cast<int>(r_maps->cont_map1->x) : -1)
+					<< "\tcont1_rot\t" << (r_maps->cont_map1 ? r_maps->cont_map1->rotate : -999)
+					<< "\tcont1_ep\t" << (r_maps->cont_map1 ? r_maps->cont_map1->extra_phase : -999)
+					<< "\tcont2_level\t" << (r_maps->cont_map2 ? static_cast<int>(r_maps->cont_map2->level) : -999)
+					<< "\tcont2_x\t" << (r_maps->cont_map2 ? static_cast<int>(r_maps->cont_map2->x) : -1)
+					<< "\tcont2_rot\t" << (r_maps->cont_map2 ? r_maps->cont_map2->rotate : -999)
+					<< "\tcont2_ep\t" << (r_maps->cont_map2 ? r_maps->cont_map2->extra_phase : -999)
+					<< "\tremain_level\t" << (r_maps->remain_map ? static_cast<int>(r_maps->remain_map->level) : -999)
+					<< "\tremain_x\t" << (r_maps->remain_map ? static_cast<int>(r_maps->remain_map->x) : -1)
+					<< "\tremain_rot\t" << (r_maps->remain_map ? r_maps->remain_map->rotate : -999)
+					<< "\tremain_ep\t" << (r_maps->remain_map ? r_maps->remain_map->extra_phase : -999)
+					<< "\textra_phase\t" << extra_phase
+					<< "\n";
+			}
 			if (traceRootCall) {
 				std::cerr << "cont_root_maps\tstep\t" << traceStep
 					<< "\tcont1_level\t" << (r_maps->cont_map1 ? static_cast<int>(r_maps->cont_map1->level) : -999)
@@ -2783,8 +2915,44 @@ namespace dd {
 			float newk1 = temp_key_2_new_key1->new_key;
 
 			float newk2 = temp_key_2_new_key2->new_key;
+			const auto* focusedContNewkEnv = std::getenv("LIMTDD_FOCUSED_CONT_NEWK1");
+			const auto* focusedContDepthEnv = std::getenv("LIMTDD_FOCUSED_CONT_DEPTH");
+			const auto traceFocusedContByNewk = focusedContNewkEnv != nullptr &&
+				(std::abs(newk1 - std::stof(focusedContNewkEnv)) < 1e-6 || std::abs(newk2 - std::stof(focusedContNewkEnv)) < 1e-6);
+			const auto traceFocusedContByDepth = focusedContDepthEnv != nullptr &&
+				contStageTraceDepth == static_cast<std::size_t>(std::stoull(focusedContDepthEnv));
+			const auto traceFocusedContCall = enableContStageTrace && contStageTraceDepth > 1 &&
+				(traceFocusedContByNewk || traceFocusedContByDepth);
+			if (traceFocusedContCall) {
+				std::cerr << "cont_focused_keys\tstep\t" << traceStep
+					<< "\tdepth\t" << contStageTraceDepth
+					<< "\tvar_num\t" << var_num
+					<< "\tnewk1\t" << newk1
+					<< "\tnewk2\t" << newk2
+					<< "\tifc1\t" << ifContract(newk1)
+					<< "\tifc2\t" << ifContract(newk2)
+					<< "\tx_var\t" << static_cast<int>(x.p->v)
+					<< "\ty_var\t" << static_cast<int>(y.p->v)
+					<< "\tx_w_re\t" << CTEntry::val(x.w.r)
+					<< "\ty_w_re\t" << CTEntry::val(y.w.r)
+					<< "\n";
+			}
 			if (traceRootCall) {
 				std::cerr << "cont_root_keys\tstep\t" << traceStep
+					<< "\tvar_num\t" << var_num
+					<< "\tnewk1\t" << newk1
+					<< "\tnewk2\t" << newk2
+					<< "\tifc1\t" << ifContract(newk1)
+					<< "\tifc2\t" << ifContract(newk2)
+					<< "\tx_var\t" << static_cast<int>(x.p->v)
+					<< "\ty_var\t" << static_cast<int>(y.p->v)
+					<< "\n";
+			}
+			if (traceChildCall) {
+				std::cerr << "cont_child_keys\tstep\t" << traceStep
+					<< "\tparent_branch\t" << traceChildBranch
+					<< "\tparent_k\t" << traceChildK
+					<< "\tdepth\t" << contStageTraceDepth
 					<< "\tvar_num\t" << var_num
 					<< "\tnewk1\t" << newk1
 					<< "\tnewk2\t" << newk2
@@ -2799,6 +2967,53 @@ namespace dd {
 				std::cout << "newk1: " << newk1 << " newk2: " << newk2 << std::endl;
 			}
 			ResultEdge r;
+			auto traceRootAggEdge = [&](const char* branch, const char* stage, const int k, const ResultEdge& edge) {
+				if (!traceRootCall && !traceChildCall && !traceFocusedContCall) {
+					return;
+				}
+				std::cerr << (traceChildCall ? "cont_child_agg" : (traceFocusedContCall ? "cont_focused_agg" : "cont_root_agg")) << "\tstep\t" << traceStep;
+				if (traceChildCall) {
+					std::cerr << "\tparent_branch\t" << traceChildBranch
+						<< "\tparent_k\t" << traceChildK
+						<< "\tdepth\t" << contStageTraceDepth;
+				} else if (traceFocusedContCall) {
+					std::cerr << "\tdepth\t" << contStageTraceDepth;
+				}
+				std::cerr << "\tbranch\t" << branch
+					<< "\tstage\t" << stage
+					<< "\tk\t" << k
+					<< "\tvar_num\t" << var_num
+					<< "\tnewk1\t" << newk1
+					<< "\tnewk2\t" << newk2
+					<< "\tw_re\t" << CTEntry::val(edge.w.r)
+					<< "\tw_im\t" << CTEntry::val(edge.w.i)
+					<< "\tchild_var\t" << (edge.p ? static_cast<int>(edge.p->v) : -999)
+					<< "\tmap_level\t" << (edge.map ? static_cast<int>(edge.map->level) : -999)
+					<< "\tmap_x\t" << (edge.map ? static_cast<int>(edge.map->x) : -1)
+					<< "\tmap_rot\t" << (edge.map ? edge.map->rotate : -999)
+					<< "\tmap_ep\t" << (edge.map ? edge.map->extra_phase : -999)
+					<< "\n";
+			};
+			auto traceRootAggAction = [&](const char* branch, const char* action, const int k) {
+				if (!traceRootCall && !traceChildCall && !traceFocusedContCall) {
+					return;
+				}
+				std::cerr << (traceChildCall ? "cont_child_agg_action" : (traceFocusedContCall ? "cont_focused_agg_action" : "cont_root_agg_action")) << "\tstep\t" << traceStep;
+				if (traceChildCall) {
+					std::cerr << "\tparent_branch\t" << traceChildBranch
+						<< "\tparent_k\t" << traceChildK
+						<< "\tdepth\t" << contStageTraceDepth;
+				} else if (traceFocusedContCall) {
+					std::cerr << "\tdepth\t" << contStageTraceDepth;
+				}
+				std::cerr << "\tbranch\t" << branch
+					<< "\taction\t" << action
+					<< "\tk\t" << k
+					<< "\tvar_num\t" << var_num
+					<< "\tnewk1\t" << newk1
+					<< "\tnewk2\t" << newk2
+					<< "\n";
+			};
 
 			if (newk1 > newk2) {
 				// TODO: half integer?
@@ -2811,21 +3026,29 @@ namespace dd {
 						auto e1 = Slicing2(xCopy, xCopy.p->v, k);
 						auto& e2 = yCopy;
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
+						traceRootAggEdge("gt_contract", "input_e1", k, e1);
+						traceRootAggEdge("gt_contract", "input_e2", k, e2);
+						traceRootAggEdge("gt_contract", "etemp", k, etemp);
 						throwOnNonFiniteResult("recurse_gt", etemp);
 						if (e1.w != Complex::zero) {
 							// cn.returnToCache(e1.w);
 						}
 						if (etemp.w != Complex::zero) {
+							traceRootAggEdge("gt_contract", "r_before", k, r);
 							if (r != ResultEdge::zero) {
+								traceRootAggAction("gt_contract", "T_add2", k);
 								auto temp = r.w;
 								r = T_add2(r, etemp);
+								traceRootAggEdge("gt_contract", "r_after_add", k, r);
 								//assert(temp != Complex::zero);
 								//assert(etemp.w != Complex::zero);
 								// cn.returnToCache(temp);
 								// cn.returnToCache(etemp.w);
 							}
 							else {
+								traceRootAggAction("gt_contract", "assign", k);
 								r = etemp;
+								traceRootAggEdge("gt_contract", "r_after_assign", k, r);
 							}
 						}
 					}
@@ -2856,6 +3079,12 @@ namespace dd {
 								<< "\te2_map_rot\t" << (e2.map ? e2.map->rotate : -999)
 								<< "\te2_map_ep\t" << (e2.map ? e2.map->extra_phase : -999)
 								<< "\n";
+						}
+						if (traceRootCall && k == 0) {
+							contStageTraceNextChild = true;
+							contStageTraceNextChildParentDepth = contStageTraceDepth;
+							contStageTraceNextChildBranch = "gt";
+							contStageTraceNextChildK = k;
 						}
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
 						if (traceRootCall) {
@@ -2889,10 +3118,10 @@ namespace dd {
 					std::cout << std::endl;
 
 				}
-					if (traceRootCall) {
+					if (traceRootCall || traceFocusedContCall) {
 						traceBeforeRootMakeNode = regressionDiagnostics;
 						for (std::size_t edgeIndex = 0; edgeIndex < e.size(); ++edgeIndex) {
-							std::cerr << "cont_root_edges\tstep\t" << traceStep
+							std::cerr << (traceFocusedContCall ? "cont_focused_edges" : "cont_root_edges") << "\tstep\t" << traceStep
 								<< "\tedge\t" << edgeIndex
 								<< "\tw_re\t" << CTEntry::val(e[edgeIndex].w.r)
 								<< "\tw_im\t" << CTEntry::val(e[edgeIndex].w.i)
@@ -2929,22 +3158,30 @@ namespace dd {
 						auto& e1 = xCopy;
 						//e2 = y.p->e[k];
 						auto e2 = Slicing2(yCopy, yCopy.p->v, k);
-						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
-						throwOnNonFiniteResult("recurse_lt", etemp);
+							etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
+							traceRootAggEdge("lt_contract", "input_e1", k, e1);
+							traceRootAggEdge("lt_contract", "input_e2", k, e2);
+							traceRootAggEdge("lt_contract", "etemp", k, etemp);
+							throwOnNonFiniteResult("recurse_lt", etemp);
 						if (e2.w != Complex::zero) {
 							// cn.returnToCache(e2.w);
 						}
 						if (etemp.w != Complex::zero) {
+							traceRootAggEdge("lt_contract", "r_before", k, r);
 							if (r != ResultEdge::zero) {
+								traceRootAggAction("lt_contract", "T_add2", k);
 								auto temp = r.w;
 								r = T_add2(r, etemp);
+								traceRootAggEdge("lt_contract", "r_after_add", k, r);
 								//assert(temp != Complex::zero);
 								//assert(etemp.w != Complex::zero);
 								// cn.returnToCache(temp);
 								// cn.returnToCache(etemp.w);
 							}
 							else {
+								traceRootAggAction("lt_contract", "assign", k);
 								r = etemp;
+								traceRootAggEdge("lt_contract", "r_after_assign", k, r);
 							}
 						}
 					}
@@ -2955,7 +3192,10 @@ namespace dd {
 						auto& e1 = xCopy;
 						//e2 = y.p->e[k];
 						auto e2 = Slicing2(yCopy, yCopy.p->v, k);
+						traceRootAggEdge("lt", "input_e1", k, e1);
+						traceRootAggEdge("lt", "input_e2", k, e2);
 						e.push_back(cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num));
+						traceRootAggEdge("lt", "child_output", k, e.back());
 						throwOnNonFiniteResult("vector_lt", e.back());
 						if (e2.w != Complex::zero) {
 							// cn.returnToCache(e2.w);
@@ -2972,10 +3212,10 @@ namespace dd {
 					std::cout << std::endl;
 
 				}
-					if (traceRootCall) {
+					if (traceRootCall || traceFocusedContCall) {
 						traceBeforeRootMakeNode = regressionDiagnostics;
 						for (std::size_t edgeIndex = 0; edgeIndex < e.size(); ++edgeIndex) {
-							std::cerr << "cont_root_edges\tstep\t" << traceStep
+							std::cerr << (traceFocusedContCall ? "cont_focused_edges" : "cont_root_edges") << "\tstep\t" << traceStep
 								<< "\tedge\t" << edgeIndex
 								<< "\tw_re\t" << CTEntry::val(e[edgeIndex].w.r)
 								<< "\tw_im\t" << CTEntry::val(e[edgeIndex].w.i)
@@ -2988,8 +3228,8 @@ namespace dd {
 						}
 					}
 					r = makeDDNode(Qubit(newk2), e, true);
-					if (traceRootCall) {
-						std::cerr << "cont_root_after_make\tstep\t" << traceStep
+					if (traceRootCall || traceFocusedContCall) {
+						std::cerr << (traceFocusedContCall ? "cont_focused_after_make" : "cont_root_after_make") << "\tstep\t" << traceStep
 							<< "\tbranch\tlt"
 							<< "\tr_w_re\t" << CTEntry::val(r.w.r)
 							<< "\tr_w_im\t" << CTEntry::val(r.w.i)
@@ -3034,6 +3274,9 @@ namespace dd {
 						//std::cout << "e2.w in: " << (e2.w.i) << " " << e2.w.r << std::endl;
 						//the_maps::print_maps(e1.map);
 						etemp = cont2(e1, e2, temp_key_2_new_key1, temp_key_2_new_key2, var_num - 1);
+						traceRootAggEdge("eq_contract", "input_e1", k, e1);
+						traceRootAggEdge("eq_contract", "input_e2", k, e2);
+						traceRootAggEdge("eq_contract", "etemp", k, etemp);
 						throwOnNonFiniteResult("recurse_eq", etemp);
 						if (e1.w != Complex::zero) {
 							// cn.returnToCache(e1.w);
@@ -3042,16 +3285,21 @@ namespace dd {
 							// cn.returnToCache(e2.w);
 						}
 						if (etemp.w != Complex::zero) {
+							traceRootAggEdge("eq_contract", "r_before", k, r);
 							if (r != ResultEdge::zero) {
+								traceRootAggAction("eq_contract", "T_add2", k);
 								auto temp = r.w;
 								r = T_add2(r, etemp);
+								traceRootAggEdge("eq_contract", "r_after_add", k, r);
 								//assert(temp != Complex::zero);
 								//assert(etemp.w != Complex::zero);
 								// cn.returnToCache(temp);
 								// cn.returnToCache(etemp.w);
 							}
 							else {
+								traceRootAggAction("eq_contract", "assign", k);
 								r = etemp;
+								traceRootAggEdge("eq_contract", "r_after_assign", k, r);
 							}
 						}
 					}
@@ -3084,10 +3332,10 @@ namespace dd {
 						std::cout << std::endl;
 
 					}
-					if (traceRootCall) {
+					if (traceRootCall || traceFocusedContCall) {
 						traceBeforeRootMakeNode = regressionDiagnostics;
 						for (std::size_t edgeIndex = 0; edgeIndex < e.size(); ++edgeIndex) {
-							std::cerr << "cont_root_edges\tstep\t" << traceStep
+							std::cerr << (traceFocusedContCall ? "cont_focused_edges" : "cont_root_edges") << "\tstep\t" << traceStep
 								<< "\tedge\t" << edgeIndex
 								<< "\tw_re\t" << CTEntry::val(e[edgeIndex].w.r)
 								<< "\tw_im\t" << CTEntry::val(e[edgeIndex].w.i)
@@ -3176,11 +3424,26 @@ namespace dd {
 					<< "\tkey2_new\t" << (temp_key_2_new_key2 ? temp_key_2_new_key2->new_key : -999)
 					<< "\n";
 			}
+			if (traceChildCall) {
+				traceRootAggEdge("final", "prexy_r", -1, r);
+				std::cerr << "cont_child_prexy\tstep\t" << traceStep
+					<< "\tparent_branch\t" << traceChildBranch
+					<< "\tparent_k\t" << traceChildK
+					<< "\tdepth\t" << contStageTraceDepth
+					<< "\tr_w_re\t" << CTEntry::val(r.w.r)
+					<< "\tr_w_im\t" << CTEntry::val(r.w.i)
+					<< "\tx_w_re\t" << CTEntry::val(x.w.r)
+					<< "\tx_w_im\t" << CTEntry::val(x.w.i)
+					<< "\ty_w_re\t" << CTEntry::val(y.w.r)
+					<< "\ty_w_im\t" << CTEntry::val(y.w.i)
+					<< "\n";
+			}
 			if (std::getenv("LIMTDD_DISABLE_CONT_CACHE") == nullptr) {
 				contTable.insert(xCopy, yCopy, { r.p, r.w,r.map }, temp_key_2_new_key1, temp_key_2_new_key2, var_num);
 			}
 
 			if (traceRootCall) {
+				traceRootAggEdge("final", "prexy_r", -1, r);
 				std::cerr << "cont_root_prexy\tstep\t" << traceStep
 					<< "\tr_w_re\t" << CTEntry::val(r.w.r)
 					<< "\tr_w_im\t" << CTEntry::val(r.w.i)
@@ -3211,6 +3474,15 @@ namespace dd {
 				return ResultEdge::zero;
 			}
 			else {
+				if (traceChildCall) {
+					std::cerr << "cont_child_build_prephase\tstep\t" << traceStep
+						<< "\tparent_branch\t" << traceChildBranch
+						<< "\tparent_k\t" << traceChildK
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tr_w_re\t" << CTEntry::val(r.w.r)
+						<< "\tr_w_im\t" << CTEntry::val(r.w.i)
+						<< "\n";
+				}
 				if (traceRootCall) {
 					std::cerr << "cont_root_build_prephase\tstep\t" << traceStep
 						<< "\tr_w_re\t" << CTEntry::val(r.w.r)
@@ -3226,6 +3498,15 @@ namespace dd {
 				// cn.mul(r.w, r.w, extra_phase);
 				cn.mul(r.w, r.w, cn.getTemporary(cos(extra_phase*rotate_angle),sin(extra_phase*rotate_angle)));
 				// cn.returnToCache(extra_phase);
+				if (traceChildCall) {
+					std::cerr << "cont_child_build_postphase\tstep\t" << traceStep
+						<< "\tparent_branch\t" << traceChildBranch
+						<< "\tparent_k\t" << traceChildK
+						<< "\tdepth\t" << contStageTraceDepth
+						<< "\tr_w_re\t" << CTEntry::val(r.w.r)
+						<< "\tr_w_im\t" << CTEntry::val(r.w.i)
+						<< "\n";
+				}
 				if (traceRootCall) {
 					std::cerr << "cont_root_build_postphase\tstep\t" << traceStep
 						<< "\tr_w_re\t" << CTEntry::val(r.w.r)
