@@ -89,7 +89,16 @@ public:
                                                             const fp right) {
       // equivalence check is a shortcut before check with tolerance
       // NOLINTNEXTLINE(clang-diagnostic-float-equal)
-      return left == right || std::abs(left - right) <= TOLERANCE;
+      if (left == right) {
+        return true;
+      }
+      // Scale tolerance by magnitude so that the relative precision is
+      // uniform across all scales.  For values near 1.0 this matches the
+      // old absolute tolerance; for very small values (e.g. weights in
+      // large circuits) the threshold is proportionally tighter, which
+      // prevents distinct weight values from being collapsed together.
+      const auto scale = std::max(std::abs(left), std::abs(right));
+      return std::abs(left - right) <= TOLERANCE * scale;
     }
 
     [[nodiscard]] static constexpr bool approximatelyZero(const Entry* e) {

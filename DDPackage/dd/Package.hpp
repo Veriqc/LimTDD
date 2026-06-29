@@ -1660,8 +1660,9 @@ namespace dd {
 			if (!res.e.w.exactlyZero() && !res.e.w.exactlyOne()) {
 				//assert(res.e.w != Complex::zero);
 				// cn.returnToCache(res.e.w);
-				// NOTE: cn.lookup disabled — tolerance-based dedup can corrupt
-				// small weights in large circuits (nqubits >= 41).
+				// NOTE: cn.lookup zeros small weights (<TOLERANCE) via
+				// approximatelyZero.  Keep disabled — relative-tolerance
+				// approximatelyEquals in ComplexTable handles collisions.
 				// res.e.w = cn.lookup(res.e.w);
 			}
 
@@ -3593,13 +3594,24 @@ res->remain_map->extra_phase =  res->remain_map->extra_phase+ map2->rotate;
 				}
 				else {
 					assert(r.w != Complex::zero);
-					ComplexNumbers::mul(r.w, r.w, x.w);
-					ComplexNumbers::mul(r.w, r.w, y.w);
+					// Multiply weights directly without the approximatelyZero
+					// shortcut in ComplexNumbers::mul.  For large circuits
+					// (>= 41 qubits) the contraction weights can become very
+					// small (< 1e-13) and the shortcut would incorrectly
+					// zero them out.
+					const auto rw_re = CTEntry::val(r.w.r);
+					const auto rw_im = CTEntry::val(r.w.i);
+					const auto xw_re = CTEntry::val(x.w.r);
+					const auto xw_im = CTEntry::val(x.w.i);
+					const auto yw_re = CTEntry::val(y.w.r);
+					const auto yw_im = CTEntry::val(y.w.i);
+					// r = r * x * y  (complex multiply)
+					const auto t_re = rw_re * xw_re - rw_im * xw_im;
+					const auto t_im = rw_re * xw_im + rw_im * xw_re;
+					r.w.r->value = t_re * yw_re - t_im * yw_im;
+					r.w.i->value = t_re * yw_im + t_im * yw_re;
 				}
-				if (r.w.approximatelyZero()) {
-					//assert(r.w != Complex::zero);
-					// cn.returnToCache(r.w);
-					// cn.returnToCache(extra_phase);
+				if (r.w.exactlyZero()) {
 					return ResultEdge::zero;
 				}
 			}
