@@ -1152,7 +1152,7 @@ xt::xarray<dd::ComplexValue> getOpData(const std::unique_ptr<qc::Operation>& op)
 		res = dd::U2mat(parameters[0],parameters[1]);
 	}
 	else if (Npara == 3 && gateName == "u") {
-        res = dd::U3mat(parameters[0],parameters[1],parameters[2]);
+        res = dd::U3mat(parameters[2],parameters[1],parameters[0]);
     } 
     else{
 		// If no condition is met, throw an exception
