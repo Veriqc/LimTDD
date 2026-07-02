@@ -1211,3 +1211,87 @@ dd::TensorNetwork cir_2_tn(std::shared_ptr<qc::QuantumComputation>& QC, std::sha
 	return tn;
 
 }
+
+struct TensorNetworkWithBoundary {
+	dd::TensorNetwork tensorNetwork;
+	std::vector<std::string> initialBoundary;
+	std::vector<std::string> finalBoundary;
+	std::vector<int> finalWireVersion;
+};
+
+TensorNetworkWithBoundary cir_2_tn_with_boundary(
+	std::shared_ptr<qc::QuantumComputation>& QC,
+	std::shared_ptr<dd::Package<>>& ddPack,
+	bool materializeUntouchedQubits = true) {
+	auto var = get_var_order(QC->getNqubits(), QC->getNops());
+	ddPack->varOrder = var;
+
+	std::vector<int> existIndexs(QC->getNqubits(), 0);
+	std::map<std::string, short> hyperIndexs;
+	for (const auto& pair : var) {
+		hyperIndexs[pair.first] = 0;
+	}
+
+	TensorNetworkWithBoundary res;
+	res.initialBoundary.reserve(QC->getNqubits());
+	res.finalBoundary.reserve(QC->getNqubits());
+	res.finalWireVersion.resize(QC->getNqubits(), 0);
+	for (qc::Qubit qubit = 0; qubit < QC->getNqubits(); ++qubit) {
+		res.initialBoundary.push_back(buildIndex(static_cast<int>(qubit), 0));
+	}
+
+	for (const auto& op: *QC) {
+		if(!op->isStandardOperation()){
+			throw std::invalid_argument("unstandard gate, which is not support");
+		}
+		if (op->isClassicControlledOperation() || op->getType() == qc::Reset) {
+			throw std::invalid_argument("a dynamic circuit, which is not support");
+		}
+		if (const auto* measure = dynamic_cast<qc::NonUnitaryOperation*>(op.get());
+			measure != nullptr && measure->getType() == qc::Measure) {
+			throw std::invalid_argument("have measurement, which is not support");
+		}
+
+		auto indexSet = getOpIndex(op, existIndexs, hyperIndexs);
+		auto data = getOpData(op);
+
+		std::string prefix(op->getControls().size(), 'c');
+		std::string gateName = prefix + getCanonicalGateName(op);
+		res.tensorNetwork.add_ts(dd::Tensor(data, indexSet, gateName));
+	}
+
+	if (materializeUntouchedQubits) {
+		for (qc::Qubit qubit = 0; qubit < QC->getNqubits(); ++qubit) {
+			if (existIndexs[qubit] != 0) {
+				continue;
+			}
+			const std::string inputKey = buildIndex(static_cast<int>(qubit), 0);
+			existIndexs[qubit] = 1;
+			const std::string outputKey = buildIndex(static_cast<int>(qubit), existIndexs[qubit]);
+			res.tensorNetwork.add_ts(dd::Tensor(
+				dd::Imat,
+				{{inputKey, hyperIndexs[inputKey]}, {outputKey, hyperIndexs[outputKey]}},
+				"wire_id_q" + std::to_string(qubit)));
+		}
+	}
+
+	for (qc::Qubit qubit = 0; qubit < QC->getNqubits(); ++qubit) {
+		res.finalWireVersion[qubit] = existIndexs[qubit];
+		res.finalBoundary.push_back(buildIndex(static_cast<int>(qubit), existIndexs[qubit]));
+	}
+
+	return res;
+}
+
+void add_trace_delta_tensors(TensorNetworkWithBoundary& tnWithBoundary) {
+	if (tnWithBoundary.initialBoundary.size() != tnWithBoundary.finalBoundary.size()) {
+		throw std::invalid_argument("trace boundary size mismatch");
+	}
+
+	for (std::size_t qubit = 0; qubit < tnWithBoundary.initialBoundary.size(); ++qubit) {
+		tnWithBoundary.tensorNetwork.add_ts(dd::Tensor(
+			dd::Imat,
+			{{tnWithBoundary.initialBoundary[qubit], 0}, {tnWithBoundary.finalBoundary[qubit], 0}},
+			"trace_delta_q" + std::to_string(qubit)));
+	}
+}

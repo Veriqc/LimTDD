@@ -12,6 +12,7 @@ set(TEST_SOURCES
     # test_core.cpp
     test_data.cpp
     test_fidelity.cpp
+    test_fidelity_trace_tn.cpp
     test_state_output.cpp
     # test_clt.cpp
     # test_id.cpp
