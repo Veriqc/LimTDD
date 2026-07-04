@@ -1258,6 +1258,7 @@ TensorNetworkWithBoundary cir_2_tn_with_boundary(
 		std::string prefix(op->getControls().size(), 'c');
 		std::string gateName = prefix + getCanonicalGateName(op);
 		res.tensorNetwork.add_ts(dd::Tensor(data, indexSet, gateName));
+
 	}
 
 	if (materializeUntouchedQubits) {

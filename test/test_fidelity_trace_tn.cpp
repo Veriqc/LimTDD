@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <random>
 #include <sstream>
 #include <stdexcept>
@@ -164,6 +165,19 @@ TraceContractionStats contractClosedNetworkStrict(dd::TensorNetwork& tensorNetwo
     unsigned int maxNode = ddpackage->size(result.e);
 
     for (std::size_t index = 1; index < tensorNetwork.tensors.size(); ++index) {
+        bool traceThisContraction = false;
+        if (std::getenv("LIMTDD_CONT_INSERT_TRACE") != nullptr) {
+            std::size_t insertTraceStart = 0;
+            std::size_t insertTraceEnd = std::numeric_limits<std::size_t>::max();
+            if (const auto* startEnv = std::getenv("LIMTDD_CONT_INSERT_TRACE_STEP_START")) {
+                insertTraceStart = static_cast<std::size_t>(std::stoull(startEnv));
+            }
+            if (const auto* endEnv = std::getenv("LIMTDD_CONT_INSERT_TRACE_STEP_END")) {
+                insertTraceEnd = static_cast<std::size_t>(std::stoull(endEnv));
+            }
+            traceThisContraction = (index >= insertTraceStart && index <= insertTraceEnd);
+        }
+        ddpackage->setContStageTrace(traceThisContraction, index);
         TDD current = tensorNetwork.tensors[index].to_tdd(ddpackage);
         TDD next = ddpackage->cont(result, current);
         ddpackage->incRef(next.e);
@@ -171,7 +185,20 @@ TraceContractionStats contractClosedNetworkStrict(dd::TensorNetwork& tensorNetwo
         ddpackage->garbageCollect();
         result = next;
         maxNode = std::max(maxNode, ddpackage->size(result.e));
+        if (std::getenv("LIMTDD_TRACE_CONTRACT_STEPS")) {
+            std::cerr << "TRACE_STEP\t" << index
+                << "\tresult_indexset_sz\t" << result.index_set.size()
+                << "\tresult_key2index_sz\t" << result.key_2_index.size()
+                << "\tresult_root_var\t" << static_cast<int>(result.e.p->v)
+                << "\tresult_w_re\t" << CTEntry::val(result.e.w.r)
+                << "\tresult_w_im\t" << CTEntry::val(result.e.w.i)
+                << "\tresult_map_level\t" << (result.e.map ? static_cast<int>(result.e.map->level) : -999)
+                << "\tnodes\t" << ddpackage->size(result.e)
+                << std::endl;
+        }
     }
+
+    ddpackage->setContStageTrace(false);
 
     clock_t end = clock();
     return {
