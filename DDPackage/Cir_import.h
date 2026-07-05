@@ -1116,6 +1116,7 @@ xt::xarray<dd::ComplexValue> getOpData(const std::unique_ptr<qc::Operation>& op)
     static const std::map<std::string, xt::xarray<dd::ComplexValue>> supportGate = {
         {"x", dd::Xmat}, {"y", dd::Ymat}, {"z", dd::Zmat}, {"h", dd::Hmat},
         {"s", dd::Smat}, {"sdg", dd::Sdagmat}, {"t", dd::Tmat}, {"tdg", dd::Tdagmat},
+        {"sx", dd::SXmat}, {"sxdg", dd::SXdagmat},
         {"swap", dd::SWAPmat},
     };
 
