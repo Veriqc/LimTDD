@@ -1436,6 +1436,23 @@ namespace dd {
 	public:
 		//==========================================我写的========================================
 
+		// --- QReach backend accessors (DDVector/DDMatrix) ---
+		// Expose the private DD primitives that the backend adapter needs:
+		// pointwise addition, and single-basis amplitude slicing. These are
+		// thin wrappers — no logic change, just visibility.
+		template <class Node>
+		Edge<Node> backendAdd(const Edge<Node>& x, const Edge<Node>& y) { return T_add2(x, y); }
+		template <class Node>
+		Edge<Node> backendSlice(const Edge<Node>& e, int x, int c) {
+			// Slicing asserts e.w != Complex::zero; short-circuit zero edges
+			// (zero states / zero inner products) so callers need not pre-guard.
+			if (e.w == Complex::zero) {
+				return e;
+			}
+			return Slicing(e, x, c);
+		}
+		template <class Node>
+		Edge<Node> backendSlice2(Edge<Node>& e, int x, int c) { return Slicing2(e, x, c); }
 
 		ComputeTable<mCachedEdge, mCachedEdge, mCachedEdge, Config::CT_VEC_ADD_NBUCKET>	addTable{};
 		ComputeTable2<mEdge, mEdge, mCachedEdge, Config::CT_MAT_MAT_MULT_NBUCKET>  contTable{};

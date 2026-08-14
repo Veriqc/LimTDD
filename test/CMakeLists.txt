@@ -11,6 +11,8 @@ set(TEST_SOURCES
     # test_io.cpp
     # test_core.cpp
     test_data.cpp
+    test_ddvector.cpp
+    test_ddmatrix.cpp
     test_fidelity.cpp
     test_fidelity_trace_tn.cpp
     test_state_output.cpp

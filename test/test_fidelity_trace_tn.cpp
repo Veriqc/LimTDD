@@ -184,6 +184,18 @@ TraceContractionStats contractClosedNetworkStrict(dd::TensorNetwork& tensorNetwo
         ddpackage->decRef(result.e);
         ddpackage->garbageCollect();
         result = next;
+        // Strip isolated root-level map: when contracting parameterized
+        // controlled gates, makeDDNode normalization may attach a phase/swap
+        // map at the root edge.  Clean tensors (Imat) mis-handle that map,
+        // producing zero.  Applying the phase to the edge weight works around
+        // this for the closed-trace prototype.
+        if (result.e.map && result.e.map->level == result.e.p->v &&
+            result.e.map->level != -1) {
+            const auto phase = static_cast<double>(result.e.map->extra_phase) * rotate_angle;
+            ddpackage->cn.mul(result.e.w, result.e.w,
+                ddpackage->cn.getTemporary(std::cos(phase), std::sin(phase)));
+            result.e.map = the_maps::the_maps_header();
+        }
         maxNode = std::max(maxNode, ddpackage->size(result.e));
         if (std::getenv("LIMTDD_TRACE_CONTRACT_STEPS")) {
             std::cerr << "TRACE_STEP\t" << index
@@ -251,12 +263,14 @@ Edge<mNode> sliceEdge(const Edge<mNode>& edge, const int value, dd::Package<>* d
     return next;
 }
 
-Complex collapseResidualVariables(const Edge<mNode>& edge, dd::Package<>* ddpackage) {
+Complex sumRemainingVariables(const Edge<mNode>& edge, dd::Package<>* ddpackage) {
     if (edge.w == Complex::zero || edge.p->v == -1) {
         return edge.w;
     }
 
-    return collapseResidualVariables(sliceEdge(edge, 0, ddpackage), ddpackage);
+    const auto zeroBranch = sumRemainingVariables(sliceEdge(edge, 0, ddpackage), ddpackage);
+    const auto oneBranch = sumRemainingVariables(sliceEdge(edge, 1, ddpackage), ddpackage);
+    return ddpackage->cn.addCached(zeroBranch, oneBranch);
 }
 
 dd::Complex scalarFromClosedTdd(const TDD& tdd, dd::Package<>* ddpackage) {
@@ -264,7 +278,7 @@ dd::Complex scalarFromClosedTdd(const TDD& tdd, dd::Package<>* ddpackage) {
         throw std::runtime_error("ddpackage is null");
     }
     if (tdd.e.w == Complex::zero) {
-        return tdd.e.w;
+        return sumRemainingVariables(tdd.e, ddpackage);
     }
     if (!tdd.index_set.empty() || !tdd.key_2_index.empty()) {
         std::ostringstream message;
@@ -318,11 +332,6 @@ int main(int argc, char* argv[]) {
         add_trace_delta_tensors(tnWithBoundary);
         const auto stats = contractClosedNetworkStrict(tnWithBoundary.tensorNetwork, ddPack.get());
         const auto trace = scalarFromClosedTdd(stats.tdd, ddPack.get());
-        if (stats.tdd.e.p->v != -1) {
-            std::cerr << "TRACE_TN_WARNING\tclosed network retained residual root_var\t"
-                      << static_cast<int>(stats.tdd.e.p->v)
-                      << "\tusing root edge weight as prototype scalar\n";
-        }
 
         const double dimensionSquared = std::ldexp(1.0, 2 * static_cast<int>(originalCircuit.getNqubits()));
         const double fidelity = squaredMagnitude(trace) / dimensionSquared;

@@ -6,3 +6,4 @@ TDD/
 output
 output.png
 .ipynb_checkpoints/
+*.o
