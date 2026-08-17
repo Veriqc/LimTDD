@@ -40,32 +40,34 @@ void expectSingle(const DDVector::DD& dd, unsigned int index, double re, double 
 int main() {
     DDVector::Initialize();
 
-    std::printf("== MkBasisVector (integer) ==\n");
-    expectSingle(DDVector::MkBasisVector(1, 0), 0, 1.0, 0.0, "level1 idx0 = |00>");
-    expectSingle(DDVector::MkBasisVector(1, 1), 1, 1.0, 0.0, "level1 idx1 = |01>");
-    expectSingle(DDVector::MkBasisVector(1, 2), 2, 1.0, 0.0, "level1 idx2 = |10>");
-    expectSingle(DDVector::MkBasisVector(1, 3), 3, 1.0, 0.0, "level1 idx3 = |11>");
-    expectSingle(DDVector::MkBasisVector(0, 0), 0, 1.0, 0.0, "level0 idx0 = |0>");
-    expectSingle(DDVector::MkBasisVector(0, 1), 1, 1.0, 0.0, "level0 idx1 = |1>");
+    std::printf("== MkBasisVector (integer; first arg = qubit count n) ==\n");
+    expectSingle(DDVector::MkBasisVector(2, 0), 0, 1.0, 0.0, "2q idx0 = |00>");
+    expectSingle(DDVector::MkBasisVector(2, 1), 1, 1.0, 0.0, "2q idx1 = |01>");
+    expectSingle(DDVector::MkBasisVector(2, 2), 2, 1.0, 0.0, "2q idx2 = |10>");
+    expectSingle(DDVector::MkBasisVector(2, 3), 3, 1.0, 0.0, "2q idx3 = |11>");
+    expectSingle(DDVector::MkBasisVector(1, 0), 0, 1.0, 0.0, "1q idx0 = |0>");
+    expectSingle(DDVector::MkBasisVector(1, 1), 1, 1.0, 0.0, "1q idx1 = |1>");
+    expectSingle(DDVector::MkBasisVector(3, 5), 5, 1.0, 0.0, "3q idx5 = |101> (non power of 2)");
 
     std::printf("== MkBasisVector (bitstring, big-endian) ==\n");
-    expectSingle(DDVector::MkBasisVector(1, std::string("10")), 2, 1.0, 0.0,
-                 "level1 \"10\" = |10> == idx2");
-    expectSingle(DDVector::MkBasisVector(1, std::string("01")), 1, 1.0, 0.0,
-                 "level1 \"01\" = |01> == idx1");
-    expectSingle(DDVector::MkBasisVector(2, std::string("1010")), 10, 1.0, 0.0,
-                 "level2 \"1010\" = idx10");
+    expectSingle(DDVector::MkBasisVector(2, std::string("10")), 2, 1.0, 0.0,
+                 "2q \"10\" = |10> == idx2");
+    expectSingle(DDVector::MkBasisVector(2, std::string("01")), 1, 1.0, 0.0,
+                 "2q \"01\" = |01> == idx1");
+    expectSingle(DDVector::MkBasisVector(4, std::string("1010")), 10, 1.0, 0.0,
+                 "4q \"1010\" = idx10");
 
-    std::printf("== GetLevel ==\n");
-    check(DDVector::GetLevel(DDVector::MkBasisVector(0, 0)) == 0, "level0 vector -> level 0");
-    check(DDVector::GetLevel(DDVector::MkBasisVector(1, 0)) == 1, "level1 vector -> level 1");
-    check(DDVector::GetLevel(DDVector::MkBasisVector(2, 0)) == 2, "level2 vector -> level 2");
+    std::printf("== GetLevel (returns the real qubit count n) ==\n");
+    check(DDVector::GetLevel(DDVector::MkBasisVector(1, 0)) == 1, "1-qubit vector -> GetLevel 1");
+    check(DDVector::GetLevel(DDVector::MkBasisVector(2, 0)) == 2, "2-qubit vector -> GetLevel 2");
+    check(DDVector::GetLevel(DDVector::MkBasisVector(3, 0)) == 3, "3-qubit vector -> GetLevel 3 (non power of 2)");
+    check(DDVector::GetLevel(DDVector::MkBasisVector(5, 0)) == 5, "5-qubit vector -> GetLevel 5 (non power of 2)");
 
     std::printf("== NoDistinctionNode ==\n");
     {
-        auto dd = DDVector::NoDistinctionNode(1, DDVector::DDComplex(1.0, 0.0));
+        auto dd = DDVector::NoDistinctionNode(2, DDVector::DDComplex(1.0, 0.0));
         auto amps = DDVector::GetNonZeroAmplitudes(dd);
-        check(amps.size() == 4, "level1 constant vector has 4 entries");
+        check(amps.size() == 4, "2-qubit constant vector has 4 entries");
         bool allOne = true;
         for (const auto& [i, a] : amps) {
             (void)i;
@@ -77,12 +79,12 @@ int main() {
     }
 
     std::printf("== IsApproximatelyZero ==\n");
-    check(!DDVector::IsApproximatelyZero(DDVector::MkBasisVector(1, 0)),
+    check(!DDVector::IsApproximatelyZero(DDVector::MkBasisVector(2, 0)),
           "basis vector is not zero");
-    check(!DDVector::IsApproximatelyZero(DDVector::NoDistinctionNode(1, DDVector::DDComplex(1.0))),
+    check(!DDVector::IsApproximatelyZero(DDVector::NoDistinctionNode(2, DDVector::DDComplex(1.0))),
           "constant vector is not zero");
     {
-        auto zero = DDVector::DDComplex(0.0, 0.0) * DDVector::MkBasisVector(1, 0);
+        auto zero = DDVector::DDComplex(0.0, 0.0) * DDVector::MkBasisVector(2, 0);
         check(DDVector::IsApproximatelyZero(zero), "scaled-to-zero vector is zero");
         check(DDVector::GetNonZeroAmplitudes(zero).empty(),
               "GetNonZeroAmplitudes(zero) short-circuits (empty)");
@@ -93,7 +95,7 @@ int main() {
 
     std::printf("== Normalize ==\n");
     {
-        auto dd = DDVector::Normalize(DDVector::NoDistinctionNode(1, DDVector::DDComplex(1.0, 0.0)));
+        auto dd = DDVector::Normalize(DDVector::NoDistinctionNode(2, DDVector::DDComplex(1.0, 0.0)));
         auto amps = DDVector::GetNonZeroAmplitudes(dd);
         check(amps.size() == 4, "normalized constant has 4 entries");
         bool allHalf = true;
@@ -125,7 +127,7 @@ int main() {
 
     std::printf("== VectorToMatrixInterleaved (no-op) ==\n");
     {
-        auto v = DDVector::MkBasisVector(1, 2);
+        auto v = DDVector::MkBasisVector(2, 2);
         auto m = DDVector::VectorToMatrixInterleaved(v);
         check(m == v, "no-op returns the same vector");
     }
@@ -133,8 +135,8 @@ int main() {
     std::printf("== InnerProduct ==\n");
     {
         const double s = 1.0 / std::sqrt(2.0);
-        auto z0 = DDVector::MkBasisVector(0, 0);   // |0>
-        auto z1 = DDVector::MkBasisVector(0, 1);   // |1>
+        auto z0 = DDVector::MkBasisVector(1, 0);   // |0>
+        auto z1 = DDVector::MkBasisVector(1, 1);   // |1>
         auto plus = DDVector::InitializeWithAmplitudes(1, {s, s, 0.0, 0.0});    // (|0>+|1>)/sqrt2
         auto minus = DDVector::InitializeWithAmplitudes(1, {s, -s, 0.0, 0.0});  // (|0>-|1>)/sqrt2
         auto iphase = DDVector::InitializeWithAmplitudes(1, {s, 0.0, 0.0, s});  // (|0>+i|1>)/sqrt2
@@ -168,11 +170,11 @@ int main() {
     {
         // <v|v> must ALWAYS be exactly 1, for any qubit count. The old
         // cont-based implementation returned 2^(n-1) for n >= 2 qubits.
-        check(std::abs(DDVector::InnerProduct(DDVector::MkBasisVector(1, 0),
-                                              DDVector::MkBasisVector(1, 0)).real() - 1.0) < 1e-9,
+        check(std::abs(DDVector::InnerProduct(DDVector::MkBasisVector(2, 0),
+                                              DDVector::MkBasisVector(2, 0)).real() - 1.0) < 1e-9,
               "<00|00> (2q) == 1");
-        check(std::abs(DDVector::InnerProduct(DDVector::MkBasisVector(2, 10),
-                                              DDVector::MkBasisVector(2, 10)).real() - 1.0) < 1e-9,
+        check(std::abs(DDVector::InnerProduct(DDVector::MkBasisVector(4, 10),
+                                              DDVector::MkBasisVector(4, 10)).real() - 1.0) < 1e-9,
               "<1010|1010> (4q) == 1");
 
         // Gram-Schmidt projection coefficients: v3 is a linear combination of

@@ -1,13 +1,13 @@
 # LimTDD 后端实现现状(供 QReach agent 对接参考)
 
 > **Audience:** QReach 侧的 agent,用于感知 LimTDD 后端目前的实现进度与对接约定。
-> **Status:** 实现中 —— 全部 API 已实现、44 个单元测试通过,但矩阵代数/门构造仍是密集实现(小 n)。
-> **Last updated:** 2026-08-13
+> **Status:** 实现中 —— 全部 API 已实现、58 个单元测试通过;门构造(小张量 + `cont`)、状态构造(`MkBasisVector`/`NoDistinctionNode`)、`KroneckerProduct` 均已紧凑化;仍为密集实现的只剩 `MatrixMultiply`/`Conjugate`/`Transpose`。
+> **Last updated:** 2026-08-17
 > **对应文件:** `LimTDD/DDPackage/dd/backend/{DDTypes,DDVector,DDMatrix}.hpp`
 
 ## 0. 总体状态
 
-`DDVector` 与 `DDMatrix` 两个命名空间的**全部 API 已实现**,配套 49 个单元测试(29 DDVector + 20 DDMatrix)全部通过。实现是 header-only,位于 `LimTDD/DDPackage/dd/backend/` 下:
+`DDVector` 与 `DDMatrix` 两个命名空间的**全部 API 已实现**,配套 58 个单元测试(35 DDVector + 23 DDMatrix)全部通过。实现是 header-only,位于 `LimTDD/DDPackage/dd/backend/` 下:
 
 - `DDTypes.hpp` — 核心类型 `DD`/`DDComplex` + 包单例 + `Initialize`
 - `DDVector.hpp` — 状态向量
@@ -32,9 +32,10 @@
 
 2. **`DD` 是 RAII 引用计数,不是值语义深拷贝**:LimTDD 内部用显式 `incRef`/`decRef`/`garbageCollect` 管理 DAG 生命周期。`DD` 包装成 RAII——拷贝=incRef、析构=decRef、移动=转移所有权。语义层**自由拷贝 `DD` 是安全的**。
 
-3. **⚠️ 门构造器与矩阵代数目前是"密集 O(4^n)"实现,不是紧凑 DD**。这是与文档预期最大的一处偏离:
-   - `MkSingleQubitGateOnN`、`MkCNOT` 等多 qubit 门、`KroneckerProduct`、`MatrixMultiply`、`Conjugate`、`Transpose` 都是"构建 dense 矩阵 → `to_tdd`"或"枚举 → 变换 → 重建"。
-   - **只对小 n 可用(约 n≤10~12)**,模型检测的大 n 场景会失效。这是后续必须优化的地方。
+3. **✅ 门构造器已改为"紧凑小张量 + `cont`"(不再密集 O(4^n))**。`MkSingleQubitGateOnN`(及 param 变体)、`MkCNOT`、`MkCCNOT`、`MkSwap`、`MkiSwap`、`MkCP` 现在都构建一个只作用于被触及 qubit 的小张量(2×2 / 4×4 / 8×8,arity ≤ 3),由 `MatrixMultiplyWithVector = cont(gate, vec) + rename` 直接收缩到整个态上(即 `test_data.cpp` 的 tensor-network 仿真方式)。构造代价 O(4^arity),**与系统大小 n 无关**;实测 X on 30q 门仅 3 个节点。已加 16-qubit 大 n 回归测试。
+   - **✅ 状态构造也紧凑化了**:`MkBasisVector`/`NoDistinctionNode` 现改为「逐 qubit 张量 + `cont` 张量积」,O(n) 而非 O(2^n);实测 32-qubit basis/全 1 态仅 ~33 节点(旧 dense 会 OOM)。`kMaxCompactQubits=256` 单独放宽了上限。
+   - **✅ `KroneckerProduct` 已改为 `cont`**:disjoint 张量积 = `cont(a, shiftKeys(b, na))`(一个「key 平移」助手,不改节点变量号)。已实测正确。
+   - **仍为密集实现的部分**:矩阵代数 `MatrixMultiply`、`Conjugate`(矩阵)、`Transpose`(矩阵)仍是"枚举/密集 → `to_tdd`",只对 n≤12 可用。这是下一步(DD 级共轭/转置、矩阵乘法)的优化点。
    - 原因见 §4。
 
 4. **`Transpose` 对向量返回自身(恒等)**:契约 §6.8 里 `resetall`(Conjugate∘Transpose 作用于向量)的精确语义**尚未验证**,需要 dense 交叉校验确认。
@@ -42,6 +43,13 @@
 5. **`VectorToMatrixInterleaved` 是 no-op**(契约允许,因为后端直接对向量做 `cont`)。
 
 6. **精度是 `double`**(不是 CFLOBDD 的 100 位),对应之前定下的 route a。
+
+7. **⚠️ `level` 参数已改为 `n`(真实量子数)**,2026-08-17 QReach 对接改动:QReach 不再把 qubit 数 padding 到 2 的幂,直接把 n 传进原 `level` 参数位。因此:
+   - `MkBasisVector(n,…)`、`NoDistinctionNode(n,…)`:首参即 n(不再是 `1<<level`)。
+   - `MkSwap(n,i,j)`、`MkiSwap(n,i,j)`、`MkCP(n,ctrl,tgt,θ)`:首参即 n(不再是 `1<<(level-1)`)。
+   - `GetLevel(c)` 现在返回真实 n(= `index_set.size()`),不再 `ceil(log2(n))`。
+   - `MkCNOT`/`MkCCNOT`/`MkSingleQubitGateOnN`/`InitializeWithAmplitudes` 本来就接受 n,无需改。
+   - 支持任意 n(含非 2 幂),n=0 返回标量(已处理 `basisState`/`allOnesState` 的 n=0 分支)。
 
 ## 3. 我补充的设计决策(文档里没有、对接需要知道)
 
@@ -61,9 +69,9 @@
 
 ## 4. 已知限制与根因(重要)
 
-1. **密集 O(4^n) 的根因是 `cont` 的两个相关问题**:
+1. **门构造/状态构造/Kron 已紧凑化(2026-08-17)**,但矩阵乘法的密集根因仍在:
    - **变量序必须交错**:分组序会 factor-2(已用交错预注册解决)。
-   - **`cont` 对 disjoint 矩阵做 Kron 后,再次 `cont` 会产生畸形 DD**(路径上变量号重复 `v=0→v=0`)。因此 `KroneckerProduct`/门提升不能走"Kron(cont) + 再 cont",只能走密集构造。这是 `cont2` 的 key-mapping 深坑(与 fidelity 那轮 bug 同源)。
+   - **`cont` 对 disjoint 张量做 Kron 后再次 `cont` 的"畸形 DD(v=0→v=0)"实为分组序时代的旧症状**——交错预注册后已消失,`KroneckerProduct = cont(a, shiftKeys(b, na))` 实测正确(含三步 cont 再收缩)。真正仍未绕开的是 `MatrixMultiply`(矩阵-矩阵乘法需要第三族"中间索引"或通用 key 重命名原语),它仍走密集构造。这是 `cont2` 的 key-mapping 深坑(与 fidelity 那轮 bug 同源)。
 
 2. **`GetNonZeroAmplitudes`/`Normalize` 枚举时有有界 cache 泄漏**(切片产生的临时权重未 `returnToCache`),不 crash,ComplexCache 会回收。
 
@@ -77,4 +85,4 @@
 2. `DDVector::Initialize()` 和 `DDMatrix::Initialize()` 均幂等,内部都调 `limtdd::Initialize()`。
 3. `DD` 默认构造 = 零向量/零矩阵;`DD + DD`、`DDComplex * DD`、`==` 都已定义(§1 要求)。
 4. `MkSingleQubitGateOnN` 的 `gate1q` 函数指针会被以 `gate1q(1)` 调用,返回 2×2 再提升。
-5. **先只在小 n(≤10)上对接验证**,大 n 依赖密集实现的优化。
+5. **门·态热路径(`Mk*` + `MatrixMultiplyWithVector`)、状态构造、`KroneckerProduct` 均已可上大 n**(小张量/逐 qubit 张量 + cont,已测 16/30/32 qubit);但**矩阵代数 `MatrixMultiply`/`Conjugate`/`Transpose` 仍是密集 O(4^n)**,若语义层在这些上做大 n 会失效。DD 级共轭/转置的分析与实现计划见 `limtdd-backend-conjugate-transpose-plan.md`。

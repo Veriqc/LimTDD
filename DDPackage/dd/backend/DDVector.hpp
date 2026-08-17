@@ -32,13 +32,14 @@ using limtdd::DDComplex;
 // Idempotent. Funnels into limtdd::Initialize().
 inline void Initialize() { limtdd::Initialize(); }
 
-// Number of qubits for a vector at a given level: n = 2^level.
-inline unsigned int qubitCount(unsigned int level) { return 1u << level; }
-
 namespace detail {
 
 // Dense-array / enumeration are inherently O(2^n); guard against overflow.
 constexpr unsigned int kMaxQubits = 31;
+// Compact constructions (basis/constant states) are O(n) in memory, so they
+// may go well past kMaxQubits. Bound by Initialize()'s key pre-registration
+// (kMaxKey = 256) so the interleaved variable-order invariant still holds.
+constexpr unsigned int kMaxCompactQubits = 256;
 
 inline std::vector<dd::Index> qubitIndices(unsigned int n) {
     std::vector<dd::Index> idx;
@@ -47,6 +48,53 @@ inline std::vector<dd::Index> qubitIndices(unsigned int n) {
         idx.push_back({"q" + std::to_string(q), 0});
     }
     return idx;
+}
+
+// Build an n-qubit basis state |index> (big-endian) as a tensor product of n
+// single-qubit basis tensors via Package::cont. Compact O(n) — no dense 2^n
+// array. TensorNetwork::cont returns an edge with refcount 1; release it back
+// to 0 so the DD constructor adopts it with a single reference.
+inline DD basisState(unsigned int n, unsigned int index) {
+    if (n == 0) {
+        // 0-qubit "basis state" is the scalar 1 (index must be 0, enforced by caller).
+        dd::TDD res;
+        res.e = dd::Edge<dd::mNode>::one;
+        return DD(std::move(res));
+    }
+    auto& pkg = limtdd::backendPackage();
+    dd::TensorNetwork tn;
+    for (unsigned int q = 0; q < n; ++q) {
+        const bool bit = ((index >> (n - 1 - q)) & 1u) != 0u;
+        xt::xarray<dd::ComplexValue> arr(std::vector<std::size_t>{2});
+        arr[0] = dd::ComplexValue{bit ? 0.0 : 1.0, 0.0};
+        arr[1] = dd::ComplexValue{bit ? 1.0 : 0.0, 0.0};
+        tn.add_ts(dd::Tensor(arr, {{"q" + std::to_string(q), 0}}, "basis"));
+    }
+    dd::TDD res = tn.cont(&pkg);
+    pkg.decRef(res.e);
+    return DD(std::move(res));
+}
+
+// Build an n-qubit all-ones vector (every amplitude 1) as a tensor product of
+// n single-qubit [1,1] tensors. Compact O(n).
+inline DD allOnesState(unsigned int n) {
+    if (n == 0) {
+        // 0-qubit all-ones vector is the scalar 1.
+        dd::TDD res;
+        res.e = dd::Edge<dd::mNode>::one;
+        return DD(std::move(res));
+    }
+    auto& pkg = limtdd::backendPackage();
+    dd::TensorNetwork tn;
+    for (unsigned int q = 0; q < n; ++q) {
+        xt::xarray<dd::ComplexValue> arr(std::vector<std::size_t>{2});
+        arr[0] = dd::ComplexValue{1.0, 0.0};
+        arr[1] = dd::ComplexValue{1.0, 0.0};
+        tn.add_ts(dd::Tensor(arr, {{"q" + std::to_string(q), 0}}, "ones"));
+    }
+    dd::TDD res = tn.cont(&pkg);
+    pkg.decRef(res.e);
+    return DD(std::move(res));
 }
 
 // Recursively walk the DD and collect every non-zero (index, amplitude).
@@ -104,47 +152,34 @@ inline DDComplex sumRemaining(const dd::Edge<dd::mNode>& e) {
 
 }  // namespace detail
 
-inline DD MkBasisVector(unsigned int level, unsigned int index) {
-    const unsigned int n = qubitCount(level);
-    if (n > detail::kMaxQubits) {
+inline DD MkBasisVector(unsigned int n, unsigned int index) {
+    if (n > detail::kMaxCompactQubits) {
         throw std::invalid_argument("MkBasisVector: too many qubits");
     }
-    const std::size_t dim = std::size_t{1} << n;
-    if (index >= dim) {
+    // `index` is 32-bit, so it can only address n <= 32; skip the (otherwise
+    // overflowing) shift check beyond that.
+    if (n <= 32 && index >= (std::size_t{1} << n)) {
         throw std::invalid_argument("MkBasisVector: index out of range");
     }
-    std::vector<std::size_t> shape(n, 2);
-    xt::xarray<dd::ComplexValue> arr(shape);
-    arr.fill(dd::ComplexValue{0.0, 0.0});
-    arr.data()[index] = dd::ComplexValue{1.0, 0.0};
-
-    dd::Tensor tensor(arr, detail::qubitIndices(n), "basis");
-    return DD(tensor.to_tdd(&limtdd::backendPackage()));
+    return detail::basisState(n, index);
 }
 
-inline DD MkBasisVector(unsigned int level, std::string bitstring) {
-    const unsigned int n = qubitCount(level);
+inline DD MkBasisVector(unsigned int n, std::string bitstring) {
     if (bitstring.size() != n) {
-        throw std::invalid_argument("MkBasisVector: bitstring length != 2^level");
+        throw std::invalid_argument("MkBasisVector: bitstring length != n");
     }
     unsigned int index = 0;
     for (const char ch : bitstring) {
         index = (index << 1) | (ch == '1' ? 1u : 0u);
     }
-    return MkBasisVector(level, index);
+    return MkBasisVector(n, index);
 }
 
-inline DD NoDistinctionNode(unsigned int level, DDComplex val) {
-    const unsigned int n = qubitCount(level);
-    if (n > detail::kMaxQubits) {
+inline DD NoDistinctionNode(unsigned int n, DDComplex val) {
+    if (n > detail::kMaxCompactQubits) {
         throw std::invalid_argument("NoDistinctionNode: too many qubits");
     }
-    std::vector<std::size_t> shape(n, 2);
-    xt::xarray<dd::ComplexValue> arr(shape);
-    arr.fill(dd::ComplexValue{val.real(), val.imag()});
-
-    dd::Tensor tensor(arr, detail::qubitIndices(n), "nodistinction");
-    return DD(tensor.to_tdd(&limtdd::backendPackage()));
+    return val * detail::allOnesState(n);
 }
 
 inline DD InitializeWithAmplitudes(unsigned int qnum, std::vector<double> amps) {
@@ -168,12 +203,10 @@ inline DD InitializeWithAmplitudes(unsigned int qnum, std::vector<double> amps) 
 inline DD VectorToMatrixInterleaved(DD vec) { return vec; }
 
 inline int GetLevel(const DD& c) {
-    const unsigned int n = static_cast<unsigned int>(c.tdd.index_set.size());
-    int level = 0;
-    while ((1u << level) < n) {
-        ++level;
-    }
-    return level;
+    // The first constructor argument is now the real qubit count n (QReach no
+    // longer pads to a power of 2). Return n directly so SingleVecTerm can
+    // derive qNum without the lossy ceil(log2(n)).
+    return static_cast<int>(c.tdd.index_set.size());
 }
 
 inline bool IsApproximatelyZero(const DD& c, double threshold = 1e-8) {

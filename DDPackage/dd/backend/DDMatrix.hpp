@@ -14,6 +14,7 @@
 // KroneckerProduct(a, b) with disjoint index sets is exactly cont(a, b) —
 // this is how TensorNetwork::cont builds tensor products of gate tensors.
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <complex>
@@ -79,6 +80,28 @@ inline void renameRowsToState(dd::TDD& tdd) {
     }
 }
 
+// Renumber a TDD's qubit keys by a uniform offset: "o<q>" -> "o<q+off>",
+// "q<q>" -> "q<q+off>". Node variables are NOT touched: the uniform shift
+// preserves the interleaved key order, so key_2_index[v] still maps each node
+// to its (renamed) key. Used by KroneckerProduct to place b on qubits na..na+nb-1.
+inline void shiftQubitKeys(dd::TDD& tdd, unsigned int off) {
+    if (off == 0) {
+        return;
+    }
+    auto shift = [&](std::string& k) {
+        if (k.size() >= 2 && (k[0] == 'o' || k[0] == 'q')) {
+            const unsigned int q = static_cast<unsigned int>(std::stoul(k.substr(1)));
+            k = k[0] + std::to_string(q + off);
+        }
+    };
+    for (auto& ix : tdd.index_set) {
+        shift(ix.key);
+    }
+    for (auto& k : tdd.key_2_index) {
+        shift(k);
+    }
+}
+
 // Enumerate the four entries of a 2x2 matrix DD (row-major: [row*2+col]).
 // Because the backend pre-registers "o<q>" before "q<q>", the row key has a
 // lower varOrder rank than the column key, so the matrix's root variable is the
@@ -103,6 +126,63 @@ inline std::array<std::complex<double>, 4> extract2x2(const DD& m) {
         }
     }
     return out;
+}
+
+// ---------------------------------------------------------------------------
+// Compact gate construction (the gate library).
+//
+// A gate is represented as a SMALL tensor acting only on the qubits it touches
+// (2x2 for single-qubit, 4x4 for CNOT/SWAP/CP, 8x8 for CCNOT), NOT as a dense
+// 2^n x 2^n matrix. MatrixMultiplyWithVector contracts this small tensor
+// against the full state via Package::cont (the fidelity-proven gate·vector
+// path), which leaves the gate's row keys "o<q>" plus the untouched state keys
+// "q<q>"; renameRowsToState then folds "o<q>" back to "q<q>". Construction is
+// O(4^arity) with arity ≤ 3, independent of the system size n.
+// ---------------------------------------------------------------------------
+
+// bit of qubit `q` in the k-bit basis integer `x` (big-endian over `qubits`,
+// i.e. qubits[0] is the most significant).
+inline unsigned int bitOf(const std::vector<unsigned int>& qubits, unsigned int q,
+                          std::size_t x) {
+    unsigned int pos = 0;
+    for (unsigned int qq : qubits) {
+        if (qq == q) {
+            break;
+        }
+        ++pos;
+    }
+    return static_cast<unsigned int>((x >> (qubits.size() - 1 - pos)) & 1u);
+}
+
+// Build a k-qubit gate tensor on `qubits` (ascending order = MSB first).
+// `amplitude(r, c)` returns the matrix entry for row `r` / column `c`, both
+// big-endian basis integers over `qubits`.
+template <typename F>
+inline DD smallGate(const std::vector<unsigned int>& qubits, F&& amplitude) {
+    const unsigned int k = static_cast<unsigned int>(qubits.size());
+    const std::size_t dim = std::size_t{1} << k;
+    std::vector<std::size_t> shape(2 * k, 2);
+    xt::xarray<dd::ComplexValue> arr(shape);
+    arr.fill(dd::ComplexValue{0.0, 0.0});
+    for (std::size_t r = 0; r < dim; ++r) {
+        for (std::size_t c = 0; c < dim; ++c) {
+            const auto a = amplitude(r, c);
+            if (a.real() == 0.0 && a.imag() == 0.0) {
+                continue;
+            }
+            arr.data()[r * dim + c] = dd::ComplexValue{a.real(), a.imag()};
+        }
+    }
+    std::vector<dd::Index> iset;
+    iset.reserve(2 * k);
+    for (unsigned int q : qubits) {
+        iset.push_back({"o" + std::to_string(q), 0});
+    }
+    for (unsigned int q : qubits) {
+        iset.push_back({"q" + std::to_string(q), 0});
+    }
+    dd::Tensor tensor(arr, iset, "gate");
+    return DD(tensor.to_tdd(&limtdd::backendPackage()));
 }
 
 }  // namespace detail
@@ -155,177 +235,159 @@ inline DD MkArbitrary(unsigned int /*level*/, std::vector<double> params) {
 }
 
 // ---------------------------------------------------------------------------
-// Single-qubit gate lifted onto an n-qubit system.
+// Single-qubit gate lifted onto an n-qubit system: a compact 2x2 tensor on
+// `target`, applied via cont in MatrixMultiplyWithVector (no dense O(4^n)).
 // ---------------------------------------------------------------------------
-namespace detail {
-// Build I ⊗ … ⊗ G(target) ⊗ … ⊗ I as a dense 2n-dim matrix, then convert to a
-// DD via Tensor::to_tdd. This avoids composing gates through cont (which
-// produces a malformed DD on re-contraction — see the row/col variable bug).
-// NOTE: O(4^n) dense — only suitable for small n. A compact DD-level lifting
-// is a future optimization.
-inline DD denseSingleQubitGateOnN(unsigned int n, unsigned int target,
-                                  const std::array<std::complex<double>, 4>& G) {
-    if (target >= n) {
-        throw std::invalid_argument("denseSingleQubitGateOnN: target out of range");
-    }
-    if (n > kMaxDenseQubits) {
-        throw std::invalid_argument("denseSingleQubitGateOnN: too many qubits (dense O(4^n))");
-    }
-    std::vector<std::size_t> shape(2 * n, 2);
-    xt::xarray<dd::ComplexValue> arr(shape);
-    arr.fill(dd::ComplexValue{0.0, 0.0});
-    const std::size_t dim = std::size_t{1} << n;
-    for (std::size_t r = 0; r < dim; ++r) {
-        for (std::size_t c = 0; c < dim; ++c) {
-            bool match = true;
-            for (unsigned int q = 0; q < n; ++q) {
-                if (q == target) {
-                    continue;
-                }
-                if (((r >> (n - 1 - q)) & 1u) != ((c >> (n - 1 - q)) & 1u)) {
-                    match = false;
-                    break;
-                }
-            }
-            if (!match) {
-                continue;
-            }
-            const unsigned int rt = (r >> (n - 1 - target)) & 1u;
-            const unsigned int ct = (c >> (n - 1 - target)) & 1u;
-            arr.data()[r * dim + c] =
-                dd::ComplexValue{G[rt * 2 + ct].real(), G[rt * 2 + ct].imag()};
-        }
-    }
-    std::vector<dd::Index> iset;
-    iset.reserve(2 * n);
-    for (unsigned int q = 0; q < n; ++q) {
-        iset.push_back({"o" + std::to_string(q), 0});
-    }
-    for (unsigned int q = 0; q < n; ++q) {
-        iset.push_back({"q" + std::to_string(q), 0});
-    }
-    dd::Tensor tensor(arr, iset, "lifted");
-    return DD(tensor.to_tdd(&limtdd::backendPackage()));
-}
-}  // namespace detail
-
 inline DD MkSingleQubitGateOnN(unsigned int n, unsigned int target,
                                DD (*gate1q)(unsigned int)) {
-    return detail::denseSingleQubitGateOnN(n, target, detail::extract2x2(gate1q(1)));
+    if (target >= n) {
+        throw std::invalid_argument("MkSingleQubitGateOnN: target out of range");
+    }
+    const auto G = detail::extract2x2(gate1q(1));
+    return detail::smallGate({target}, [&](std::size_t r, std::size_t c) {
+        return G[r * 2 + c];
+    });
 }
 
 inline DD MkSingleQubitGateOnNWithParam(unsigned int n, unsigned int target,
                                         DD (*gate1q)(unsigned int, double),
                                         double theta) {
-    return detail::denseSingleQubitGateOnN(n, target, detail::extract2x2(gate1q(1, theta)));
+    if (target >= n) {
+        throw std::invalid_argument("MkSingleQubitGateOnNWithParam: target out of range");
+    }
+    const auto G = detail::extract2x2(gate1q(1, theta));
+    return detail::smallGate({target}, [&](std::size_t r, std::size_t c) {
+        return G[r * 2 + c];
+    });
 }
 
 inline DD MkSingleQubitGateOnNWithParamVec(unsigned int n, unsigned int target,
                                            DD (*gate1q)(unsigned int, std::vector<double>),
                                            std::vector<double> v) {
-    return detail::denseSingleQubitGateOnN(n, target, detail::extract2x2(gate1q(1, v)));
+    if (target >= n) {
+        throw std::invalid_argument("MkSingleQubitGateOnNWithParamVec: target out of range");
+    }
+    const auto G = detail::extract2x2(gate1q(1, v));
+    return detail::smallGate({target}, [&](std::size_t r, std::size_t c) {
+        return G[r * 2 + c];
+    });
 }
 
 // ---------------------------------------------------------------------------
-// Multi-qubit gate matrices (n = number of qubits).
+// Multi-qubit gate matrices — compact tensors on the touched qubits (arity ≤ 3),
+// applied via cont. `n` is the system size, used only for range validation.
 // ---------------------------------------------------------------------------
 namespace detail {
-// Build a dense n-qubit gate matrix from a per-(row, col) amplitude function.
-// O(4^n) — small n only.
-template <typename F>
-inline DD denseGateFromFunction(unsigned int n, F&& amplitude) {
-    if (n > kMaxDenseQubits) {
-        throw std::invalid_argument("denseGateFromFunction: too many qubits (dense O(4^n))");
-    }
-    std::vector<std::size_t> shape(2 * n, 2);
-    xt::xarray<dd::ComplexValue> arr(shape);
-    arr.fill(dd::ComplexValue{0.0, 0.0});
-    const std::size_t dim = std::size_t{1} << n;
-    for (std::size_t r = 0; r < dim; ++r) {
-        for (std::size_t c = 0; c < dim; ++c) {
-            const auto a = amplitude(r, c);
-            if (a.real() == 0.0 && a.imag() == 0.0) {
-                continue;
-            }
-            arr.data()[r * dim + c] = dd::ComplexValue{a.real(), a.imag()};
-        }
-    }
-    std::vector<dd::Index> iset;
-    iset.reserve(2 * n);
-    for (unsigned int q = 0; q < n; ++q) {
-        iset.push_back({"o" + std::to_string(q), 0});
-    }
-    for (unsigned int q = 0; q < n; ++q) {
-        iset.push_back({"q" + std::to_string(q), 0});
-    }
-    dd::Tensor tensor(arr, iset, "gate");
-    return DD(tensor.to_tdd(&limtdd::backendPackage()));
+inline std::vector<unsigned int> sortedQubits2(long a, long b) {
+    std::vector<unsigned int> q = {static_cast<unsigned int>(a), static_cast<unsigned int>(b)};
+    std::sort(q.begin(), q.end());
+    return q;
+}
+inline std::vector<unsigned int> sortedQubits3(long a, long b, long c) {
+    std::vector<unsigned int> q = {static_cast<unsigned int>(a), static_cast<unsigned int>(b),
+                                   static_cast<unsigned int>(c)};
+    std::sort(q.begin(), q.end());
+    return q;
 }
 }  // namespace detail
 
 inline DD MkCNOT(unsigned int /*level*/, unsigned int n, long ctrl, long tgt) {
-    return detail::denseGateFromFunction(n, [&](std::size_t r, std::size_t c) {
-        std::size_t flipped = c;
-        if (((c >> (n - 1 - ctrl)) & 1u) != 0u) {
-            flipped ^= (std::size_t{1} << (n - 1 - tgt));
-        }
-        return (r == flipped) ? std::complex<double>{1.0, 0.0}
-                              : std::complex<double>{0.0, 0.0};
+    if (ctrl < 0 || tgt < 0 || static_cast<unsigned long>(ctrl) >= n ||
+        static_cast<unsigned long>(tgt) >= n) {
+        throw std::invalid_argument("MkCNOT: qubit out of range");
+    }
+    const unsigned int cc = static_cast<unsigned int>(ctrl);
+    const unsigned int tt = static_cast<unsigned int>(tgt);
+    const auto qubits = detail::sortedQubits2(ctrl, tgt);
+    return detail::smallGate(qubits, [&](std::size_t r, std::size_t c) {
+        const unsigned int rc = detail::bitOf(qubits, cc, r);
+        const unsigned int rt = detail::bitOf(qubits, tt, r);
+        const unsigned int qc = detail::bitOf(qubits, cc, c);
+        const unsigned int qt = detail::bitOf(qubits, tt, c);
+        return (rc == qc && rt == (qt ^ qc)) ? std::complex<double>{1.0, 0.0}
+                                             : std::complex<double>{0.0, 0.0};
     });
 }
 
 inline DD MkCCNOT(unsigned int /*level*/, unsigned int n, long c1, long c2, long tgt) {
-    return detail::denseGateFromFunction(n, [&](std::size_t r, std::size_t c) {
-        std::size_t flipped = c;
-        if (((c >> (n - 1 - c1)) & 1u) != 0u && ((c >> (n - 1 - c2)) & 1u) != 0u) {
-            flipped ^= (std::size_t{1} << (n - 1 - tgt));
+    if (c1 < 0 || c2 < 0 || tgt < 0 || static_cast<unsigned long>(c1) >= n ||
+        static_cast<unsigned long>(c2) >= n || static_cast<unsigned long>(tgt) >= n) {
+        throw std::invalid_argument("MkCCNOT: qubit out of range");
+    }
+    const unsigned int c1u = static_cast<unsigned int>(c1);
+    const unsigned int c2u = static_cast<unsigned int>(c2);
+    const unsigned int tu = static_cast<unsigned int>(tgt);
+    const auto qubits = detail::sortedQubits3(c1, c2, tgt);
+    return detail::smallGate(qubits, [&](std::size_t r, std::size_t c) {
+        const unsigned int r1 = detail::bitOf(qubits, c1u, r);
+        const unsigned int r2 = detail::bitOf(qubits, c2u, r);
+        const unsigned int rt = detail::bitOf(qubits, tu, r);
+        const unsigned int q1 = detail::bitOf(qubits, c1u, c);
+        const unsigned int q2 = detail::bitOf(qubits, c2u, c);
+        const unsigned int qt = detail::bitOf(qubits, tu, c);
+        const unsigned int flip = q1 & q2;  // target flips iff both controls set
+        return (r1 == q1 && r2 == q2 && rt == (qt ^ flip))
+                   ? std::complex<double>{1.0, 0.0}
+                   : std::complex<double>{0.0, 0.0};
+    });
+}
+
+inline DD MkSwap(unsigned int n, long i, long j) {
+    if (i < 0 || j < 0 || static_cast<unsigned long>(i) >= n ||
+        static_cast<unsigned long>(j) >= n) {
+        throw std::invalid_argument("MkSwap: qubit out of range");
+    }
+    const unsigned int ii = static_cast<unsigned int>(i);
+    const unsigned int jj = static_cast<unsigned int>(j);
+    const auto qubits = detail::sortedQubits2(i, j);
+    return detail::smallGate(qubits, [&](std::size_t r, std::size_t c) {
+        const unsigned int ri = detail::bitOf(qubits, ii, r);
+        const unsigned int rj = detail::bitOf(qubits, jj, r);
+        const unsigned int ci = detail::bitOf(qubits, ii, c);
+        const unsigned int cj = detail::bitOf(qubits, jj, c);
+        return (ri == cj && rj == ci) ? std::complex<double>{1.0, 0.0}
+                                      : std::complex<double>{0.0, 0.0};
+    });
+}
+
+inline DD MkiSwap(unsigned int n, long i, long j) {
+    if (i < 0 || j < 0 || static_cast<unsigned long>(i) >= n ||
+        static_cast<unsigned long>(j) >= n) {
+        throw std::invalid_argument("MkiSwap: qubit out of range");
+    }
+    const unsigned int ii = static_cast<unsigned int>(i);
+    const unsigned int jj = static_cast<unsigned int>(j);
+    const auto qubits = detail::sortedQubits2(i, j);
+    return detail::smallGate(qubits, [&](std::size_t r, std::size_t c) {
+        const unsigned int ri = detail::bitOf(qubits, ii, r);
+        const unsigned int rj = detail::bitOf(qubits, jj, r);
+        const unsigned int ci = detail::bitOf(qubits, ii, c);
+        const unsigned int cj = detail::bitOf(qubits, jj, c);
+        if (ci == cj) {
+            return (ri == ci && rj == cj) ? std::complex<double>{1.0, 0.0}
+                                          : std::complex<double>{0.0, 0.0};
         }
-        return (r == flipped) ? std::complex<double>{1.0, 0.0}
-                              : std::complex<double>{0.0, 0.0};
+        return (ri == cj && rj == ci) ? std::complex<double>{0.0, 1.0}
+                                      : std::complex<double>{0.0, 0.0};
     });
 }
 
-inline DD MkSwap(unsigned int level, long i, long j) {
-    const unsigned int n = 1u << (level - 1);
-    return detail::denseGateFromFunction(n, [&](std::size_t r, std::size_t c) {
-        const unsigned int bi = (c >> (n - 1 - i)) & 1u;
-        const unsigned int bj = (c >> (n - 1 - j)) & 1u;
-        std::size_t swapped = c;
-        swapped &= ~((std::size_t{1} << (n - 1 - i)) | (std::size_t{1} << (n - 1 - j)));
-        swapped |= (static_cast<std::size_t>(bi) << (n - 1 - j)) |
-                   (static_cast<std::size_t>(bj) << (n - 1 - i));
-        return (r == swapped) ? std::complex<double>{1.0, 0.0}
-                              : std::complex<double>{0.0, 0.0};
-    });
-}
-
-inline DD MkiSwap(unsigned int level, long i, long j) {
-    const unsigned int n = 1u << (level - 1);
-    return detail::denseGateFromFunction(n, [&](std::size_t r, std::size_t c) {
-        const unsigned int bi = (c >> (n - 1 - i)) & 1u;
-        const unsigned int bj = (c >> (n - 1 - j)) & 1u;
-        if (bi == bj) {
-            return (r == c) ? std::complex<double>{1.0, 0.0}
-                            : std::complex<double>{0.0, 0.0};
-        }
-        const std::size_t swapped =
-            c ^ ((std::size_t{1} << (n - 1 - i)) | (std::size_t{1} << (n - 1 - j)));
-        return (r == swapped) ? std::complex<double>{0.0, 1.0}
-                              : std::complex<double>{0.0, 0.0};
-    });
-}
-
-inline DD MkCP(unsigned int level, long ctrl, long tgt, double theta) {
-    const unsigned int n = 1u << (level - 1);
+inline DD MkCP(unsigned int n, long ctrl, long tgt, double theta) {
+    if (ctrl < 0 || tgt < 0 || static_cast<unsigned long>(ctrl) >= n ||
+        static_cast<unsigned long>(tgt) >= n) {
+        throw std::invalid_argument("MkCP: qubit out of range");
+    }
+    const unsigned int cc = static_cast<unsigned int>(ctrl);
+    const unsigned int tt = static_cast<unsigned int>(tgt);
     const std::complex<double> phase{detail::cospi(theta), detail::sinpi(theta)};
-    return detail::denseGateFromFunction(n, [&](std::size_t r, std::size_t c) {
+    const auto qubits = detail::sortedQubits2(ctrl, tgt);
+    return detail::smallGate(qubits, [&](std::size_t r, std::size_t c) {
         if (r != c) {
             return std::complex<double>{0.0, 0.0};
         }
-        if (((c >> (n - 1 - ctrl)) & 1u) != 0u && ((c >> (n - 1 - tgt)) & 1u) != 0u) {
-            return phase;
-        }
-        return std::complex<double>{1.0, 0.0};
+        const unsigned int bc = detail::bitOf(qubits, cc, r);
+        const unsigned int bt = detail::bitOf(qubits, tt, r);
+        return (bc && bt) ? phase : std::complex<double>{1.0, 0.0};
     });
 }
 
@@ -418,48 +480,15 @@ inline DD matrixFromDense(const std::vector<std::complex<double>>& dense, unsign
 }  // namespace detail
 
 inline DD KroneckerProduct(DD a, DD b) {
+    // a ⊗ b is the disjoint tensor product: cont(a, b) after renumbering b's
+    // qubits to na..na+nb-1. The renumber is a uniform key shift (node vars
+    // untouched — the shift preserves the interleaved key order), then cont
+    // does the compact tensor product — no dense O(4^n) matrix.
     const unsigned int na = detail::matrixQubitCount(a);
-    const unsigned int nb = detail::matrixQubitCount(b);
-    const unsigned int n = na + nb;
-    const auto da = detail::matrixToDense(a, na);
-    const auto db = detail::matrixToDense(b, nb);
-    const std::size_t dim = std::size_t{1} << n;
-    const std::size_t dima = std::size_t{1} << na;
-    const std::size_t dimb = std::size_t{1} << nb;
-
-    std::vector<std::size_t> shape(2 * n, 2);
-    xt::xarray<dd::ComplexValue> arr(shape);
-    arr.fill(dd::ComplexValue{0.0, 0.0});
-    for (std::size_t ra = 0; ra < dima; ++ra) {
-        for (std::size_t ca = 0; ca < dima; ++ca) {
-            const auto va = da[ra * dima + ca];
-            if (va.real() == 0.0 && va.imag() == 0.0) {
-                continue;
-            }
-            for (std::size_t rb = 0; rb < dimb; ++rb) {
-                for (std::size_t cb = 0; cb < dimb; ++cb) {
-                    const auto vb = db[rb * dimb + cb];
-                    if (vb.real() == 0.0 && vb.imag() == 0.0) {
-                        continue;
-                    }
-                    const std::size_t r = (ra << nb) | rb;
-                    const std::size_t c = (ca << nb) | cb;
-                    const auto p = va * vb;
-                    arr.data()[r * dim + c] = dd::ComplexValue{p.real(), p.imag()};
-                }
-            }
-        }
-    }
-    std::vector<dd::Index> iset;
-    iset.reserve(2 * n);
-    for (unsigned int q = 0; q < n; ++q) {
-        iset.push_back({"o" + std::to_string(q), 0});
-    }
-    for (unsigned int q = 0; q < n; ++q) {
-        iset.push_back({"q" + std::to_string(q), 0});
-    }
-    dd::Tensor tensor(arr, iset, "kron");
-    return DD(tensor.to_tdd(&limtdd::backendPackage()));
+    dd::TDD bShifted = b.tdd;
+    detail::shiftQubitKeys(bShifted, na);
+    dd::TDD res = limtdd::backendPackage().cont(a.tdd, bShifted);
+    return DD(std::move(res));
 }
 
 // gate · vec — the hot path. Contracts the gate's column with the vector and

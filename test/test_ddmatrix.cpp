@@ -20,7 +20,7 @@ void check(bool cond, const std::string& msg) {
     }
 }
 
-// Check a 2-qubit vector (level 1) has exactly the expected (index, re, im) entries.
+// Check a 2-qubit vector has exactly the expected (index, re, im) entries.
 void check2Qubit(const DDVector::DD& dd,
                  const std::vector<std::pair<unsigned int, std::pair<double, double>>>& expected,
                  const std::string& msg) {
@@ -87,8 +87,8 @@ int main() {
     DDMatrix::Initialize();
 
     const double s = 1.0 / std::sqrt(2.0);
-    const auto zero2 = DDVector::MkBasisVector(1, 0);   // |00>
-    const auto ten2 = DDVector::MkBasisVector(1, 2);    // |10>
+    const auto zero2 = DDVector::MkBasisVector(2, 0);   // |00>
+    const auto ten2 = DDVector::MkBasisVector(2, 2);    // |10>
 
     std::printf("== single-qubit gate on n (MkSingleQubitGateOnN) ==\n");
     {
@@ -162,29 +162,51 @@ int main() {
                   {{0, {1.0, 0}}}, "CNOT(0,1) on |00> = |00>");
     }
     {
-        // Toffoli on 4 qubits (padded from 3): control 0,1 target 2
+        // Toffoli on 4 qubits: control 0,1 target 2
         auto gate = DDMatrix::MkCCNOT(3, 4, 0, 1, 2);
-        auto vec = DDVector::MkBasisVector(2, 12);  // |1100>
+        auto vec = DDVector::MkBasisVector(4, 12);  // |1100>
         checkAmps(DDMatrix::MatrixMultiplyWithVector(gate, vec),
                   {{14, {1.0, 0}}}, "CCNOT(0,1,2) on |1100> = |1110>");
     }
     {
         auto gate = DDMatrix::MkSwap(2, 0, 1);
-        auto vec = DDVector::MkBasisVector(1, 1);  // |01>
+        auto vec = DDVector::MkBasisVector(2, 1);  // |01>
         checkAmps(DDMatrix::MatrixMultiplyWithVector(gate, vec),
                   {{2, {1.0, 0}}}, "SWAP(0,1) on |01> = |10>");
     }
     {
         auto gate = DDMatrix::MkCP(2, 0, 1, 1.0);  // theta = pi -> phase -1
-        auto vec = DDVector::MkBasisVector(1, 3);  // |11>
+        auto vec = DDVector::MkBasisVector(2, 3);  // |11>
         checkAmps(DDMatrix::MatrixMultiplyWithVector(gate, vec),
                   {{3, {-1.0, 0}}}, "CP(0,1,pi) on |11> = -|11>");
     }
     {
         auto gate = DDMatrix::MkiSwap(2, 0, 1);
-        auto vec = DDVector::MkBasisVector(1, 1);  // |01>
+        auto vec = DDVector::MkBasisVector(2, 1);  // |01>
         checkAmps(DDMatrix::MatrixMultiplyWithVector(gate, vec),
                   {{2, {0.0, 1.0}}}, "iSWAP(0,1) on |01> = i|10>");
+    }
+
+    std::printf("== large-n compact gates (no dense O(4^n)) ==\n");
+    {
+        // 16-qubit system: X on target 15 (LSB) of |0...0> -> |0...01> (index 1).
+        auto gate = DDMatrix::MkSingleQubitGateOnN(16, 15, DDMatrix::MkNegation);
+        checkAmps(DDMatrix::MatrixMultiplyWithVector(gate, DDVector::MkBasisVector(16, 0)),
+                  {{1, {1.0, 0}}}, "X on qubit 15 of 16-qubit |0...0>");
+    }
+    {
+        // 16-qubit CNOT(0, 15): control = qubit 0 (MSB), target = qubit 15 (LSB).
+        auto gate = DDMatrix::MkCNOT(5, 16, 0, 15);
+        // |10...0> = index 2^15; CNOT flips qubit 15 -> |10...01> = 2^15 + 1.
+        checkAmps(DDMatrix::MatrixMultiplyWithVector(gate, DDVector::MkBasisVector(16, 32768)),
+                  {{32769, {1.0, 0}}}, "CNOT(0,15) on |10...0> -> |10...01>");
+    }
+    {
+        // 16-qubit CCNOT(0, 1, 15): controls 0,1 (MSBs), target 15 (LSB).
+        auto gate = DDMatrix::MkCCNOT(5, 16, 0, 1, 15);
+        // |11...0> = 2^15 + 2^14; Toffoli flips qubit 15 -> |11...01> = 2^15 + 2^14 + 1.
+        checkAmps(DDMatrix::MatrixMultiplyWithVector(gate, DDVector::MkBasisVector(16, 49152)),
+                  {{49153, {1.0, 0}}}, "CCNOT(0,1,15) on |11...0> -> |11...01>");
     }
 
     std::printf("== Conjugate / Transpose / MatrixMultiply ==\n");
@@ -199,26 +221,26 @@ int main() {
     {
         // Conjugate(S) = diag(1, -i), applied to |1> (1 qubit) -> -i|1>
         auto sc = DDMatrix::Conjugate(DDMatrix::MkSGate(1));
-        checkAmps(DDMatrix::MatrixMultiplyWithVector(sc, DDVector::MkBasisVector(0, 1)),
+        checkAmps(DDMatrix::MatrixMultiplyWithVector(sc, DDVector::MkBasisVector(1, 1)),
                   {{1, {0.0, -1.0}}}, "Conjugate(S) on |1> = -i|1>");
     }
     {
         // X · X = I on |0> (1 qubit)
         auto xx = DDMatrix::MatrixMultiply(DDMatrix::MkNegation(1), DDMatrix::MkNegation(1));
-        checkAmps(DDMatrix::MatrixMultiplyWithVector(xx, DDVector::MkBasisVector(0, 0)),
+        checkAmps(DDMatrix::MatrixMultiplyWithVector(xx, DDVector::MkBasisVector(1, 0)),
                   {{0, {1.0, 0}}}, "X·X = I on |0>");
     }
     {
         // H · H = I on |0> (1 qubit)
         auto hh = DDMatrix::MatrixMultiply(DDMatrix::MkWalsh(1), DDMatrix::MkWalsh(1));
-        checkAmps(DDMatrix::MatrixMultiplyWithVector(hh, DDVector::MkBasisVector(0, 0)),
+        checkAmps(DDMatrix::MatrixMultiplyWithVector(hh, DDVector::MkBasisVector(1, 0)),
                   {{0, {1.0, 0}}}, "H·H = I on |0>");
     }
     {
         // Transpose([[1,2],[3,4]]) = [[1,3],[2,4]], on |0> (1 qubit) -> |0> + 2|1>
         std::vector<double> params = {1, 0, 2, 0, 3, 0, 4, 0};
         auto mt = DDMatrix::Transpose(DDMatrix::MkArbitrary(1, params));
-        checkAmps(DDMatrix::MatrixMultiplyWithVector(mt, DDVector::MkBasisVector(0, 0)),
+        checkAmps(DDMatrix::MatrixMultiplyWithVector(mt, DDVector::MkBasisVector(1, 0)),
                   {{0, {1.0, 0}}, {1, {2.0, 0}}}, "Transpose([[1,2],[3,4]]) on |0>");
     }
 

@@ -19,32 +19,28 @@ Both get an `Initialize()` called once at startup (and may be called again — m
 
 ## Conventions (the part that must be exact)
 
-### Level ↔ qubits ↔ dimension
+### Qubit count `n` (was `level`, before 2026-08-17)
 
-`qNum` is the **number of qubits, padded to a power of 2** (e.g. 5 qubits → `qNum = 8`). `level` is a `log2` of qubit count, **not** of dimension:
+The first constructor argument is now the **real qubit count `n`** — QReach no longer pads to a power of 2 (e.g. 5 qubits stays `n = 5`, not `qNum = 8`). This is a breaking change from the old `level` (log2-of-qNum) convention:
 
-| Object | `level` L | # qubits | dimension |
+| Object | first arg | # qubits | dimension |
 |---|---|---|---|
-| Vector | `log2(qNum)` | `2^L` | `2^(2^L)` entries |
-| Matrix | `log2(qNum)+1` | `2^(L-1)` | `2^(2^(L-1))` × `2^(2^(L-1))` |
+| Vector (`MkBasisVector`/`NoDistinctionNode`) | `n` | `n` | `2^n` entries |
+| Matrix (`MkSwap`/`MkiSwap`/`MkCP`/`MkCNOT`/`MkCCNOT`/`MkSingleQubitGateOnN`) | `n` | `n` | `2^n × 2^n` |
 
-Examples:
-
-| `qNum` | vector level | vector dim | matrix level | matrix size |
-|---|---|---|---|---|
-| 1 | 0 | 2 | 1 | 2×2 |
-| 2 | 1 | 4 | 2 | 4×4 |
-| 4 | 2 | 16 | 3 | 16×16 |
-| 8 | 3 | 256 | 4 | 256×256 |
+- `MkBasisVector(n, index)` / `MkBasisVector(n, s)`: basis state over `n` qubits; `s.length() == n`.
+- `GetLevel(c)` returns the real `n` (= number of qubit indices), **not** `ceil(log2(n))`.
+- `InitializeWithAmplitudes(qnum, amps)` already took `qnum` = real qubit count (unchanged).
+- `MkCNOT`/`MkCCNOT` keep their `(level, n, …)` signature (the `level` slot is ignored; `n` is the real count).
 
 ### Variable order & endianness
 
 - **Internal variable order is YOUR choice.** You do not need to mimic CFLOBDD's interleaved order — just keep your own gate construction and your own `MatrixMultiplyWithVector` mutually consistent.
-- **Vectors are big-endian (observable).** In `MkBasisVector(level, "…")`, character 0 is the most significant qubit (qubit 0 = leftmost, Qiskit convention). Same for `MkCNOT`/`MkCCNOT`/`MkCP`/`MkSwap` qubit indices.
+- **Vectors are big-endian (observable).** In `MkBasisVector(n, "…")`, character 0 is the most significant qubit (qubit 0 = leftmost, Qiskit convention). Same for `MkCNOT`/`MkCCNOT`/`MkCP`/`MkSwap` qubit indices.
 
 ```text
-MkBasisVector(level, "10") == MkBasisVector(level, 2)     # s[0] is the MSB
-MkBasisVector(level, s)  requires  s.length() == 2^level
+MkBasisVector(n, "10") == MkBasisVector(n, 2)     # s[0] is the MSB
+MkBasisVector(n, s)  requires  s.length() == n
 ```
 
 ### Scalar type `DDComplex`
