@@ -1,8 +1,11 @@
 build/
 buildms/
+build-release/
 Benchmark/
 Benchmarks/
 TDD/
 output
 output.png
 .ipynb_checkpoints/
+*.o
+.DS_Store
