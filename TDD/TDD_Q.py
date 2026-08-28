@@ -1,5 +1,6 @@
 import numpy as np
 from TDD.TN import Index,Tensor,TensorNetwork
+from TDD.TDD import Ini_TDD, set_root_of_unit
 from qiskit.quantum_info.operators import Operator
 import time
 
@@ -25,12 +26,12 @@ def reshape(U):
     return np.array([split_U])[0]            
             
 def get_real_qubit_num(cir):
-    """Calculate the real number of qubits of a circuit"""
-    gates=cir.data
-    q=0
-    for k in range(len(gates)):
-        q=max(q,max([qbit._index for qbit in gates[k][1]]))
-    return q+1
+    """Return the number of qubits of a circuit.
+
+    Uses the declared ``cir.num_qubits`` so that qubits no gate touches
+    (identity wires) are not silently dropped.
+    """
+    return cir.num_qubits
 
 def cir_2_tn(cir):
     """return the dict that link every quantum gate to the corresponding index"""
@@ -115,35 +116,54 @@ def cir_2_tn(cir):
 #     print(time.time()-t)
     return tn,all_indexs
 
+def _to_bit_list(bits, qubits_num, what):
+    """Normalize a computational-basis bitstring/list to ``list[int]``.
+
+    Accepts either a ``str`` of ``'0'``/``'1'`` (first char = qubit 0) or a
+    ``list``/``tuple`` of ``0``/``1`` ints. Raises on length mismatch or
+    non-binary entries instead of silently corrupting the tensor network.
+    """
+    if isinstance(bits, str):
+        if len(bits) != qubits_num:
+            raise ValueError(
+                f"{what} length {len(bits)} does not match qubit count {qubits_num}"
+            )
+        out = []
+        for c in bits:
+            if c == "0":
+                out.append(0)
+            elif c == "1":
+                out.append(1)
+            else:
+                raise ValueError(f"{what} contains non-binary character {c!r}")
+        return out
+    if isinstance(bits, (list, tuple)):
+        if len(bits) != qubits_num:
+            raise ValueError(
+                f"{what} length {len(bits)} does not match qubit count {qubits_num}"
+            )
+        out = [int(b) for b in bits]
+        if any(b not in (0, 1) for b in out):
+            raise ValueError(f"{what} must contain only 0/1, got {bits!r}")
+        return out
+    raise TypeError(f"{what} must be str or list/tuple of 0/1, got {type(bits).__name__}")
+
+
 def add_inputs(tn,input_s,qubits_num):
     U0=np.array([1,0])
     U1=np.array([0,1])
-    if len(input_s)!= qubits_num:
-        print("inputs is not match qubits number")
-        return 
+    bits = _to_bit_list(input_s, qubits_num, "input state")
     for k in range(qubits_num-1,-1,-1):
-        if input_s[k]==0:
-            ts=Tensor(U0,[Index('x'+str(k))],'in',[k])
-        elif input_s[k]==1:
-            ts=Tensor(U1,[Index('x'+str(k))],'in',[k])
-        else:
-            print('Only support computational basis input')
+        ts=Tensor(U0 if bits[k] == 0 else U1,[Index('x'+str(k))],'in',[k])
         tn.tensors.insert(0,ts)
-            
+
 def add_outputs(tn,output_s,qubits_num):
     U0=np.array([1,0])
     U1=np.array([0,1])
-    if len(output_s)!= qubits_num:
-        print("outputs is not match qubits number")
-        return 
+    bits = _to_bit_list(output_s, qubits_num, "output state")
     for k in range(qubits_num):
-        if output_s[k]==0:
-            ts=Tensor(U0,[Index('y'+str(k))],'out',[k])
-        elif output_s[k]==1:
-            ts=Tensor(U1,[Index('y'+str(k))],'out',[k])
-        else:
-            print('Only support computational basis output')
-        tn.tensors.append(ts)       
+        ts=Tensor(U0 if bits[k] == 0 else U1,[Index('y'+str(k))],'out',[k])
+        tn.tensors.append(ts)
 
 def add_trace_line(tn,qubits_num):
     U=np.eye(2)
@@ -152,8 +172,44 @@ def add_trace_line(tn,qubits_num):
         var=[Index('x'+str(k),0),Index('y'+str(k),0)]
         ts=Tensor(U,var,'tr',[k])
         tn.tensors.insert(0,ts)
-        
-    
+
+
+def simulate(cir, initial_state=None, root_of_unit=2 ** 8):
+    """Simulate a Qiskit circuit and return the statevector.
+
+    Returns a ``(2**n,)`` complex :class:`numpy.ndarray` using **little-endian**
+    basis ordering, matching the C++ ``test_state_output`` convention and
+    Qiskit's ``Statevector.data``: ``state[i]`` has bit ``k`` = qubit ``k``
+    (bit 0 is the least significant / qubit 0).
+
+    Parameters
+    ----------
+    cir:
+        Qiskit circuit to simulate.
+    initial_state:
+        Computational-basis product state, either a ``str`` of ``'0'``/``'1'``
+        (first char = qubit 0) or a list/tuple of ``0``/``1`` ints. Defaults to
+        the all-zero state.
+    root_of_unit:
+        Phase discretization (``rotate_angle = 2*pi/root_of_unit``). Default
+        ``256`` is exact for Clifford+T gate phases.
+    """
+    n = cir.num_qubits
+    if initial_state is None:
+        initial_state = "0" * n
+
+    tn, all_indexs = cir_2_tn(cir)
+    add_inputs(tn, initial_state, n)
+    Ini_TDD(index_order=all_indexs)
+    set_root_of_unit(root_of_unit)
+    tdd = tn.cont()
+
+    state = np.array(
+        [tdd.get_amplitude([(i >> k) & 1 for k in range(n)]) for i in range(2 ** n)],
+        dtype=complex,
+    )
+    return state
+
 
 def gen_cir(name=None,qubit_num = 1,gate_num = 1):
     from qiskit import QuantumCircuit
