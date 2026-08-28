@@ -51,8 +51,11 @@ static constexpr fp PI_2 = static_cast<fp>(
 static constexpr fp PI_4 = static_cast<fp>(
     0.785398163397448309615660845819875721049292349843776455243L);
 
+#ifndef LIMTDD_ROOT_OF_UNIT
+#define LIMTDD_ROOT_OF_UNIT 8
+#endif
 
-static constexpr int root_of_unit = 8;
+static constexpr int root_of_unit = LIMTDD_ROOT_OF_UNIT;
 
 static constexpr fp rotate_angle = 2*PI/root_of_unit;
 

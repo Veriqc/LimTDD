@@ -342,6 +342,9 @@ int main(int argc, char *argv[]) {
         return runXarraySelftest();
     }
 
+    std::cout << "precision N: " << dd::root_of_unit << std::endl;
+    std::cout << "T gate order: " << dd::t_gate_order << std::endl;
+
     // filename, initial state
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <number>\n";

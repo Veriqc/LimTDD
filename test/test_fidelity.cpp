@@ -72,6 +72,18 @@ bool envFlagEnabled(const char* name) {
     return flag == "1" || flag == "true" || flag == "TRUE" || flag == "on" || flag == "ON";
 }
 
+double readProbabilityFromEnv(const char* name) {
+    const auto* value = std::getenv(name);
+    if (value == nullptr || std::string(value).empty()) {
+        return -1.0;
+    }
+    const double parsed = std::stod(value);
+    if (parsed < 0.0 || parsed > 1.0) {
+        throw std::invalid_argument(std::string("Invalid probability for ") + name + ": " + value);
+    }
+    return parsed;
+}
+
 std::vector<InjectedPauliError> sampleInjectedErrors(
     const qc::QuantumComputation& circuit,
     const std::size_t errorCount,
@@ -100,6 +112,34 @@ std::vector<InjectedPauliError> sampleInjectedErrors(
     std::stable_sort(errors.begin(), errors.end(), [](const auto& lhs, const auto& rhs) {
         return lhs.afterGate < rhs.afterGate;
     });
+    return errors;
+}
+
+std::vector<InjectedPauliError> sampleInjectedErrorsByProbability(
+    const qc::QuantumComputation& circuit,
+    const double probability,
+    const std::uint64_t seed) {
+    if (probability <= 0.0) {
+        return {};
+    }
+    if (circuit.getNops() == 0) {
+        throw std::invalid_argument("Cannot inject errors into an empty circuit");
+    }
+
+    std::mt19937_64 generator(seed);
+    std::uniform_real_distribution<double> coinDistribution(0.0, 1.0);
+    std::uniform_int_distribution<std::size_t> qubitDistribution(0, circuit.getNqubits() - 1);
+    std::uniform_int_distribution<int> pauliDistribution(0, 2);
+
+    std::vector<InjectedPauliError> errors;
+    for (std::size_t gateIndex = 0; gateIndex < circuit.getNops(); ++gateIndex) {
+        if (coinDistribution(generator) >= probability) {
+            continue;
+        }
+        const int pauliIndex = pauliDistribution(generator);
+        const char pauli = pauliIndex == 0 ? 'X' : (pauliIndex == 1 ? 'Y' : 'Z');
+        errors.push_back({gateIndex, qubitDistribution(generator), pauli});
+    }
     return errors;
 }
 
@@ -347,13 +387,15 @@ double squaredMagnitude(const dd::Complex& value) {
 
 int main(int argc, char* argv[]) {
     if (argc < 4) {
-        std::cerr << "Usage: " << argv[0] << " <qasm-file> <error-count> <seed>\n";
+        std::cerr << "Usage: " << argv[0] << " <qasm-file> <error-count> <seed> [faulty-qasm-file]\n";
         return 1;
     }
 
     const std::string qasmPath = argv[1];
     const std::size_t errorCount = static_cast<std::size_t>(std::stoull(argv[2]));
     const std::uint64_t seed = static_cast<std::uint64_t>(std::stoull(argv[3]));
+    const bool useFaultyQasm = argc >= 5;
+    const std::string faultyQasmPath = useFaultyQasm ? argv[4] : "";
 
     try {
         const auto qasm = readFile(qasmPath);
@@ -361,8 +403,21 @@ int main(int argc, char* argv[]) {
         if (const auto* originalPrefixEnv = std::getenv("LIMTDD_ORIGINAL_GATE_PREFIX")) {
             originalCircuit = takeCircuitPrefix(originalCircuit, static_cast<std::size_t>(std::stoull(originalPrefixEnv)));
         }
-        const auto sampledErrors = sampleInjectedErrors(originalCircuit, errorCount, seed);
-        const auto faultyCircuit = buildFaultyCircuit(originalCircuit, sampledErrors);
+        const double probability = readProbabilityFromEnv("LIMTDD_FIDELITY_PROBABILITY");
+        std::vector<InjectedPauliError> sampledErrors;
+        qc::QuantumComputation faultyCircuit(originalCircuit.getNqubits(), originalCircuit.getNcbits());
+        if (useFaultyQasm) {
+            faultyCircuit = qc::QuantumComputation::fromQASM(readFile(faultyQasmPath));
+            if (faultyCircuit.getNqubits() != originalCircuit.getNqubits()) {
+                throw std::runtime_error("Original and faulty circuit qubit counts differ");
+            }
+        } else if (probability >= 0.0) {
+            sampledErrors = sampleInjectedErrorsByProbability(originalCircuit, probability, seed);
+            faultyCircuit = buildFaultyCircuit(originalCircuit, sampledErrors);
+        } else {
+            sampledErrors = sampleInjectedErrors(originalCircuit, errorCount, seed);
+            faultyCircuit = buildFaultyCircuit(originalCircuit, sampledErrors);
+        }
         const auto evaluationCircuit = buildEvaluationCircuit(originalCircuit, faultyCircuit);
 
         if (std::getenv("LIMTDD_FIDELITY_TRACE") != nullptr && std::getenv("LIMTDD_FIDELITY_TRACE_ALL_STEPS") != nullptr) {
@@ -408,10 +463,22 @@ int main(int argc, char* argv[]) {
         std::cout << "faulty_gates\t" << faultyCircuit.getNops() << "\n";
         std::cout << "evaluation_qubits\t" << evaluationCircuitPtr->getNqubits() << "\n";
         std::cout << "evaluation_gates\t" << evaluationCircuitPtr->getNops() << "\n";
-        std::cout << "error_count\t" << errorCount << "\n";
-        std::cout << "seed\t" << seed << "\n";
-        for (const auto& error : sampledErrors) {
-            std::cout << "ERROR\t" << error.afterGate << "\t" << error.qubit << "\t" << error.pauli << "\n";
+        if (useFaultyQasm) {
+            std::cout << "error_count\t" << std::max<std::size_t>(0, faultyCircuit.getNops() - originalCircuit.getNops()) << "\n";
+            std::cout << "seed\t" << seed << "\n";
+            if (probability >= 0.0) {
+                std::cout << "error_probability\t" << probability << "\n";
+            }
+            std::cout << "faulty_qasm\t" << faultyQasmPath << "\n";
+        } else {
+            std::cout << "error_count\t" << sampledErrors.size() << "\n";
+            std::cout << "seed\t" << seed << "\n";
+            if (probability >= 0.0) {
+                std::cout << "error_probability\t" << probability << "\n";
+            }
+            for (const auto& error : sampledErrors) {
+                std::cout << "ERROR\t" << error.afterGate << "\t" << error.qubit << "\t" << error.pauli << "\n";
+            }
         }
         std::cout << "trace_re\t" << traceReal << "\n";
         std::cout << "trace_im\t" << traceImag << "\n";

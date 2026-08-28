@@ -6,6 +6,7 @@
 #include <xtensor/views/xview.hpp>
 
 #include <cmath>
+#include <set>
 
 namespace dd {
 // Complex constants
@@ -26,6 +27,15 @@ ComplexValue complex_1plusi = {SQRT2_2, SQRT2_2};
 ComplexValue complex_1minusi = {SQRT2_2, -SQRT2_2};
 ComplexValue complex_1plusi_2 = {0.5, 0.5};
 ComplexValue complex_1minusi_2 = {0.5, -0.5};
+
+#ifndef LIMTDD_T_GATE_ORDER
+#define LIMTDD_T_GATE_ORDER 8
+#endif
+static constexpr int t_gate_order = LIMTDD_T_GATE_ORDER;
+ComplexValue complex_t_phase = {
+    std::cos(2 * PI / t_gate_order), std::sin(2 * PI / t_gate_order)};
+ComplexValue complex_tdag_phase = {
+    std::cos(2 * PI / t_gate_order), -std::sin(2 * PI / t_gate_order)};
 
 // Gate matrices
 using GateMatrix = xt::xarray<dd::ComplexValue>;
@@ -60,11 +70,11 @@ GateMatrix Sdagmat{
   };
 GateMatrix Tmat{
   {complex_one, complex_zero},
-  {complex_zero,complex_1plusi}
+    {complex_zero,complex_t_phase}
   };
 GateMatrix Tdagmat{
   {complex_one, complex_zero},
-  {complex_zero,complex_1minusi}
+    {complex_zero,complex_tdag_phase}
   };
 GateMatrix SXmat{
       {complex_1plusi_2, complex_1minusi_2},
