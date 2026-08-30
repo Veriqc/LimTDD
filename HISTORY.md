@@ -173,5 +173,7 @@ debug 主复现器从完整 `dj_60` 换成更快的 `/tmp/dj_pattern_41.qasm`（
 
 关键认识：之前的「内容哈希」（`llround(值/tolerance)`）虽然确定，但用**绝对容差**与 `approximatelyEquals` 的**相对容差**不一致 → 大权重时哈希分得过细 → 唯一表去重漏掉 → 节点爆炸。**entry ID 既确定又和去重一致**（近似相等 ⇒ 同一表项 ⇒ 同一 ID），因此同时拿到「确定」与「不爆炸」。
 
-**结果**：334time prefix=450/500/550 全部收敛为单一值（1183 / 5067 / 402089，连跑全同）；Clifford `1time` = 11；`ae_10`/`dj_60` fidelity 正确。450/500 节点数已恢复；550 的 402089 是**确定但膨胀**，属 §8.6 的 ±1/-i 全局相位非规范性（独立于非确定性）。详见 [`LimTDD/docs/limtdd-aslr-nondeterminism-fixed.md`](docs/limtdd-aslr-nondeterminism-fixed.md)。
+**结果**：334time prefix=450/500/550 全部收敛为单一值（1183 / 5067 / 402089，连跑全同）；Clifford `1time` = 11；`ae_10`/`dj_60` fidelity 正确。450/500 节点数已恢复。
+
+**prefix≥550 的节点膨胀（追查结论）**：跳变在 tensor 505（`cx q[10],q[0]`，2-qubit 纠缠门），此后近似饱和增长。追查后纠正了 §8.6 的定性——**map 的 `rotate` 是分支间的相对相位（`Slicing` 只在 `c==1`/`c==0` 一个分支上施加），不是"物理不可观测的全局相位"**；因此 §8.6 提议的"全局相位规范化"（= 方案 A）是死胡同。三次"搬相位"尝试（折 res.w→map、折全部 promoted_phase→res.w、只折 mr.phase→res.w）均打坏 `dj_60`，证明 map 与权重之间的相位分配是语义性、不可搬动的。402089 更可能是**"正确但贵"**（方向 2 去掉了旧设计的别名假去重，节点数回到真实规模），而非"非规范可压缩"。完整评估见 [`LimTDD/docs/limtdd-aslr-nondeterminism-fixed.md`](docs/limtdd-aslr-nondeterminism-fixed.md) §5。
 
