@@ -116,8 +116,8 @@ Edge<mNode> sliceStateEdge(const Edge<mNode>& e, const int x, const int c, dd::P
         auto temp = e.p->e[c];
         if (temp.w != Complex::zero) {
             temp.w = ddpackage->cn.mulCached(temp.w, e.w);
-            temp.map = ddpackage->mapmul(e.map, temp.map);
-            ddpackage->cn.mul(temp.w, temp.w, ddpackage->cn.getTemporary(cos(temp.map->extra_phase * rotate_angle), sin(temp.map->extra_phase * rotate_angle)));
+            auto mr = ddpackage->mapmul(e.map, temp.map); temp.map = mr.map;
+            ddpackage->cn.mul(temp.w, temp.w, ddpackage->cn.getTemporary(cos(mr.phase * rotate_angle), sin(mr.phase * rotate_angle)));
         }
         return temp;
     }
@@ -126,8 +126,8 @@ Edge<mNode> sliceStateEdge(const Edge<mNode>& e, const int x, const int c, dd::P
         auto temp = e.p->e[c];
         if (temp.w != Complex::zero) {
             temp.w = ddpackage->cn.mulCached(temp.w, e.w);
-            temp.map = ddpackage->mapmul(e.map->father, temp.map);
-            ddpackage->cn.mul(temp.w, temp.w, ddpackage->cn.getTemporary(cos(temp.map->extra_phase * rotate_angle), sin(temp.map->extra_phase * rotate_angle)));
+            auto mr = ddpackage->mapmul(e.map->father, temp.map); temp.map = mr.map;
+            ddpackage->cn.mul(temp.w, temp.w, ddpackage->cn.getTemporary(cos(mr.phase * rotate_angle), sin(mr.phase * rotate_angle)));
             if (c == 1) {
                 ddpackage->cn.mul(temp.w, temp.w, ddpackage->cn.getTemporary(cos(e.map->rotate * rotate_angle), sin(e.map->rotate * rotate_angle)));
             }
@@ -138,8 +138,8 @@ Edge<mNode> sliceStateEdge(const Edge<mNode>& e, const int x, const int c, dd::P
     auto temp = e.p->e[1 - c];
     if (temp.w != Complex::zero) {
         temp.w = ddpackage->cn.mulCached(temp.w, e.w);
-        temp.map = ddpackage->mapmul(e.map->father, temp.map);
-        ddpackage->cn.mul(temp.w, temp.w, ddpackage->cn.getTemporary(cos(temp.map->extra_phase * rotate_angle), sin(temp.map->extra_phase * rotate_angle)));
+        auto mr = ddpackage->mapmul(e.map->father, temp.map); temp.map = mr.map;
+        ddpackage->cn.mul(temp.w, temp.w, ddpackage->cn.getTemporary(cos(mr.phase * rotate_angle), sin(mr.phase * rotate_angle)));
         if (c == 0) {
             ddpackage->cn.mul(temp.w, temp.w, ddpackage->cn.getTemporary(cos(e.map->rotate * rotate_angle), sin(e.map->rotate * rotate_angle)));
         }

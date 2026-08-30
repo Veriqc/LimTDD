@@ -21,6 +21,8 @@ namespace dd {
 		RefCount ref{};                     // reference count
 		Qubit v{}; // variable index (nonterminal) value (-1 for terminal)
 		std::uint8_t flags = 0;
+		std::size_t hash = 0;               // structural/content hash (deterministic across runs)
+		std::size_t id = 0;                 // unique creation-order ID (deterministic total order)
 
 		// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 		static mNode terminal;

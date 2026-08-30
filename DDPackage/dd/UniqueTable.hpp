@@ -261,27 +261,31 @@ namespace dd {
 		}
 
 		[[nodiscard]] Node* getNode() {
+			Node* p;
 			// a node is available on the stack
 			if (available != nullptr) {
-				Node* p = available;
+				p = available;
 				available = p->next;
 				// returned nodes could have a ref count != 0
 				p->ref = 0;
-				return p;
-			}
+			} else {
+				// new chunk has to be allocated
+				if (chunkIt == chunkEndIt) {
+					chunks.emplace_back(allocationSize);
+					allocations += allocationSize;
+					allocationSize *= GROWTH_FACTOR;
+					chunkID++;
+					chunkIt = chunks[chunkID].begin();
+					chunkEndIt = chunks[chunkID].end();
+				}
 
-			// new chunk has to be allocated
-			if (chunkIt == chunkEndIt) {
-				chunks.emplace_back(allocationSize);
-				allocations += allocationSize;
-				allocationSize *= GROWTH_FACTOR;
-				chunkID++;
-				chunkIt = chunks[chunkID].begin();
-				chunkEndIt = chunks[chunkID].end();
+				p = &(*chunkIt);
+				++chunkIt;
 			}
-
-			auto p = &(*chunkIt);
-			++chunkIt;
+			// Deterministic creation-order ID: gives a total order over nodes that is
+			// independent of ASLR (unlike raw pointer addresses), used for the
+			// canonical operand ordering in T_add2.
+			p->id = ++nextNodeId;
 			return p;
 		}
 
@@ -513,6 +517,7 @@ namespace dd {
 		std::vector<Table> tables{nvars};
 
 		Node* available{};
+		std::size_t nextNodeId = 0;
 		std::vector<std::vector<Node>> chunks{
 			1, std::vector<Node>{INITIAL_ALLOCATION_SIZE}};
 		std::size_t chunkID{0};

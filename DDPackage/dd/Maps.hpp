@@ -18,8 +18,6 @@ namespace dd {
 		// Complex rotate;// rotate始终是一个complexTable里的元素，在中间计算过程，可以在temporary里面
 		// Complex extra_phase;// rotate始终是一个temporary里的元素
 		int rotate;// rotate始终是一个complexTable里的元素，在中间计算过程，可以在temporary里面
-		int extra_phase;// rotate始终是一个temporary里的元素
-
 
 		std::map<std::string, the_maps*> next;
 		the_maps* father;
@@ -46,8 +44,37 @@ namespace dd {
 		the_maps* remain_map;
 		the_maps* cont_map1;
 		the_maps* cont_map2;
+		int remain_phase;
 
+	};
+
+	// Return type of mapmul / mapdiv: the structural map plus the "pending global
+	// phase" (overflow) produced by the combination, in units of rotate_angle (π/4).
+	struct map_res {
+		the_maps* map;
+		int phase;
 	};
 
 
 }
+
+namespace std {
+	// Content-based hash for the_maps*: hash the (level, x, rotate) chain so that
+	// structurally-identical maps (deduplicated by append_new_map's string key)
+	// hash deterministically regardless of the ASLR-dependent node addresses. This
+	// is exact (not tolerance-rounded), so it stays consistent with the interning.
+	template <> struct hash<dd::the_maps*> {
+		std::size_t operator()(dd::the_maps* m) const noexcept {
+			std::size_t key = 0;
+			for (const dd::the_maps* cur = m; cur != nullptr; cur = cur->father) {
+				key = dd::combineHash(key, dd::murmur64(static_cast<std::size_t>(cur->level)));
+				key = dd::combineHash(key, dd::murmur64(static_cast<std::size_t>(cur->x ? 1 : 0)));
+				key = dd::combineHash(key, dd::murmur64(static_cast<std::size_t>(cur->rotate)));
+				if (cur->level == -1) {
+					break;
+				}
+			}
+			return key;
+		}
+	};
+} // namespace std

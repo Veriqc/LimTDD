@@ -7,7 +7,7 @@
 
 namespace dd {
 
-	the_maps the_maps::the_maps_header_element{ -1, 0, 0, 0, {}, nullptr };
+	the_maps the_maps::the_maps_header_element{ -1, 0, 0, {}, nullptr };
 
 	void the_maps::print_maps(the_maps* map) {
 		if (map->level == -1) {

@@ -1,6 +1,5 @@
-build/
+build*/
 buildms/
-build-release/
 Benchmark/
 Benchmarks/
 TDD/

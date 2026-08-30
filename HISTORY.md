@@ -163,3 +163,15 @@ debug 主复现器从完整 `dj_60` 换成更快的 `/tmp/dj_pattern_41.qasm`（
 **已证伪的方向**（详见 `LimTDD/docs/limtdd-cliffordt-334time-nondeterminism.md`）：确定性/内容哈希、线性探测、周期 clear、禁用 writeback、删除 base 相位清零（打坏 `ae_10`）；禁用 memoization 能收敛但 ~5x 慢（输给 TDD）；**方向 1（把 `extra_phase` 纳入 map 节点身份）**——`ae_10` 过但 `dj_60` 从 121 节点爆炸到 13GB（Clifford 抵消失效）。
 
 **当前结论**：`extra_phase` 是「边上的 pending phase」，不是 map 结构身份；`mapmul`/`mapdiv` 从不读输入 phase 是**正确不变量**，旧代码靠别名（同结构⇒同节点⇒同 phase）让其成立。正确修法是**方向 2：把 phase 从 `the_maps` 结构拆出**（结构键保持 `(level,x,rotate)`，`mapmul`/`mapdiv` 返回 `(结构, phase)`，phase 由边/调用方持有并在 `cos` 处消费）。设计与逐处语义对照见 [`LimTDD/docs/limtdd-extra-phase-immutable-refactor-plan.md`](docs/limtdd-extra-phase-immutable-refactor-plan.md) §2。教训：`dj_60` 必须加入 sanity 回归——`ae_10` 过不代表 Clifford 抵消没坏。
+
+## 八、非确定性根治：两处 ASLR 依赖 → 确定性 ID（2026-08-30）
+
+方向 2 落地并验证正确后，334time 仍有残留非确定（prefix=500 三次 13707/13638/13638）。追查发现真正根因是**两处「按指针地址比较/哈希」的 ASLR 依赖**，均已用「确定性创建序号 ID」替换：
+
+1. **`T_add2` 的 `if (x.p > y.p)`**（DD 加法操作数顺序）→ 指针地址随机 → 浮点求和顺序随机 → 1-ULP 权重差。这是 §8.4(d) 一直没找到的「1-ULP 最终来源」、也是 §8.5 观察「ASan 使其确定」的原因。改为 `x.p->id > y.p->id`（`mNode.id`，`UniqueTable::getNode` 分配序号）。
+2. **`hash<Complex>` 的 `reinterpret_cast(指针)`**（桶分布 → 缓存命中/未命中模式）→ 改为表项 ID（`ComplexTable::Entry.id`，`getEntry` 分配序号）。
+
+关键认识：之前的「内容哈希」（`llround(值/tolerance)`）虽然确定，但用**绝对容差**与 `approximatelyEquals` 的**相对容差**不一致 → 大权重时哈希分得过细 → 唯一表去重漏掉 → 节点爆炸。**entry ID 既确定又和去重一致**（近似相等 ⇒ 同一表项 ⇒ 同一 ID），因此同时拿到「确定」与「不爆炸」。
+
+**结果**：334time prefix=450/500/550 全部收敛为单一值（1183 / 5067 / 402089，连跑全同）；Clifford `1time` = 11；`ae_10`/`dj_60` fidelity 正确。450/500 节点数已恢复；550 的 402089 是**确定但膨胀**，属 §8.6 的 ±1/-i 全局相位非规范性（独立于非确定性）。详见 [`LimTDD/docs/limtdd-aslr-nondeterminism-fixed.md`](docs/limtdd-aslr-nondeterminism-fixed.md)。
+

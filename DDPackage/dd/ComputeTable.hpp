@@ -285,7 +285,6 @@ namespace dd {
 
 				hits++;
 
-				entry.result->extra_phase = entry.extra_phase;
 				return entry.result;
 			}
 

@@ -4,6 +4,7 @@
 #include "dd/Tensor.hpp"
 #include <cstdlib>
 #include <filesystem>
+#include <iomanip>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -37,6 +38,16 @@ TDD makezero(int n, dd::Package<>* ddpackage, std::vector<BasisStates> states) {
         tn.add_ts(temp);
     }
     return tn.cont(ddpackage);
+}
+
+// Content hash of a DD edge: combines the (already content-based) root node hash
+// with the root weight and root map.  The node hash recursively covers the whole
+// subtree, so this is a canonical fingerprint of the DD independent of ASLR.
+static std::size_t edgeContentHash(const dd::mEdge& e) {
+    std::size_t h = e.p ? e.p->hash : 0;
+    h = dd::combineHash(h, std::hash<dd::Complex>{}(e.w));
+    h = dd::combineHash(h, std::hash<dd::the_maps*>{}(e.map));
+    return h;
 }
 
 bool stepTraceEnabled();
@@ -85,6 +96,16 @@ TDD cont(dd::TensorNetwork* tn,dd::Package<>* ddpackage, int n,bool simulate,con
             }
             res_dd = temp_dd;
             MAX_NODE = std::max(MAX_NODE, ddpackage->size(res_dd.e));
+            if (std::getenv("LIMTDD_CHECKPOINT") != nullptr) {
+                const auto cpNodes = ddpackage->size(res_dd.e);
+                std::cout << "checkpoint step=" << i
+                          << " nodes=" << cpNodes
+                          << " hash=" << std::hex << edgeContentHash(res_dd.e) << std::dec
+                          << " root_var=" << (res_dd.e.p ? static_cast<int>(res_dd.e.p->v) : -1)
+                          << " w_re=" << std::setprecision(17) << dd::CTEntry::val(res_dd.e.w.r)
+                          << " w_im=" << dd::CTEntry::val(res_dd.e.w.i)
+                          << "\n";
+            }
         } catch (...) {
             std::exception_ptr p = std::current_exception();
             // std::clog << (p ? p.__cxa_exception_type()->name() : "null ") << std::endl;

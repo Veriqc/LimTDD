@@ -93,20 +93,20 @@ namespace dd {
 namespace std {
 	template <class Node> struct hash<dd::Edge<Node>> {
 		std::size_t operator()(dd::Edge<Node> const& e) const noexcept {
-			auto h1 = dd::murmur64(reinterpret_cast<std::size_t>(e.p));
+			auto h1 = dd::murmur64(static_cast<std::size_t>(e.p ? e.p->id : 0));
 			auto h2 = std::hash<dd::Complex>{}(e.w);
 			//return dd::combineHash(h1, h2);
-			auto h3 = dd::murmur64(reinterpret_cast<std::size_t>(e.map));
+			auto h3 = std::hash<dd::the_maps*>{}(e.map);
 			return dd::combineHash(dd::combineHash(h1, h2), h3);
 		}
 	};
 
 	template <class Node> struct hash<dd::CachedEdge<Node>> {
 		std::size_t operator()(dd::CachedEdge<Node> const& e) const noexcept {
-			auto h1 = dd::murmur64(reinterpret_cast<std::size_t>(e.p));
+			auto h1 = dd::murmur64(static_cast<std::size_t>(e.p ? e.p->id : 0));
 			auto h2 = std::hash<dd::ComplexValue>{}(e.w);
 			//return dd::combineHash(h1, h2);
-			auto h3 = dd::murmur64(reinterpret_cast<std::size_t>(e.map));
+			auto h3 = std::hash<dd::the_maps*>{}(e.map);
 			return dd::combineHash(dd::combineHash(h1, h2), h3);
 		}
 	};

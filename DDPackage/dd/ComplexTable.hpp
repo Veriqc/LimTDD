@@ -26,6 +26,7 @@ public:
     fp value{};
     Entry* next{};
     RefCount refCount{};
+    std::size_t id = 0;  // unique creation-order ID (deterministic total order)
 
     ///
     /// The sign of number is encoded in the least significant bit of its entry
@@ -266,27 +267,31 @@ public:
   }
 
   [[nodiscard]] Entry* getEntry() {
+    Entry* entry;
     // an entry is available on the stack
     if (!availableEmpty()) {
-      Entry* entry = available;
+      entry = available;
       available = entry->next;
       // returned entries could have a ref count != 0
       entry->refCount = 0;
-      return entry;
-    }
+    } else {
+      // new chunk has to be allocated
+      if (chunkIt == chunkEndIt) {
+        chunks.emplace_back(allocationSize);
+        allocations += allocationSize;
+        allocationSize *= GROWTH_FACTOR;
+        chunkID++;
+        chunkIt = chunks[chunkID].begin();
+        chunkEndIt = chunks[chunkID].end();
+      }
 
-    // new chunk has to be allocated
-    if (chunkIt == chunkEndIt) {
-      chunks.emplace_back(allocationSize);
-      allocations += allocationSize;
-      allocationSize *= GROWTH_FACTOR;
-      chunkID++;
-      chunkIt = chunks[chunkID].begin();
-      chunkEndIt = chunks[chunkID].end();
+      entry = &(*chunkIt);
+      ++chunkIt;
     }
-
-    auto entry = &(*chunkIt);
-    ++chunkIt;
+    // Deterministic creation-order ID: a total order over table entries that is
+    // independent of ASLR, used by hash<Complex> so that approximately-equal
+    // values (which share one entry) hash consistently across runs.
+    entry->id = ++nextEntryId;
     return entry;
   }
 
@@ -547,6 +552,7 @@ private:
   static inline fp TOLERANCE = std::numeric_limits<dd::fp>::epsilon() * 1024;
 
   Entry* available{};
+  std::size_t nextEntryId = 0;
   std::vector<std::vector<Entry>> chunks{
       1, std::vector<Entry>{INITIAL_ALLOCATION_SIZE}};
   std::size_t chunkID{};
